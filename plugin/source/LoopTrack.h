@@ -8,7 +8,7 @@ public:
     LoopTrack();
     ~LoopTrack();
 
-    void prepareToPlay (double sr, int maxSeconds, int maxBlockSize, int numChannels);
+    void prepareToPlay (double sr, uint maxSeconds, uint maxBlockSize, uint numChannels);
 
     juce::AudioBuffer<float>& getBuffer()
     {
@@ -18,6 +18,31 @@ public:
     juce::AudioBuffer<float>& getUndoBuffer()
     {
         return undoBuffer;
+    }
+
+    double getSampleRate() const
+    {
+        return sampleRate;
+    }
+
+    int getWritePos() const
+    {
+        return writePos;
+    }
+
+    void setWritePos (int newPos)
+    {
+        writePos = newPos;
+    }
+
+    int getLength() const
+    {
+        return length;
+    }
+
+    void setLength (int newLength)
+    {
+        length = newLength;
     }
 
 private:

@@ -1,4 +1,6 @@
 #include "LoopTrack.h"
+#include <algorithm>
+#include <cassert>
 
 LoopTrack::LoopTrack()
 {
@@ -8,15 +10,22 @@ LoopTrack::~LoopTrack()
 {
 }
 
-void LoopTrack::prepareToPlay (double sr, int maxSeconds, int maxBlockSize, int numChannels)
+void LoopTrack::prepareToPlay (double sr, uint maxSeconds, uint maxBlockSize, uint numChannels)
 {
+    jassert (sr > 0);
     sampleRate = sr;
-    int totalSamples = (int) (sr * maxSeconds);
-    int bufferSamples = ((totalSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
-    buffer.setSize (numChannels, bufferSamples, false, true, true);
+    uint totalSamples = std::max ((uint) sr * maxSeconds, 1u); // at least 1 block will be allocated
+    uint bufferSamples = ((totalSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
+    if (bufferSamples > buffer.getNumSamples())
+    {
+        buffer.setSize ((int) numChannels, (int) bufferSamples, false, true, true);
+    }
     buffer.clear();
 
-    undoBuffer.setSize (numChannels, bufferSamples, false, true, true);
+    if (bufferSamples > undoBuffer.getNumSamples())
+    {
+        undoBuffer.setSize ((int) numChannels, (int) bufferSamples, false, true, true);
+    }
     undoBuffer.clear();
 
     writePos = 0;
