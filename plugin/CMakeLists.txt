@@ -1,15 +1,11 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(YourPluginName VERSION 0.1.0) # TODO: change this to your plugin name
-
-set(Torch_DIR "${LibTorch_SOURCE_DIR}/share/cmake/Torch")
-find_package(Torch REQUIRED)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+project(looper VERSION 0.1.0)
 
 juce_add_plugin(
   ${PROJECT_NAME}
   COMPANY
-  xx # TODO: change this to your company name
+  fp
   IS_SYNTH
   true
   NEEDS_MIDI_INPUT
@@ -21,7 +17,7 @@ juce_add_plugin(
   PLUGIN_MANUFACTURER_CODE
   FABP
   PLUGIN_CODE
-  BS-1 # TODO: change this to your plugin code
+  LO-1
   FORMATS
   AU
   VST3
@@ -29,8 +25,7 @@ juce_add_plugin(
   PRODUCT_NAME
   ${PROJECT_NAME}
   COMPANY_NAME
-  "xx" # TODO: change this to your company name
-)
+  "fp")
 
 juce_add_binary_data(BinaryData SOURCES resources/volume.svg)
 
@@ -48,9 +43,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES JUCE_BINARY_DATA_FOLDER
 target_sources(${PROJECT_NAME} PRIVATE source/PluginEditor.cpp
                                        source/PluginProcessor.cpp)
 
-target_include_directories(
-  ${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/source ${LIB_DIR}/tracer
-                         ${LIBTorch_SOURCE_DIR}/include)
+target_include_directories(${PROJECT_NAME}
+                           PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/source)
 
 target_link_libraries(
   ${PROJECT_NAME}
