@@ -495,4 +495,42 @@ TEST (LoopTrackPlayback, ZeroLengthOutputDoesNothing)
         }
     }
 }
+TEST (LoopTrackPlayback, ProcessPlaybackManySmallBlocksWrapAround)
+{
+    LoopTrack track;
+    const double sr = 44100.0;
+    const int maxSeconds = 1; // Reduce buffer size to force wrap-around
+    const int maxBlock = 512;
+    const int numChannels = 1;
+
+    track.prepareToPlay (sr, maxBlock, maxSeconds, numChannels);
+
+    const int bufferSamples = track.getAudioBuffer().getNumSamples();
+    const int leaveSamples = 100; // leave some space at end of buffer
+    const int numSamples = bufferSamples - leaveSamples;
+
+    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr);
+    track.processRecord (input, numSamples);
+
+    int chunkSize = 800; // process in very small chunks
+    int playbackPos = 0;
+    while (playbackPos < numSamples)
+    {
+        juce::AudioBuffer<float> output (numChannels, chunkSize);
+        output.clear();
+
+        int thisChunk = std::min (chunkSize, numSamples - playbackPos);
+        track.processPlayback (output, thisChunk);
+
+        const auto& loopBuffer = track.getAudioBuffer();
+        auto* loopPtr = loopBuffer.getReadPointer (0);
+        auto* outPtr = output.getReadPointer (0);
+        for (int j = 0; j < thisChunk; ++j)
+        {
+            int bufferIndex = (playbackPos + j) % bufferSamples;
+            EXPECT_FLOAT_EQ (outPtr[j], loopPtr[bufferIndex]);
+        }
+        playbackPos += thisChunk;
+    }
+}
 } // namespace audio_plugin_test
