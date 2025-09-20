@@ -51,22 +51,31 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, int numSam
 
 void LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, int numSamples, int ch)
 {
+    DBG ("Processing record channel " << ch);
     const float* inputPtr = input.getReadPointer (ch);
     float* loopPtr = audioBuffer.getWritePointer (ch);
     float* undoPtr = undoBuffer.getWritePointer (ch);
     int bufferSize = audioBuffer.getNumSamples();
+    DBG ("  Buffer size: " << bufferSize << " Write Pos: " << writePos);
 
     int currentWritePos = writePos;
     int samplesLeft = numSamples;
+    DBG ("  Write Pos Start: " << writePos << " Samples to write: " << numSamples);
 
     while (samplesLeft > 0)
     {
         int block = std::min (samplesLeft, bufferSize - currentWritePos);
+        DBG ("    Copying block of " << block << " from pos " << currentWritePos);
         copyToUndoBuffer (loopPtr, undoPtr, currentWritePos, block);
+        DBG ("    Undo buffer pos after copy: " << (currentWritePos + block) % bufferSize);
         copyInputToLoopBuffer (inputPtr, loopPtr, currentWritePos, block);
+        DBG ("    Loop buffer pos after copy: " << (currentWritePos + block) % bufferSize);
         samplesLeft -= block;
+        DBG ("    Samples Left: " << samplesLeft);
         inputPtr += block;
+        DBG ("    Input Ptr advanced to: " << (inputPtr - input.getReadPointer (ch)));
         currentWritePos = (currentWritePos + block) % bufferSize;
+        DBG ("    Current Write Pos updated to: " << currentWritePos);
     }
 }
 
@@ -79,6 +88,7 @@ void LoopTrack::copyToUndoBuffer (float* bufPtr, float* undoPtr, int pos, int nu
     jassert (pos >= 0);
     jassert (pos + numSamples <= undoBuffer.getNumSamples());
     juce::FloatVectorOperations::copy (undoPtr + pos, bufPtr + pos, numSamples);
+    DBG ("    Copied " << numSamples << " samples to undo buffer at pos " << pos);
 }
 
 void LoopTrack::copyInputToLoopBuffer (const float* inPtr, float* bufPtr, int pos, int numSamples)
@@ -89,23 +99,19 @@ void LoopTrack::copyInputToLoopBuffer (const float* inPtr, float* bufPtr, int po
     jassert (pos >= 0);
     jassert (pos + numSamples <= audioBuffer.getNumSamples());
     juce::FloatVectorOperations::add (bufPtr + pos, inPtr, numSamples); //overdub
+    DBG ("    Copied " << numSamples << " samples to loop buffer at pos " << pos);
 }
 
 void LoopTrack::advanceWritePos (int numSamples, int bufferSamples)
 {
     writePos = (writePos + numSamples) % bufferSamples;
+    DBG ("Write Pos End: " << writePos);
 }
 
 void LoopTrack::updateLoopLength (int numSamples, int bufferSamples)
 {
-    if (length < bufferSamples)
-    {
-        length += numSamples;
-        if (length > bufferSamples)
-        {
-            length = bufferSamples;
-        }
-    }
+    length = std::min (length + numSamples, bufferSamples);
+    DBG ("Updated loop length: " << length);
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, int numSamples)
@@ -122,28 +128,31 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, int numSample
 
 void LoopTrack::processPlaybackChannel (juce::AudioBuffer<float>& output, int numSamples, int ch)
 {
+    DBG ("Processing playback channel " << ch);
     float* outPtr = output.getWritePointer (ch);
     const float* loopPtr = audioBuffer.getReadPointer (ch);
+    DBG ("  Buffer size: " << audioBuffer.getNumSamples() << " Length: " << length);
 
     int currentReadPos = readPos;
     int samplesLeft = numSamples;
+    DBG ("  Read Pos Start: " << readPos << " Length: " << length);
     while (samplesLeft > 0)
     {
         int block = std::min (samplesLeft, length - currentReadPos);
+        DBG ("    Copying block of " << block << " from pos " << currentReadPos);
         juce::FloatVectorOperations::copy (outPtr, loopPtr + currentReadPos, block);
+        DBG ("    Read Pos After Copy: " << (currentReadPos + block) % length);
         samplesLeft -= block;
+        DBG ("    Samples Left: " << samplesLeft);
         outPtr += block;
+        DBG ("    Out Ptr advanced to: " << (outPtr - output.getWritePointer (ch)));
         currentReadPos = (currentReadPos + block) % length;
+        DBG ("    Current Read Pos updated to: " << currentReadPos);
     }
 }
 
 void LoopTrack::advanceReadPos (int numSamples, int bufferSamples)
 {
     readPos = (readPos + numSamples) % bufferSamples;
-}
-
-int LoopTrack::getNumSamplesToCopyBeforeEnd (int remainingSamplesToOutput, int currentPosition)
-{
-    int samplesUntilLoopEnds = length - currentPosition;
-    return std::min (remainingSamplesToOutput, samplesUntilLoopEnds);
+    DBG ("Read Pos End: " << readPos << " Length: " << length);
 }

@@ -67,7 +67,6 @@ private:
     void advanceReadPos (int numSamples, int bufferSamples);
 
     void processPlaybackChannel (juce::AudioBuffer<float>& output, int numSamples, int ch);
-    int getNumSamplesToCopyBeforeEnd (int remainingSamplesToOutput, int currentPosition);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopTrack)
 };

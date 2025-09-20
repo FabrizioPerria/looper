@@ -365,4 +365,134 @@ TEST (LoopTrackPlayback, ProcessFullBlockCopiesToOutput)
         EXPECT_FLOAT_EQ (outPtr[i], loopPtr[i]);
     }
 }
+
+TEST (LoopTrackPlayback, ProcessPartialBlockCopiesToOutput)
+{
+    LoopTrack track;
+    const double sr = 44100.0;
+    const int maxSeconds = 1; // Reduce buffer size to force wrap-around
+    const int maxBlock = 512;
+    const int numChannels = 1;
+
+    track.prepareToPlay (sr, maxBlock, maxSeconds, numChannels);
+
+    const int bufferSamples = track.getAudioBuffer().getNumSamples();
+    const int numSamples = 200; // less than block size
+    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr);
+    track.processRecord (input, numSamples);
+
+    juce::AudioBuffer<float> output (numChannels, numSamples);
+    output.clear();
+
+    track.processPlayback (output, numSamples);
+
+    const auto& loopBuffer = track.getAudioBuffer();
+    auto* loopPtr = loopBuffer.getReadPointer (0);
+    auto* outPtr = output.getReadPointer (0);
+    for (int i = 0; i < numSamples; ++i)
+    {
+        EXPECT_FLOAT_EQ (outPtr[i], loopPtr[i]);
+    }
+}
+
+TEST (LoopTrackPlayback, ProcessPartialBlockCopiesToOutputWrapAround)
+{
+    LoopTrack track;
+    const double sr = 44100.0;
+    const int maxSeconds = 1; // Reduce buffer size to force wrap-around
+    const int maxBlock = 512;
+    const int numChannels = 1;
+
+    track.prepareToPlay (sr, maxBlock, maxSeconds, numChannels);
+
+    const int bufferSamples = track.getAudioBuffer().getNumSamples();
+    const int leaveSamples = 100; // leave some space at end of buffer
+    const int numSamples = bufferSamples - leaveSamples;
+
+    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr);
+    track.processRecord (input, numSamples);
+
+    juce::AudioBuffer<float> output (numChannels, numSamples);
+    output.clear();
+
+    track.processPlayback (output, numSamples);
+
+    const auto& loopBuffer = track.getAudioBuffer();
+    auto* loopPtr = loopBuffer.getReadPointer (0);
+    auto* outPtr = output.getReadPointer (0);
+    // Check samples read before wrap
+    for (int i = 0; i < numSamples; ++i)
+    {
+        EXPECT_FLOAT_EQ (outPtr[i], loopPtr[i]);
+    }
+
+    // process another partial block that will wrap around
+    juce::AudioBuffer<float> output2 (numChannels, numSamples);
+    output2.clear();
+
+    track.processPlayback (output2, numSamples);
+    outPtr = output2.getReadPointer (0);
+
+    // Check samples read after wrap.
+    for (int i = 0; i < numSamples; ++i)
+    {
+        EXPECT_FLOAT_EQ (outPtr[i], loopPtr[(numSamples + i) % numSamples]);
+    }
+}
+
+TEST (LoopTrackPlayback, ProcessMultipleChannels)
+{
+    LoopTrack track;
+    const double sr = 44100.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 3;
+
+    track.prepareToPlay (sr, maxBlock, maxSeconds, numChannels);
+
+    const int numSamples = 512;
+    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr);
+    track.processRecord (input, numSamples);
+
+    juce::AudioBuffer<float> output (numChannels, numSamples);
+    output.clear();
+
+    track.processPlayback (output, numSamples);
+
+    const auto& loopBuffer = track.getAudioBuffer();
+    for (int ch = 0; ch < numChannels; ++ch)
+    {
+        auto* loopPtr = loopBuffer.getReadPointer (ch);
+        auto* outPtr = output.getReadPointer (ch);
+        for (int i = 0; i < numSamples; ++i)
+        {
+            EXPECT_FLOAT_EQ (outPtr[i], loopPtr[i]);
+        }
+    }
+}
+
+TEST (LoopTrackPlayback, ZeroLengthOutputDoesNothing)
+{
+    LoopTrack track;
+    const double sr = 44100.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+
+    track.prepareToPlay (sr, maxBlock, maxSeconds, numChannels);
+
+    juce::AudioBuffer<float> output (numChannels, 0); // zero length buffer
+
+    track.processPlayback (output, 0);
+
+    const auto& loopBuffer = track.getAudioBuffer();
+    for (int ch = 0; ch < numChannels; ++ch)
+    {
+        auto* loopPtr = loopBuffer.getReadPointer (ch);
+        for (int i = 0; i < loopBuffer.getNumSamples(); ++i)
+        {
+            EXPECT_FLOAT_EQ (loopPtr[i], 0.0f);
+        }
+    }
+}
 } // namespace audio_plugin_test
