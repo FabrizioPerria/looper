@@ -1,31 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(YourPluginNameRoot) #TODO: change this to your plugin name
-# ##############################################################################
-# FUNCTIONS
-# ##############################################################################
-function(set_libtorch_url TORCH_VERSION)
-  if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    set(LIBTORCH_URL
-        "https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-${TORCH_VERSION}%2Bcpu.zip"
-        PARENT_SCOPE)
-  elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    set(LIBTORCH_URL
-        "https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-${TORCH_VERSION}.zip"
-        PARENT_SCOPE)
-  elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    set(LIBTORCH_URL
-        "https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-${TORCH_VERSION}%2Bcpu.zip"
-        PARENT_SCOPE)
-  else()
-    message(FATAL_ERROR "Unsupported platform for LibTorch")
-  endif()
-endfunction()
-
-# ##############################################################################
-# END FUNCTIONS
-# ##############################################################################
-
+project(LooperRoot)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -60,16 +35,6 @@ cpmaddpackage(
 
 cpmaddpackage(
   NAME
-  TRACER
-  GITHUB_REPOSITORY
-  fabrizioperria/tracer
-  GIT_TAG
-  main
-  SOURCE_DIR
-  ${LIB_DIR}/tracer)
-
-cpmaddpackage(
-  NAME
   GOOGLETEST
   GITHUB_REPOSITORY
   google/googletest
@@ -80,10 +45,6 @@ cpmaddpackage(
   OPTIONS
   "INSTALL_GTEST OFF"
   "gtest_force_shared_crt ON")
-
-set(TORCH_VERSION "2.8.0")
-set_libtorch_url(${TORCH_VERSION})
-cpmaddpackage(NAME LibTorch URL ${LIBTORCH_URL} DOWNLOAD_ONLY YES)
 
 enable_testing()
 
