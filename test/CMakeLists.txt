@@ -16,7 +16,8 @@ add_executable(${PROJECT_NAME})
 
 get_target_property(JUCE_HEADER looper JUCE_LIBRARY_CODE)
 get_target_property(JUCE_BINARY_DATA_FOLDER looper JUCE_BINARY_DATA_FOLDER)
-target_sources(${PROJECT_NAME} PRIVATE source/AudioProcessorTest.cpp)
+target_sources(${PROJECT_NAME} PRIVATE source/AudioProcessorTest.cpp
+                                       source/LoopTrack_test.cpp)
 add_prefix_to_list(LIBS_TO_TEST "${CMAKE_CURRENT_SOURCE_DIR}/include"
                    INCLUDE_LIB_DIRS)
 target_include_directories(
