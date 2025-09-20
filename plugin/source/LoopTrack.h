@@ -9,10 +9,11 @@ public:
     ~LoopTrack();
 
     void prepareToPlay (double sr, uint maxSeconds, uint maxBlockSize, uint numChannels);
+    void processBlock (const juce::AudioBuffer<float>& input, int numSamples);
 
-    juce::AudioBuffer<float>& getBuffer()
+    juce::AudioBuffer<float>& getAudioBuffer()
     {
-        return buffer;
+        return audioBuffer;
     }
 
     juce::AudioBuffer<float>& getUndoBuffer()
@@ -46,13 +47,19 @@ public:
     }
 
 private:
-    juce::AudioBuffer<float> buffer;
+    juce::AudioBuffer<float> audioBuffer;
     juce::AudioBuffer<float> undoBuffer;
 
     double sampleRate;
 
     int writePos = 0;
     int length = 0;
+
+    void processChannel (juce::AudioBuffer<float> input, int numSamples, int ch);
+    void updateLoopLength (int numSamples, int bufferSamples);
+    void copyToUndoBuffer (float* bufPtr, float* undoPtr, int pos, int numSamples);
+    void copyInputToLoopBuffer (const float* inPtr, float* bufPtr, int pos, int numSamples);
+    void advanceWritePos (int numSamples, int bufferSamples);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopTrack)
 };
