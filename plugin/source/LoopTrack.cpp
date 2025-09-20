@@ -29,6 +29,7 @@ void LoopTrack::prepareToPlay (double sr, uint maxSeconds, uint maxBlockSize, ui
     undoBuffer.clear();
 
     writePos = 0;
+    readPos = 0;
     length = 0;
 }
 
@@ -50,7 +51,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, int numSam
     updateLoopLength (numSamples, bufferSamples);
 }
 
-int LoopTrack::processRecordChannel (juce::AudioBuffer<float> input, int numSamples, int ch)
+int LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, int numSamples, int ch)
 {
     const float* inputPtr = input.getReadPointer (ch);
     float* loopPtr = audioBuffer.getWritePointer (ch);
@@ -82,7 +83,6 @@ void LoopTrack::copyToUndoBuffer (float* bufPtr, float* undoPtr, int pos, int nu
 
 void LoopTrack::copyInputToLoopBuffer (const float* inPtr, float* bufPtr, int pos, int numSamples)
 {
-    // std::copy (inPtr, inPtr + numSamples, bufPtr + pos); //record only
     juce::FloatVectorOperations::add (bufPtr + pos, inPtr, numSamples); //overdub
 }
 
@@ -106,7 +106,6 @@ void LoopTrack::updateLoopLength (int numSamples, int bufferSamples)
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, int numSamples)
 {
     jassert (output.getNumChannels() == audioBuffer.getNumChannels());
-
     int numChannels = audioBuffer.getNumChannels();
 
     for (int ch = 0; ch < numChannels; ++ch)
@@ -116,33 +115,29 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, int numSample
     advanceReadPos (numSamples, length);
 }
 
-void LoopTrack::processPlaybackChannel (juce::AudioBuffer<float> output, int numSamples, int ch)
+void LoopTrack::processPlaybackChannel (juce::AudioBuffer<float>& output, int numSamples, int ch)
 {
     float* outPtr = output.getWritePointer (ch);
     const float* loopPtr = audioBuffer.getReadPointer (ch);
 
-    int remainingSamplesToOutput = numSamples;
-    int currentPosition = readPos;
-
-    while (remainingSamplesToOutput > 0)
+    int currentReadPos = readPos;
+    int samplesLeft = numSamples;
+    while (samplesLeft > 0)
     {
-        int copySamps = getNumSamplesToCopyBeforeEnd (remainingSamplesToOutput, currentPosition);
-        float* outPtrOffset = outPtr + (numSamples - remainingSamplesToOutput);
-        const float* loopPtrPos = loopPtr + readPos;
+        int copySamps = getNumSamplesToCopyBeforeEnd (samplesLeft, currentReadPos);
+        float* outPtrOffset = outPtr + (numSamples - samplesLeft);
+        const float* loopPtrPos = loopPtr + currentReadPos;
 
-        juce::FloatVectorOperations::add (outPtrOffset, loopPtrPos, copySamps);
+        juce::FloatVectorOperations::copy (outPtrOffset, loopPtrPos, copySamps);
 
-        remainingSamplesToOutput -= copySamps;
+        samplesLeft -= copySamps;
+        currentReadPos = (currentReadPos + copySamps) % length;
     }
 }
 
 void LoopTrack::advanceReadPos (int numSamples, int bufferSamples)
 {
-    readPos += numSamples;
-    if (readPos >= bufferSamples)
-    {
-        readPos = 0;
-    }
+    readPos = (readPos + numSamples) % bufferSamples;
 }
 
 int LoopTrack::getNumSamplesToCopyBeforeEnd (int remainingSamplesToOutput, int currentPosition)

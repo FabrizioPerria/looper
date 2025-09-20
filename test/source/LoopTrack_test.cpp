@@ -310,4 +310,59 @@ TEST (LoopTrackRecord, ProcessMultipleChannels)
     EXPECT_EQ (track.getLength(), numSamples);
 }
 
+TEST (LoopTrackRecord, ZeroLengthInputDoesNothing)
+{
+    LoopTrack track;
+    const double sr = 44100.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+
+    track.prepareToPlay (sr, maxBlock, maxSeconds, numChannels);
+
+    juce::AudioBuffer<float> input (numChannels, 0); // zero length buffer
+
+    track.processRecord (input, 0);
+
+    const auto& loopBuffer = track.getAudioBuffer();
+    for (int ch = 0; ch < numChannels; ++ch)
+    {
+        auto* loopPtr = loopBuffer.getReadPointer (ch);
+        for (int i = 0; i < loopBuffer.getNumSamples(); ++i)
+        {
+            EXPECT_FLOAT_EQ (loopPtr[i], 0.0f);
+        }
+    }
+
+    EXPECT_EQ (track.getWritePos(), 0);
+    EXPECT_EQ (track.getLength(), 0);
+}
+
+TEST (LoopTrackPlayback, ProcessFullBlockCopiesToOutput)
+{
+    LoopTrack track;
+    const double sr = 10.0;
+    const int maxSeconds = 1;
+    const int maxBlock = 4;
+    const int numChannels = 1;
+
+    track.prepareToPlay (sr, maxBlock, maxSeconds, numChannels);
+
+    const int numSamples = 4;
+    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr);
+    track.processRecord (input, numSamples);
+
+    juce::AudioBuffer<float> output (numChannels, numSamples);
+    output.clear();
+
+    track.processPlayback (output, numSamples);
+
+    const auto& loopBuffer = track.getAudioBuffer();
+    auto* loopPtr = loopBuffer.getReadPointer (0);
+    auto* outPtr = output.getReadPointer (0);
+    for (int i = 0; i < numSamples; ++i)
+    {
+        EXPECT_FLOAT_EQ (outPtr[i], loopPtr[i]);
+    }
+}
 } // namespace audio_plugin_test
