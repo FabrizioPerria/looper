@@ -40,10 +40,9 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, int numSam
     int numChannels = audioBuffer.getNumChannels();
     int bufferSamples = audioBuffer.getNumSamples();
 
-    int samplesRemaining = 0;
     for (int ch = 0; ch < numChannels; ++ch)
     {
-        samplesRemaining = processRecordChannel (input, numSamples, ch);
+        processRecordChannel (input, numSamples, ch);
     }
     // all channels should have same number of samples remaining. This will keep them in sync
 
@@ -51,7 +50,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, int numSam
     updateLoopLength (numSamples, bufferSamples);
 }
 
-int LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, int numSamples, int ch)
+void LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, int numSamples, int ch)
 {
     const float* inputPtr = input.getReadPointer (ch);
     float* loopPtr = audioBuffer.getWritePointer (ch);
@@ -73,7 +72,6 @@ int LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, int 
         copyToUndoBuffer (loopPtr, undoPtr, 0, samplesRemaining);
         copyInputToLoopBuffer (inputPtr + samplesThisLoop, loopPtr, 0, samplesRemaining);
     }
-    return samplesRemaining;
 }
 
 void LoopTrack::copyToUndoBuffer (float* bufPtr, float* undoPtr, int pos, int numSamples)

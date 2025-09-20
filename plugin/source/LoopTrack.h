@@ -59,7 +59,7 @@ private:
 
     int length = 0;
 
-    int processRecordChannel (const juce::AudioBuffer<float>& input, int numSamples, int ch);
+    void processRecordChannel (const juce::AudioBuffer<float>& input, int numSamples, int ch);
     void updateLoopLength (int numSamples, int bufferSamples);
     void copyToUndoBuffer (float* bufPtr, float* undoPtr, int pos, int numSamples);
     void copyInputToLoopBuffer (const float* inPtr, float* bufPtr, int pos, int numSamples);
