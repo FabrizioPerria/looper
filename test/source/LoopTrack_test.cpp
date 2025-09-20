@@ -161,7 +161,7 @@ TEST (LoopTrackProcess, ProcessFullBlockCopiesInput)
     juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr);
     auto* readPtr = input.getReadPointer (0);
 
-    track.processBlock (input, numSamples);
+    track.processRecord (input, numSamples);
 
     const auto& loopBuffer = track.getAudioBuffer();
     auto* loopPtr = loopBuffer.getReadPointer (0);
@@ -171,7 +171,7 @@ TEST (LoopTrackProcess, ProcessFullBlockCopiesInput)
     }
 
     // process another block and check it appends correctly
-    track.processBlock (input, numSamples);
+    track.processRecord (input, numSamples);
     loopPtr = loopBuffer.getReadPointer (0);
     for (int i = 0; i < numSamples; ++i)
     {
@@ -197,7 +197,7 @@ TEST (LoopTrackProcess, ProcessPartialBlockCopiesInput)
     juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr);
     auto* readPtr = input.getReadPointer (0);
 
-    track.processBlock (input, numSamples);
+    track.processRecord (input, numSamples);
 
     const auto& loopBuffer = track.getAudioBuffer();
     auto* loopPtr = loopBuffer.getReadPointer (0);
@@ -208,7 +208,7 @@ TEST (LoopTrackProcess, ProcessPartialBlockCopiesInput)
 
     auto* readPtr2 = input.getReadPointer (0);
 
-    track.processBlock (input, numSamples);
+    track.processRecord (input, numSamples);
     loopPtr = loopBuffer.getReadPointer (0);
 
     // Check samples written before wrap
@@ -238,7 +238,7 @@ TEST (LoopTrackProcess, ProcessPartialBlockCopiesInputWrapAround)
     juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr);
     auto* readPtr = input.getReadPointer (0);
 
-    track.processBlock (input, numSamples);
+    track.processRecord (input, numSamples);
 
     const auto& loopBuffer = track.getAudioBuffer();
     auto* loopPtr = loopBuffer.getReadPointer (0);
@@ -254,7 +254,7 @@ TEST (LoopTrackProcess, ProcessPartialBlockCopiesInputWrapAround)
     juce::AudioBuffer<float> input2 = createSineTestBuffer (numChannels, numSamples, sr);
     auto* readPtr2 = input2.getReadPointer (0);
 
-    track.processBlock (input2, numSamples);
+    track.processRecord (input2, numSamples);
     loopPtr = loopBuffer.getReadPointer (0);
 
     // Check samples written before wrap

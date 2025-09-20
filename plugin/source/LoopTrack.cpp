@@ -32,7 +32,7 @@ void LoopTrack::prepareToPlay (double sr, uint maxSeconds, uint maxBlockSize, ui
     length = 0;
 }
 
-void LoopTrack::processBlock (const juce::AudioBuffer<float>& input, int numSamples)
+void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, int numSamples)
 {
     jassert (input.getNumChannels() == audioBuffer.getNumChannels());
 
@@ -41,13 +41,13 @@ void LoopTrack::processBlock (const juce::AudioBuffer<float>& input, int numSamp
 
     for (int ch = 0; ch < numChannels; ++ch)
     {
-        processChannel (input, numSamples, ch);
+        processRecordChannel (input, numSamples, ch);
     }
 
     updateLoopLength (numSamples, bufferSamples);
 }
 
-void LoopTrack::processChannel (juce::AudioBuffer<float> input, int numSamples, int ch)
+void LoopTrack::processRecordChannel (juce::AudioBuffer<float> input, int numSamples, int ch)
 {
     const float* inPtr = input.getReadPointer (ch);
     float* bufPtr = audioBuffer.getWritePointer (ch);

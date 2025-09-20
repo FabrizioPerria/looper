@@ -9,7 +9,7 @@ public:
     ~LoopTrack();
 
     void prepareToPlay (double sr, uint maxSeconds, uint maxBlockSize, uint numChannels);
-    void processBlock (const juce::AudioBuffer<float>& input, int numSamples);
+    void processRecord (const juce::AudioBuffer<float>& input, int numSamples);
 
     juce::AudioBuffer<float>& getAudioBuffer()
     {
@@ -55,7 +55,7 @@ private:
     int writePos = 0;
     int length = 0;
 
-    void processChannel (juce::AudioBuffer<float> input, int numSamples, int ch);
+    void processRecordChannel (juce::AudioBuffer<float> input, int numSamples, int ch);
     void updateLoopLength (int numSamples, int bufferSamples);
     void copyToUndoBuffer (float* bufPtr, float* undoPtr, int pos, int numSamples);
     void copyInputToLoopBuffer (const float* inPtr, float* bufPtr, int pos, int numSamples);
