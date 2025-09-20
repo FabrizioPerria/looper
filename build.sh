@@ -2,7 +2,7 @@
 
 set -e
 
-cmake -S. -Bbuild
-cmake --build build -j8 --clean-first
+# cmake -S. -Bbuild
+cmake --build build -j8 # --clean-first
 
-pushd build && ctest && popd
+pushd build && ctest --output-on-failure && popd
