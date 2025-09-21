@@ -87,7 +87,18 @@ void AudioPluginAudioProcessor::changeProgramName (int index, const juce::String
 //==============================================================================
 void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    DBG ("prepareToPlay called with sampleRate: " << sampleRate << " samplesPerBlock: " << samplesPerBlock);
     loopTrack.prepareToPlay (sampleRate, samplesPerBlock, getTotalNumInputChannels());
+    sineTestBuffer.setSize ((int) getTotalNumInputChannels(), samplesPerBlock, false, true, true);
+
+    for (int ch = 0; ch < (int) getTotalNumInputChannels(); ++ch)
+    {
+        auto* writePtr = sineTestBuffer.getWritePointer (ch);
+        for (int i = 0; i < (int) samplesPerBlock; ++i)
+        {
+            writePtr[i] = 0.1 * std::sin (2.0 * M_PI * 440.0 * i / sampleRate); // 440 Hz sine wave
+        }
+    }
 }
 
 void AudioPluginAudioProcessor::releaseResources()
@@ -121,32 +132,25 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 
 void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    juce::ignoreUnused (midiMessages);
-
-    juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
-
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
-
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    if (midiMessages.getNumEvents() > 0)
     {
-        auto* channelData = buffer.getWritePointer (channel);
-        juce::ignoreUnused (channelData);
-        // ..do something to the data...
+        juce::MidiMessage m;
+        int samplePosition;
+        for (juce::MidiBuffer::Iterator i (midiMessages); i.getNextEvent (m, samplePosition);)
+        {
+            if (m.isNoteOn())
+            {
+                loopTrack.processRecord (sineTestBuffer, buffer.getNumSamples());
+            }
+            else if (m.isNoteOff())
+            {
+                loopTrack.finalizeMainLayer();
+            }
+        }
+    }
+    if (loopTrack.getLength() > 0)
+    {
+        loopTrack.processPlayback (buffer, buffer.getNumSamples());
     }
 }
 

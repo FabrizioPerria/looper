@@ -47,6 +47,8 @@ public:
 
 private:
     LoopTrack loopTrack;
+
+    juce::AudioBuffer<float> sineTestBuffer;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessor)
 };

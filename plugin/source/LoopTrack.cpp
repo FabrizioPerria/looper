@@ -1,4 +1,5 @@
 #include "LoopTrack.h"
+#include "juce_audio_basics/juce_audio_basics.h"
 #include <algorithm>
 #include <cassert>
 
@@ -12,9 +13,14 @@ LoopTrack::~LoopTrack()
 
 void LoopTrack::prepareToPlay (const double currentSampleRate, const uint maxBlockSize, const uint numChannels)
 {
+    prepareToPlay (currentSampleRate, MAX_SECONDS_HARD_LIMIT, maxBlockSize, numChannels);
+}
+
+void LoopTrack::prepareToPlay (const double currentSampleRate, const uint maxSeconds, const uint maxBlockSize, const uint numChannels)
+{
     jassert (currentSampleRate > 0);
     sampleRate = currentSampleRate;
-    uint totalSamples = std::max ((uint) currentSampleRate * MAX_SECONDS_HARD_LIMIT, 1u); // at least 1 block will be allocated
+    uint totalSamples = std::max ((uint) currentSampleRate * maxSeconds, 1u); // at least 1 block will be allocated
     uint bufferSamples = ((totalSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
     if (bufferSamples > (uint) audioBuffer.getNumSamples())
     {
@@ -41,6 +47,11 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
 {
     jassert (input.getNumChannels() == audioBuffer.getNumChannels());
 
+    if (isRecorded())
+    {
+        DBG ("Warning: Overdubbing on a recorded loop. This will overdub on top of existing audio.");
+        writePos = readPos; // start overdubbing at current read position
+    }
     int numChannels = audioBuffer.getNumChannels();
     int bufferSamples = audioBuffer.getNumSamples();
 
@@ -101,7 +112,17 @@ void LoopTrack::advanceWritePos (const int numSamples, const int bufferSamples)
 
 void LoopTrack::updateLoopLength (const int numSamples, const int bufferSamples)
 {
-    length = std::min (length + numSamples, bufferSamples);
+    provisionalLength = std::min (provisionalLength + numSamples, bufferSamples);
+    DBG ("Provisional length: " << provisionalLength);
+}
+
+void LoopTrack::finalizeMainLayer()
+{
+    if (length == 0) // first loop decides the length of the loop
+    {
+        length = provisionalLength;
+        DBG ("Finalized loop length: " << length);
+    }
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int numSamples)
@@ -126,6 +147,11 @@ void LoopTrack::processPlaybackChannel (juce::AudioBuffer<float>& output, const 
     while (samplesLeft > 0)
     {
         int block = std::min (samplesLeft, length - currentReadPos);
+        if (block <= 0)
+        {
+            juce::FloatVectorOperations::fill (outPtr, 0.0f, samplesLeft);
+            break;
+        }
         juce::FloatVectorOperations::copy (outPtr, loopPtr + currentReadPos, block);
         samplesLeft -= block;
         outPtr += block;
@@ -145,6 +171,7 @@ void LoopTrack::clear()
     writePos = 0;
     readPos = 0;
     length = 0;
+    provisionalLength = 0;
 }
 
 void LoopTrack::undo()

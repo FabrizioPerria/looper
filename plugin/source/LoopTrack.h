@@ -9,9 +9,11 @@ public:
     ~LoopTrack();
 
     void prepareToPlay (const double currentSampleRate, const uint maxBlockSize, const uint numChannels);
+    void prepareToPlay (const double currentSampleRate, const uint maxSeconds, const uint maxBlockSize, const uint numChannels);
     void releaseResources();
 
     void processRecord (const juce::AudioBuffer<float>& input, const int numSamples);
+    void finalizeMainLayer();
     void processPlayback (juce::AudioBuffer<float>& output, const int numSamples);
 
     void clear();
@@ -52,6 +54,16 @@ public:
         length = newLength;
     }
 
+    bool isRecorded() const
+    {
+        return length > 0;
+    }
+
+    void startRecording()
+    {
+        writePos = isRecorded() ? readPos : 0;
+    }
+
 private:
     juce::AudioBuffer<float> audioBuffer;
     juce::AudioBuffer<float> undoBuffer;
@@ -62,6 +74,7 @@ private:
     int readPos = 0;
 
     int length = 0;
+    int provisionalLength = 0;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
     void updateLoopLength (const int numSamples, const int bufferSamples);

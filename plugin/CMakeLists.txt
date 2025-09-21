@@ -7,7 +7,7 @@ juce_add_plugin(
   COMPANY
   fp
   IS_SYNTH
-  true
+  false
   NEEDS_MIDI_INPUT
   true
   COPY_PLUGIN_AFTER_BUILD
@@ -50,7 +50,6 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE juce::juce_dsp juce::juce_audio_utils juce::juce_gui_basics BinaryData
-          ${TORCH_LIBRARIES}
   PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags
          juce::juce_recommended_warning_flags)
 
