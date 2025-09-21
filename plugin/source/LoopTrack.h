@@ -8,7 +8,7 @@ public:
     LoopTrack();
     ~LoopTrack();
 
-    void prepareToPlay (const double sr, const uint maxSeconds, const uint maxBlockSize, const uint numChannels);
+    void prepareToPlay (const double currentSampleRate, const uint maxBlockSize, const uint numChannels);
 
     void processRecord (const juce::AudioBuffer<float>& input, const int numSamples);
     void processPlayback (juce::AudioBuffer<float>& output, const int numSamples);
@@ -70,6 +70,8 @@ private:
     void advanceReadPos (const int numSamples, const int bufferSamples);
 
     void processPlaybackChannel (juce::AudioBuffer<float>& output, const int numSamples, const int ch);
+
+    const uint MAX_SECONDS_HARD_LIMIT = 300; // 5 minutes max
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopTrack)
 };

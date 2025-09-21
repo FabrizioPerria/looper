@@ -10,27 +10,23 @@ LoopTrack::~LoopTrack()
 {
 }
 
-void LoopTrack::prepareToPlay (const double sr, const uint maxSeconds, const uint maxBlockSize, const uint numChannels)
+void LoopTrack::prepareToPlay (const double currentSampleRate, const uint maxBlockSize, const uint numChannels)
 {
-    jassert (sr > 0);
-    sampleRate = sr;
-    uint totalSamples = std::max ((uint) sr * maxSeconds, 1u); // at least 1 block will be allocated
+    jassert (currentSampleRate > 0);
+    sampleRate = currentSampleRate;
+    uint totalSamples = std::max ((uint) currentSampleRate * MAX_SECONDS_HARD_LIMIT, 1u); // at least 1 block will be allocated
     uint bufferSamples = ((totalSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
     if (bufferSamples > (uint) audioBuffer.getNumSamples())
     {
         audioBuffer.setSize ((int) numChannels, (int) bufferSamples, false, true, true);
     }
-    audioBuffer.clear();
 
     if (bufferSamples > (uint) undoBuffer.getNumSamples())
     {
         undoBuffer.setSize ((int) numChannels, (int) bufferSamples, false, true, true);
     }
-    undoBuffer.clear();
 
-    writePos = 0;
-    readPos = 0;
-    length = 0;
+    clear();
 }
 
 void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int numSamples)
