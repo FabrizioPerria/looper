@@ -8,17 +8,20 @@ public:
     LoopTrack();
     ~LoopTrack();
 
-    void prepareToPlay (double sr, uint maxSeconds, uint maxBlockSize, uint numChannels);
+    void prepareToPlay (const double sr, const uint maxSeconds, const uint maxBlockSize, const uint numChannels);
 
-    void processRecord (const juce::AudioBuffer<float>& input, int numSamples);
-    void processPlayback (juce::AudioBuffer<float>& output, int numSamples);
+    void processRecord (const juce::AudioBuffer<float>& input, const int numSamples);
+    void processPlayback (juce::AudioBuffer<float>& output, const int numSamples);
 
-    juce::AudioBuffer<float>& getAudioBuffer()
+    void clear();
+    void undo();
+
+    const juce::AudioBuffer<float>& getAudioBuffer() const
     {
         return audioBuffer;
     }
 
-    juce::AudioBuffer<float>& getUndoBuffer()
+    const juce::AudioBuffer<float>& getUndoBuffer() const
     {
         return undoBuffer;
     }
@@ -33,7 +36,7 @@ public:
         return writePos;
     }
 
-    void setWritePos (int newPos)
+    void setWritePos (const int newPos)
     {
         writePos = newPos;
     }
@@ -43,7 +46,7 @@ public:
         return length;
     }
 
-    void setLength (int newLength)
+    void setLength (const int newLength)
     {
         length = newLength;
     }
@@ -59,14 +62,14 @@ private:
 
     int length = 0;
 
-    void processRecordChannel (const juce::AudioBuffer<float>& input, int numSamples, int ch);
-    void updateLoopLength (int numSamples, int bufferSamples);
-    void copyToUndoBuffer (float* bufPtr, float* undoPtr, int pos, int numSamples);
-    void copyInputToLoopBuffer (const float* inPtr, float* bufPtr, int pos, int numSamples);
-    void advanceWritePos (int numSamples, int bufferSamples);
-    void advanceReadPos (int numSamples, int bufferSamples);
+    void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
+    void updateLoopLength (const int numSamples, const int bufferSamples);
+    void saveToUndoBuffer (const int ch, const int offset, const int numSamples);
+    void copyInputToLoopBuffer (const int ch, const float* bufPtr, const int offset, const int numSamples);
+    void advanceWritePos (const int numSamples, const int bufferSamples);
+    void advanceReadPos (const int numSamples, const int bufferSamples);
 
-    void processPlaybackChannel (juce::AudioBuffer<float>& output, int numSamples, int ch);
+    void processPlaybackChannel (juce::AudioBuffer<float>& output, const int numSamples, const int ch);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopTrack)
 };
