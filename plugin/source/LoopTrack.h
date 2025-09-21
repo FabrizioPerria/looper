@@ -13,7 +13,7 @@ public:
     void releaseResources();
 
     void processRecord (const juce::AudioBuffer<float>& input, const int numSamples);
-    void finalizeMainLayer();
+    void finalizeLayer();
     void processPlayback (juce::AudioBuffer<float>& output, const int numSamples);
 
     void clear();
@@ -54,14 +54,9 @@ public:
         length = newLength;
     }
 
-    bool isRecorded() const
+    bool isOverdubbing() const
     {
         return length > 0;
-    }
-
-    void startRecording()
-    {
-        writePos = isRecorded() ? readPos : 0;
     }
 
 private:
@@ -75,6 +70,8 @@ private:
 
     int length = 0;
     int provisionalLength = 0;
+
+    bool isRecording = false;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
     void updateLoopLength (const int numSamples, const int bufferSamples);

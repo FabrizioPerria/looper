@@ -87,18 +87,7 @@ void AudioPluginAudioProcessor::changeProgramName (int index, const juce::String
 //==============================================================================
 void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    DBG ("prepareToPlay called with sampleRate: " << sampleRate << " samplesPerBlock: " << samplesPerBlock);
     loopTrack.prepareToPlay (sampleRate, samplesPerBlock, getTotalNumInputChannels());
-    sineTestBuffer.setSize ((int) getTotalNumInputChannels(), samplesPerBlock, false, true, true);
-
-    for (int ch = 0; ch < (int) getTotalNumInputChannels(); ++ch)
-    {
-        auto* writePtr = sineTestBuffer.getWritePointer (ch);
-        for (int i = 0; i < (int) samplesPerBlock; ++i)
-        {
-            writePtr[i] = 0.1 * std::sin (2.0 * M_PI * 440.0 * i / sampleRate); // 440 Hz sine wave
-        }
-    }
 }
 
 void AudioPluginAudioProcessor::releaseResources()
@@ -132,6 +121,7 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 
 void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    static bool isRecording = false;
     if (midiMessages.getNumEvents() > 0)
     {
         juce::MidiMessage m;
@@ -140,15 +130,21 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         {
             if (m.isNoteOn())
             {
-                loopTrack.processRecord (sineTestBuffer, buffer.getNumSamples());
+                isRecording = true;
             }
             else if (m.isNoteOff())
             {
-                loopTrack.finalizeMainLayer();
+                loopTrack.finalizeLayer();
+                isRecording = false;
             }
         }
     }
-    if (loopTrack.getLength() > 0)
+    if (isRecording)
+    {
+        loopTrack.processRecord (buffer, buffer.getNumSamples());
+    }
+
+    if (loopTrack.isOverdubbing())
     {
         loopTrack.processPlayback (buffer, buffer.getNumSamples());
     }
