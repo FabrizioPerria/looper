@@ -32,7 +32,11 @@ void LoopTrack::prepareToPlay (const double currentSampleRate, const uint maxSec
         undoBuffer.setSize ((int) numChannels, (int) bufferSamples, false, true, true);
     }
 
+    tmpBuffer.setSize (1, maxBlockSize, false, true, true);
+
     clear();
+
+    setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
 }
 
 void LoopTrack::releaseResources()
@@ -40,6 +44,7 @@ void LoopTrack::releaseResources()
     clear();
     audioBuffer.setSize (0, 0, false, false, true);
     undoBuffer.setSize (0, 0, false, false, true);
+    tmpBuffer.setSize (0, 0, false, false, true);
     sampleRate = 0.0;
 }
 
@@ -51,6 +56,12 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
 
     const int numChannels = audioBuffer.getNumChannels();
     const int bufferSamples = audioBuffer.getNumSamples();
+
+    if (provisionalLength + numSamples > bufferSamples)
+    {
+        finalizeLayer();
+        return;
+    }
 
     for (int ch = 0; ch < numChannels; ++ch)
     {
@@ -75,6 +86,10 @@ void LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, con
     while (samplesLeft > 0)
     {
         int block = std::min (samplesLeft, bufferSize - currentWritePos);
+        if (block <= 0)
+        {
+            break;
+        }
         saveToUndoBuffer (ch, currentWritePos, block);
         copyInputToLoopBuffer (ch, inputPtr, currentWritePos, block);
         samplesLeft -= block;
@@ -93,10 +108,22 @@ void LoopTrack::saveToUndoBuffer (const int ch, const int offset, const int numS
 
 void LoopTrack::copyInputToLoopBuffer (const int ch, const float* bufPtr, const int offset, const int numSamples)
 {
-    auto loopPtr = audioBuffer.getWritePointer (ch);
-    if (isRecording)
+    auto* loopPtr = audioBuffer.getWritePointer (ch);
+
+    if (isRecording && isOverdubbing())
     {
-        juce::FloatVectorOperations::add (loopPtr + offset, bufPtr, numSamples);
+        const float overdubGain = 1.0f;    // scale new layer
+        const float overdubOldGain = 1.0f; // scale old layer
+
+        juce::FloatVectorOperations::copyWithMultiply (loopPtr + offset, loopPtr + offset, overdubOldGain, numSamples);
+
+        auto* tmpPtr = tmpBuffer.getWritePointer (0);
+        juce::FloatVectorOperations::copyWithMultiply (tmpPtr, bufPtr, overdubGain, numSamples);
+        juce::FloatVectorOperations::add (loopPtr + offset, tmpPtr, numSamples);
+    }
+    else if (isRecording)
+    {
+        juce::FloatVectorOperations::copy (loopPtr + offset, bufPtr, numSamples);
     }
 }
 
@@ -115,6 +142,16 @@ void LoopTrack::finalizeLayer()
     length = std::max (provisionalLength, length);
     provisionalLength = 0;
     isRecording = false;
+
+    const float overallGain = 1.0f;
+    audioBuffer.applyGain (overallGain);
+
+    const int fadeSamples = std::min (crossFadeLength / 2, length / 2);
+    for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
+    {
+        audioBuffer.applyGainRamp (ch, 0, fadeSamples, 0.0f, overallGain);             // fade in
+        audioBuffer.applyGainRamp (ch, length - fadeSamples, fadeSamples, 1.0f, 0.0f); // fade out
+    }
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int numSamples)
@@ -163,10 +200,12 @@ void LoopTrack::clear()
 {
     audioBuffer.clear();
     undoBuffer.clear();
+    tmpBuffer.clear();
     writePos = 0;
     readPos = 0;
     length = 0;
     provisionalLength = 0;
+    crossFadeLength = 0;
 }
 
 void LoopTrack::undo()

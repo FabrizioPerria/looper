@@ -54,6 +54,11 @@ public:
         length = newLength;
     }
 
+    void setCrossFadeLength (const int newLength)
+    {
+        crossFadeLength = newLength;
+    }
+
     bool isOverdubbing() const
     {
         return length > 0;
@@ -62,6 +67,7 @@ public:
 private:
     juce::AudioBuffer<float> audioBuffer;
     juce::AudioBuffer<float> undoBuffer;
+    juce::AudioBuffer<float> tmpBuffer;
 
     double sampleRate;
 
@@ -70,6 +76,7 @@ private:
 
     int length = 0;
     int provisionalLength = 0;
+    int crossFadeLength = 0;
 
     bool isRecording = false;
 
@@ -82,7 +89,7 @@ private:
 
     void processPlaybackChannel (juce::AudioBuffer<float>& output, const int numSamples, const int ch);
 
-    const uint MAX_SECONDS_HARD_LIMIT = 300; // 5 minutes max
+    const uint MAX_SECONDS_HARD_LIMIT = 3600; // 1 hour max buffer size
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopTrack)
 };

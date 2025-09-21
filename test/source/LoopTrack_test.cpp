@@ -195,6 +195,7 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInput)
     const int numChannels = 1;
 
     track.prepareToPlay (sr, maxBlock, maxSeconds, numChannels);
+    track.setCrossFadeLength (0);
 
     const int bufferSamples = track.getAudioBuffer().getNumSamples();
     const int numSamples = 9; // less than block size
@@ -226,7 +227,7 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInput)
     EXPECT_EQ (track.getLength(), numSamples * 2);
 }
 
-TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputWrapAround)
+TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputOverMaxBufferSize)
 {
     LoopTrack track;
     const double sr = 441.0;
@@ -235,6 +236,7 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputWrapAround)
     const int numChannels = 1;
 
     track.prepareToPlay (sr, maxBlock, maxSeconds, numChannels);
+    track.setCrossFadeLength (0);
 
     const int bufferSamples = track.getAudioBuffer().getNumSamples();
     const int leaveSamples = 10; // leave some space at end of buffer
@@ -264,18 +266,18 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputWrapAround)
     // Check samples written before wrap
     for (int i = 0; i < leaveSamples; ++i)
     {
-        EXPECT_FLOAT_EQ (loopPtr[numSamples + i], readPtr2[i]);
+        EXPECT_FLOAT_EQ (loopPtr[numSamples + i], 0.0f);
     }
 
     readPtr = input.getReadPointer (0);
     // Check samples written after wrap. overdub of end and start of buffer
     for (int i = 0; i < leaveSamples; ++i)
     {
-        EXPECT_FLOAT_EQ (loopPtr[i], readPtr[i] + readPtr2[leaveSamples + i]);
+        EXPECT_FLOAT_EQ (loopPtr[i], readPtr[i]);
     }
 
-    EXPECT_EQ (track.getWritePos(), numSamples - leaveSamples);
-    EXPECT_EQ (track.getLength(), bufferSamples);
+    EXPECT_EQ (track.getWritePos(), numSamples);
+    EXPECT_EQ (track.getLength(), numSamples);
 }
 
 TEST (LoopTrackRecord, ProcessMultipleChannels)
@@ -287,6 +289,7 @@ TEST (LoopTrackRecord, ProcessMultipleChannels)
     const int numChannels = 3;
 
     track.prepareToPlay (sr, maxBlock, maxSeconds, numChannels);
+    track.setCrossFadeLength (0);
 
     const int numSamples = 12;
     juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr, 440.0f);
@@ -367,7 +370,7 @@ TEST (LoopTrackRecord, OffsetOverdub)
     int end = maxBlock;
     for (int i = start; i < end; ++i)
     {
-        EXPECT_FLOAT_EQ (loopPtr[i], readPtr1[i] * 0.5f); // overdub not yet applied
+        EXPECT_FLOAT_EQ (loopPtr[i], readPtr1[i] * 0.5f);
     }
     start = end;
     end += numSamples;
@@ -394,6 +397,7 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
     const int numChannels = 1;
 
     track.prepareToPlay (sr, maxSeconds, maxBlock, numChannels);
+    track.setCrossFadeLength (0);
 
     // Create initial loop - 1 second of 440Hz sine
     const int loopLength = 4410; // 0.1 seconds
