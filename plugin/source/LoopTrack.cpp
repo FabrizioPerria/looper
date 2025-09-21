@@ -29,6 +29,14 @@ void LoopTrack::prepareToPlay (const double currentSampleRate, const uint maxBlo
     clear();
 }
 
+void LoopTrack::releaseResources()
+{
+    clear();
+    audioBuffer.setSize (0, 0, false, false, true);
+    undoBuffer.setSize (0, 0, false, false, true);
+    sampleRate = 0.0;
+}
+
 void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int numSamples)
 {
     jassert (input.getNumChannels() == audioBuffer.getNumChannels());

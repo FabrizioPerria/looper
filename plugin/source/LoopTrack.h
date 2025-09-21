@@ -9,6 +9,7 @@ public:
     ~LoopTrack();
 
     void prepareToPlay (const double currentSampleRate, const uint maxBlockSize, const uint numChannels);
+    void releaseResources();
 
     void processRecord (const juce::AudioBuffer<float>& input, const int numSamples);
     void processPlayback (juce::AudioBuffer<float>& output, const int numSamples);
