@@ -57,21 +57,22 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
     const int numChannels = audioBuffer.getNumChannels();
     const int bufferSamples = audioBuffer.getNumSamples();
 
-    if (provisionalLength + numSamples > bufferSamples)
-    {
-        finalizeLayer();
-        return;
-    }
+    int samplesCanRecord = std::min (numSamples, bufferSamples - provisionalLength);
 
     for (int ch = 0; ch < numChannels; ++ch)
     {
-        processRecordChannel (input, numSamples, ch);
+        processRecordChannel (input, samplesCanRecord, ch);
     }
 
     if (! isOverdubbing())
     {
-        advanceWritePos (numSamples, bufferSamples);
-        updateLoopLength (numSamples, bufferSamples);
+        advanceWritePos (samplesCanRecord, bufferSamples);
+        updateLoopLength (samplesCanRecord, bufferSamples);
+    }
+
+    if (samplesCanRecord < numSamples)
+    {
+        finalizeLayer();
     }
 }
 
@@ -101,7 +102,7 @@ void LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, con
 void LoopTrack::saveToUndoBuffer (const int ch, const int offset, const int numSamples)
 {
     auto undoPtr = undoBuffer.getWritePointer (ch);
-    auto loopPtr = audioBuffer.getReadPointer (ch);
+    const auto loopPtr = audioBuffer.getReadPointer (ch);
 
     juce::FloatVectorOperations::copy (undoPtr + offset, loopPtr + offset, numSamples);
 }
@@ -143,15 +144,22 @@ void LoopTrack::finalizeLayer()
     provisionalLength = 0;
     isRecording = false;
 
+    // float maxSample = 0.0f;
+    // for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
+    //     maxSample = std::max (maxSample, audioBuffer.getMagnitude (ch, 0, length));
+    //
+    // if (maxSample > 0.0f)
+    //     audioBuffer.applyGain (0, length, 1.0f / maxSample);
+
     const float overallGain = 1.0f;
     audioBuffer.applyGain (overallGain);
 
     const int fadeSamples = std::min (crossFadeLength / 2, length / 2);
-    for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
-    {
-        audioBuffer.applyGainRamp (ch, 0, fadeSamples, 0.0f, overallGain);             // fade in
-        audioBuffer.applyGainRamp (ch, length - fadeSamples, fadeSamples, 1.0f, 0.0f); // fade out
-    }
+    if (fadeSamples <= 0)
+        return;
+
+    audioBuffer.applyGainRamp (0, fadeSamples, 0.0f, overallGain);             // fade in
+    audioBuffer.applyGainRamp (length - fadeSamples, fadeSamples, 1.0f, 0.0f); // fade out
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int numSamples)
@@ -205,7 +213,6 @@ void LoopTrack::clear()
     readPos = 0;
     length = 0;
     provisionalLength = 0;
-    crossFadeLength = 0;
 }
 
 void LoopTrack::undo()

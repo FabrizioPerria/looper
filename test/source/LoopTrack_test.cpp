@@ -266,7 +266,7 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputOverMaxBufferSize)
     // Check samples written before wrap
     for (int i = 0; i < leaveSamples; ++i)
     {
-        EXPECT_FLOAT_EQ (loopPtr[numSamples + i], 0.0f);
+        EXPECT_FLOAT_EQ (loopPtr[numSamples + i], readPtr2[i]);
     }
 
     readPtr = input.getReadPointer (0);
@@ -276,8 +276,8 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputOverMaxBufferSize)
         EXPECT_FLOAT_EQ (loopPtr[i], readPtr[i]);
     }
 
-    EXPECT_EQ (track.getWritePos(), numSamples);
-    EXPECT_EQ (track.getLength(), numSamples);
+    EXPECT_EQ (track.getWritePos(), 0);
+    EXPECT_EQ (track.getLength(), bufferSamples);
 }
 
 TEST (LoopTrackRecord, ProcessMultipleChannels)
