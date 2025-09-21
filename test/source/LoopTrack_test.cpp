@@ -534,4 +534,70 @@ TEST (LoopTrackPlayback, ProcessPlaybackManySmallBlocksWrapAround)
     }
 }
 
+TEST (LoopTrackClear, ClearsBuffersAndResetsState)
+{
+    LoopTrack track;
+    track.prepareToPlay (441.0, 12, 10, 2);
+
+    const int numSamples = 10;
+    juce::AudioBuffer<float> input = createSineTestBuffer (2, numSamples, 441.0);
+    track.processRecord (input, numSamples);
+
+    EXPECT_GT (track.getLength(), 0);
+    EXPECT_GT (track.getWritePos(), 0);
+
+    track.clear();
+
+    const auto buffer = track.getAudioBuffer();
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+    {
+        auto* ptr = buffer.getReadPointer (ch);
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        {
+            EXPECT_FLOAT_EQ (ptr[i], 0.0f);
+        }
+    }
+
+    const auto undoBuffer = track.getUndoBuffer();
+    for (int ch = 0; ch < undoBuffer.getNumChannels(); ++ch)
+    {
+        auto* ptr = undoBuffer.getReadPointer (ch);
+        for (int i = 0; i < undoBuffer.getNumSamples(); ++i)
+        {
+            EXPECT_FLOAT_EQ (ptr[i], 0.0f);
+        }
+    }
+
+    EXPECT_EQ (track.getWritePos(), 0);
+    EXPECT_EQ (track.getLength(), 0);
+}
+
+TEST (LoopTrackUndo, RestoresPreviousState)
+{
+    LoopTrack track;
+    track.prepareToPlay (441.0, 12, 10, 1);
+
+    const int numSamples = 10;
+    juce::AudioBuffer<float> input = createSineTestBuffer (1, numSamples, 441.0);
+    track.processRecord (input, numSamples);
+
+    const auto& loopBufferBefore = track.getAudioBuffer();
+    auto* loopPtrBefore = loopBufferBefore.getReadPointer (0);
+
+    // Modify the loop buffer again
+    juce::AudioBuffer<float> input2 = createSineTestBuffer (1, numSamples, 441.0);
+    track.processRecord (input2, numSamples);
+
+    // Undo the last change
+    track.undo();
+
+    const auto& loopBufferAfter = track.getAudioBuffer();
+    auto* loopPtrAfter = loopBufferAfter.getReadPointer (0);
+
+    for (int i = 0; i < numSamples; ++i)
+    {
+        EXPECT_FLOAT_EQ (loopPtrAfter[i], loopPtrBefore[i]);
+    }
+}
+
 } // namespace audio_plugin_test
