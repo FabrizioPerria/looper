@@ -128,14 +128,27 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         int samplePosition;
         for (juce::MidiBuffer::Iterator i (midiMessages); i.getNextEvent (m, samplePosition);)
         {
-            if (m.isNoteOn())
+            if (m.getNoteNumber() == 60)
             {
-                isRecording = true;
+                if (m.isNoteOn())
+                {
+                    isRecording = true;
+                }
+                else if (m.isNoteOff())
+                {
+                    loopTrack.finalizeLayer();
+                    isRecording = false;
+                }
             }
-            else if (m.isNoteOff())
+
+            if (m.getNoteNumber() == 72 && m.isNoteOn())
             {
-                loopTrack.finalizeLayer();
-                isRecording = false;
+                loopTrack.undo();
+            }
+
+            if (m.getNoteNumber() == 84 && m.isNoteOn())
+            {
+                loopTrack.clear();
             }
         }
     }

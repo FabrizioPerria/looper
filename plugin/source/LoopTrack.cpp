@@ -52,7 +52,14 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
 {
     jassert (input.getNumChannels() == audioBuffer.getNumChannels());
 
-    isRecording = true;
+    if (! isRecording)
+    {
+        isRecording = true;
+        for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
+        {
+            saveToUndoBuffer (ch, 0, length);
+        }
+    }
 
     const int numChannels = audioBuffer.getNumChannels();
     const int bufferSamples = audioBuffer.getNumSamples();
@@ -91,7 +98,6 @@ void LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, con
         {
             break;
         }
-        saveToUndoBuffer (ch, currentWritePos, block);
         copyInputToLoopBuffer (ch, inputPtr, currentWritePos, block);
         samplesLeft -= block;
         inputPtr += block;
@@ -152,14 +158,16 @@ void LoopTrack::finalizeLayer()
     //     audioBuffer.applyGain (0, length, 1.0f / maxSample);
 
     const float overallGain = 1.0f;
-    audioBuffer.applyGain (overallGain);
+    // audioBuffer.applyGain (overallGain);
 
-    const int fadeSamples = std::min (crossFadeLength / 2, length / 2);
+    const int fadeSamples = std::min (crossFadeLength, length / 4);
     if (fadeSamples <= 0)
+    {
         return;
+    }
 
-    audioBuffer.applyGainRamp (0, fadeSamples, 0.0f, overallGain);             // fade in
-    audioBuffer.applyGainRamp (length - fadeSamples, fadeSamples, 1.0f, 0.0f); // fade out
+    audioBuffer.applyGainRamp (0, fadeSamples, 0.0f, overallGain);                    // fade in
+    audioBuffer.applyGainRamp (length - fadeSamples, fadeSamples, overallGain, 0.0f); // fade out
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int numSamples)
@@ -224,6 +232,7 @@ void LoopTrack::undo()
     {
         float* loopPtr = audioBuffer.getWritePointer (ch);
         const float* undoPtr = undoBuffer.getReadPointer (ch);
-        juce::FloatVectorOperations::copy (loopPtr, undoPtr, bufferSamples);
+        juce::FloatVectorOperations::copy (loopPtr, undoPtr, length);
     }
+    finalizeLayer();
 }
