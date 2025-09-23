@@ -87,12 +87,12 @@ void AudioPluginAudioProcessor::changeProgramName (int index, const juce::String
 //==============================================================================
 void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    loopTrack.prepareToPlay (sampleRate, samplesPerBlock, getTotalNumInputChannels());
+    looperEngine.prepareToPlay (sampleRate, samplesPerBlock, 1, getTotalNumInputChannels());
 }
 
 void AudioPluginAudioProcessor::releaseResources()
 {
-    loopTrack.releaseResources();
+    looperEngine.releaseResources();
 }
 
 bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -121,46 +121,22 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 
 void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    static bool isRecording = false;
-    if (midiMessages.getNumEvents() > 0)
-    {
-        juce::MidiMessage m;
-        int samplePosition;
-        for (juce::MidiBuffer::Iterator i (midiMessages); i.getNextEvent (m, samplePosition);)
-        {
-            if (m.getNoteNumber() == 60)
-            {
-                if (m.isNoteOn())
-                {
-                    isRecording = true;
-                }
-                else if (m.isNoteOff())
-                {
-                    loopTrack.finalizeLayer();
-                    isRecording = false;
-                }
-            }
+    juce::ScopedNoDenormals noDenormals;
+    auto totalNumInputChannels = getTotalNumInputChannels();
+    auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-            if (m.getNoteNumber() == 72 && m.isNoteOn())
-            {
-                loopTrack.undo();
-            }
+    // In case we have more outputs than inputs, this code clears any output
+    // channels that didn't contain input data, (because these aren't
+    // guaranteed to be empty - they may contain garbage).
+    // This is here to avoid people getting screaming feedback
+    // when they first compile a plugin, but obviously you don't need to keep
+    // this code if your algorithm always overwrites all the output channels.
+    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        buffer.clear (i, 0, buffer.getNumSamples());
 
-            if (m.getNoteNumber() == 84 && m.isNoteOn())
-            {
-                loopTrack.clear();
-            }
-        }
-    }
-    if (isRecording)
-    {
-        loopTrack.processRecord (buffer, buffer.getNumSamples());
-    }
+    looperEngine.processBlock (buffer, midiMessages);
 
-    if (loopTrack.isOverdubbing())
-    {
-        loopTrack.processPlayback (buffer, buffer.getNumSamples());
-    }
+    midiMessages.clear();
 }
 
 //==============================================================================
