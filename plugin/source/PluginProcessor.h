@@ -1,8 +1,7 @@
 #pragma once
 
-#include "LoopTrack.h"
+#include "LooperEngine.h"
 #include <JuceHeader.h>
-#include <cmath>
 #include <juce_audio_processors/juce_audio_processors.h>
 
 //==============================================================================
@@ -46,9 +45,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
 private:
-    LoopTrack loopTrack;
-
-    juce::AudioBuffer<float> sineTestBuffer;
+    LooperEngine looperEngine;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessor)
 };
