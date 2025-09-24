@@ -19,50 +19,23 @@ public:
     void clear();
     void undo();
 
-    const juce::AudioBuffer<float>& getAudioBuffer() const
-    {
-        return audioBuffer;
-    }
+    const juce::AudioBuffer<float>& getAudioBuffer() const { return audioBuffer; }
 
-    const juce::AudioBuffer<float>& getUndoBuffer() const
-    {
-        return undoBuffer;
-    }
+    const juce::AudioBuffer<float>& getUndoBuffer() const { return undoBuffer; }
 
-    double getSampleRate() const
-    {
-        return sampleRate;
-    }
+    double getSampleRate() const { return sampleRate; }
 
-    int getWritePos() const
-    {
-        return writePos;
-    }
+    int getWritePos() const { return writePos; }
 
-    void setWritePos (const int newPos)
-    {
-        writePos = newPos;
-    }
+    void setWritePos (const int newPos) { writePos = newPos; }
 
-    int getLength() const
-    {
-        return length;
-    }
+    int getLength() const { return length; }
 
-    void setLength (const int newLength)
-    {
-        length = newLength;
-    }
+    void setLength (const int newLength) { length = newLength; }
 
-    void setCrossFadeLength (const int newLength)
-    {
-        crossFadeLength = newLength;
-    }
+    void setCrossFadeLength (const int newLength) { crossFadeLength = newLength; }
 
-    bool isOverdubbing() const
-    {
-        return length > 0;
-    }
+    bool isOverdubbing() const { return length > 0; }
 
 private:
     juce::AudioBuffer<float> audioBuffer;

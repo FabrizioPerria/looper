@@ -3,13 +3,9 @@
 #include <algorithm>
 #include <cassert>
 
-LoopTrack::LoopTrack()
-{
-}
+LoopTrack::LoopTrack() {}
 
-LoopTrack::~LoopTrack()
-{
-}
+LoopTrack::~LoopTrack() {}
 
 void LoopTrack::prepareToPlay (const double currentSampleRate, const uint maxBlockSize, const uint numChannels)
 {
@@ -77,10 +73,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
         updateLoopLength (samplesCanRecord, bufferSamples);
     }
 
-    if (samplesCanRecord < numSamples)
-    {
-        finalizeLayer();
-    }
+    if (samplesCanRecord < numSamples) finalizeLayer();
 }
 
 void LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch)
@@ -94,10 +87,7 @@ void LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, con
     while (samplesLeft > 0)
     {
         int block = std::min (samplesLeft, bufferSize - currentWritePos);
-        if (block <= 0)
-        {
-            break;
-        }
+        if (block <= 0) break;
         copyInputToLoopBuffer (ch, inputPtr, currentWritePos, block);
         samplesLeft -= block;
         inputPtr += block;
@@ -134,10 +124,7 @@ void LoopTrack::copyInputToLoopBuffer (const int ch, const float* bufPtr, const 
     }
 }
 
-void LoopTrack::advanceWritePos (const int numSamples, const int bufferSamples)
-{
-    writePos = (writePos + numSamples) % bufferSamples;
-}
+void LoopTrack::advanceWritePos (const int numSamples, const int bufferSamples) { writePos = (writePos + numSamples) % bufferSamples; }
 
 void LoopTrack::updateLoopLength (const int numSamples, const int bufferSamples)
 {
@@ -161,10 +148,7 @@ void LoopTrack::finalizeLayer()
     // audioBuffer.applyGain (overallGain);
 
     const int fadeSamples = std::min (crossFadeLength, length / 4);
-    if (fadeSamples <= 0)
-    {
-        return;
-    }
+    if (fadeSamples <= 0) return;
 
     audioBuffer.applyGainRamp (0, fadeSamples, 0.0f, overallGain);                    // fade in
     audioBuffer.applyGainRamp (length - fadeSamples, fadeSamples, overallGain, 0.0f); // fade out
@@ -192,10 +176,7 @@ void LoopTrack::processPlaybackChannel (juce::AudioBuffer<float>& output, const 
     while (samplesLeft > 0)
     {
         int block = std::min (samplesLeft, length - currentReadPos);
-        if (block <= 0)
-        {
-            break;
-        }
+        if (block <= 0) break;
         juce::FloatVectorOperations::add (outPtr, loopPtr + currentReadPos, block);
         samplesLeft -= block;
         outPtr += block;
@@ -206,10 +187,7 @@ void LoopTrack::processPlaybackChannel (juce::AudioBuffer<float>& output, const 
 void LoopTrack::advanceReadPos (const int numSamples, const int bufferSamples)
 {
     readPos = (readPos + numSamples) % bufferSamples;
-    if (isOverdubbing())
-    {
-        writePos = readPos; // keep write position in sync for overdubbing
-    }
+    if (isOverdubbing()) writePos = readPos; // keep write position in sync for overdubbing
 }
 
 void LoopTrack::clear()
@@ -217,10 +195,7 @@ void LoopTrack::clear()
     audioBuffer.clear();
     undoBuffer.clear();
     tmpBuffer.clear();
-    writePos = 0;
-    readPos = 0;
-    length = 0;
-    provisionalLength = 0;
+    writePos = readPos = length = provisionalLength = 0;
 }
 
 void LoopTrack::undo()
