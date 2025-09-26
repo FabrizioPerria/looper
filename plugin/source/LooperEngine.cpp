@@ -13,6 +13,10 @@ LooperEngine::~LooperEngine()
 
 void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int newNumTracks, int newNumChannels)
 {
+    if (newSampleRate <= 0.0 || newMaxBlockSize <= 0 || newNumChannels <= 0 || newNumTracks <= 0)
+    {
+        return;
+    }
     releaseResources();
     sampleRate = newSampleRate;
     maxBlockSize = newMaxBlockSize;
