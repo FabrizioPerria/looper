@@ -61,7 +61,7 @@ TEST (LoopTrackPrepare, StateReset)
     EXPECT_EQ (track.getLength(), 0);
 }
 
-TEST (LoopTrackPrepare, ZeroMaxSecondsAllocatesAtLeastOneBlock)
+TEST (LoopTrackPrepare, ZeroMaxSecondsDoesNotAllocateNorPrepare)
 {
     LoopTrack track;
     const double sr = 44100.0;
@@ -69,8 +69,9 @@ TEST (LoopTrackPrepare, ZeroMaxSecondsAllocatesAtLeastOneBlock)
 
     track.prepareToPlay (sr, 0, maxBlock, 2); // zero seconds
 
-    EXPECT_EQ (track.getAudioBuffer().getNumSamples(), maxBlock);
-    EXPECT_EQ (track.getUndoBuffer().getNumSamples(), maxBlock);
+    EXPECT_EQ (track.getAudioBuffer().getNumSamples(), 0);
+    EXPECT_EQ (track.getUndoBuffer().getNumSamples(), 0);
+    EXPECT_FALSE (track.isPrepared());
 }
 
 TEST (LoopTrackPrepare, FractionalSampleRateRoundsUp)
@@ -109,6 +110,15 @@ TEST (LoopTrackPrepare, ReprepareWithLargerBlockGrowsBuffer)
     int secondSize = track.getAudioBuffer().getNumSamples();
 
     EXPECT_GE (secondSize, firstSize);
+}
+
+TEST (LoopTrackPrepare, PrepareWithInvalidSampleRateDoesNotPrepare)
+{
+    LoopTrack track;
+    track.prepareToPlay (0.0, 10, 512, 2);
+    ASSERT_FALSE (track.isPrepared());
+    track.prepareToPlay (-10.0, 10, 512, 2);
+    ASSERT_FALSE (track.isPrepared());
 }
 
 TEST (LoopTrackPrepare, ReprepareWithSmallerBlockKeepsBufferSize)

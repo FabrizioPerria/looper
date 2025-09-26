@@ -18,10 +18,14 @@ void LoopTrack::prepareToPlay (const double currentSampleRate, const uint maxBlo
 
 void LoopTrack::prepareToPlay (const double currentSampleRate, const uint maxSeconds, const uint maxBlockSize, const uint numChannels)
 {
-    jassert (currentSampleRate > 0);
+    if (currentSampleRate <= 0.0 || maxBlockSize == 0 || numChannels == 0 || maxSeconds == 0)
+    {
+        return;
+    }
     sampleRate = currentSampleRate;
     uint totalSamples = std::max ((uint) currentSampleRate * maxSeconds, 1u); // at least 1 block will be allocated
     uint bufferSamples = ((totalSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
+
     if (bufferSamples > (uint) audioBuffer.getNumSamples())
     {
         audioBuffer.setSize ((int) numChannels, (int) bufferSamples, false, true, true);
@@ -37,10 +41,16 @@ void LoopTrack::prepareToPlay (const double currentSampleRate, const uint maxSec
     clear();
 
     setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
+
+    alreadyPrepared = true;
 }
 
 void LoopTrack::releaseResources()
 {
+    if (! alreadyPrepared)
+    {
+        return;
+    }
     clear();
     audioBuffer.setSize (0, 0, false, false, true);
     undoBuffer.setSize (0, 0, false, false, true);
@@ -50,7 +60,11 @@ void LoopTrack::releaseResources()
 
 void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int numSamples)
 {
-    jassert (input.getNumChannels() == audioBuffer.getNumChannels());
+    if (numSamples <= 0 || input.getNumSamples() < numSamples || ! alreadyPrepared
+        || input.getNumChannels() != audioBuffer.getNumChannels())
+    {
+        return;
+    }
 
     if (! isRecording)
     {
@@ -85,6 +99,10 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
 
 void LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch)
 {
+    if (numSamples <= 0 || ch < 0 || ch >= audioBuffer.getNumChannels())
+    {
+        return;
+    }
     const float* inputPtr = input.getReadPointer (ch);
     int bufferSize = audioBuffer.getNumSamples();
 
@@ -146,7 +164,7 @@ void LoopTrack::updateLoopLength (const int numSamples, const int bufferSamples)
 
 void LoopTrack::finalizeLayer()
 {
-    length = std::max (provisionalLength, length);
+    length = std::max ({ provisionalLength, length, 1 });
     provisionalLength = 0;
     isRecording = false;
 
@@ -194,7 +212,10 @@ void LoopTrack::processPlaybackChannel (juce::AudioBuffer<float>& output, const 
         int block = std::min (samplesLeft, length - currentReadPos);
         if (block <= 0)
         {
-            break;
+            currentReadPos = 0;
+            block = std::min (samplesLeft, length);
+
+            // break;
         }
         juce::FloatVectorOperations::add (outPtr, loopPtr + currentReadPos, block);
         samplesLeft -= block;
@@ -225,6 +246,10 @@ void LoopTrack::clear()
 
 void LoopTrack::undo()
 {
+    if (! isOverdubbing())
+    {
+        return;
+    }
     int numChannels = audioBuffer.getNumChannels();
     int bufferSamples = audioBuffer.getNumSamples();
 

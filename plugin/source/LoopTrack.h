@@ -64,6 +64,11 @@ public:
         return length > 0;
     }
 
+    bool isPrepared() const
+    {
+        return alreadyPrepared;
+    }
+
 private:
     juce::AudioBuffer<float> audioBuffer;
     juce::AudioBuffer<float> undoBuffer;
@@ -79,6 +84,7 @@ private:
     int crossFadeLength = 0;
 
     bool isRecording = false;
+    bool alreadyPrepared = false;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
     void updateLoopLength (const int numSamples, const int bufferSamples);
