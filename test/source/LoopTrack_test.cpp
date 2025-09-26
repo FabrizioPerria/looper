@@ -747,4 +747,36 @@ TEST (LoopTrackUndo, RestoresPreviousState)
     }
 }
 
+TEST (LoopTrackOverdubs, setOverdubGainLimits)
+{
+    LoopTrack track;
+    track.setOverdubGains (0.0, 0.0);
+    EXPECT_FLOAT_EQ (track.getOverdubOldGain(), 0.0);
+    EXPECT_FLOAT_EQ (track.getOverdubNewGain(), 0.0);
+
+    track.setOverdubGains (0.5, 0.5);
+    EXPECT_FLOAT_EQ (track.getOverdubOldGain(), 0.5);
+    EXPECT_FLOAT_EQ (track.getOverdubNewGain(), 0.5);
+
+    track.setOverdubGains (-1.0, 1.5);
+    EXPECT_FLOAT_EQ (track.getOverdubOldGain(), 0.0);
+    EXPECT_FLOAT_EQ (track.getOverdubNewGain(), 1.5);
+
+    track.setOverdubGains (1.0, 2.0);
+    EXPECT_FLOAT_EQ (track.getOverdubOldGain(), 1.0);
+    EXPECT_FLOAT_EQ (track.getOverdubNewGain(), 2.0);
+
+    track.setOverdubGains (2.0, -1.0);
+    EXPECT_FLOAT_EQ (track.getOverdubOldGain(), 2.0);
+    EXPECT_FLOAT_EQ (track.getOverdubNewGain(), 0.0);
+
+    track.setOverdubGains (-5.0, -5.0);
+    EXPECT_FLOAT_EQ (track.getOverdubOldGain(), 0.0);
+    EXPECT_FLOAT_EQ (track.getOverdubNewGain(), 0.0);
+
+    track.setOverdubGains (5.0, 5.0);
+    EXPECT_FLOAT_EQ (track.getOverdubOldGain(), 2.0);
+    EXPECT_FLOAT_EQ (track.getOverdubNewGain(), 2.0);
+}
+
 } // namespace audio_plugin_test

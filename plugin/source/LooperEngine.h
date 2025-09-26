@@ -19,6 +19,8 @@ public:
 
     void processBlock (const juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages);
 
+    void setOverdubGainsForTrack (const int trackIndex, const double oldGain, const double newGain);
+
 private:
     enum class TransportState
     {

@@ -181,3 +181,16 @@ LoopTrack* LooperEngine::getActiveTrack()
     }
     return loopTracks[activeTrackIndex].get();
 }
+
+void LooperEngine::setOverdubGainsForTrack (const int trackIndex, const double oldGain, const double newGain)
+{
+    if (trackIndex < 0 || trackIndex >= numTracks)
+    {
+        return;
+    }
+    auto& track = loopTracks[trackIndex];
+    if (track)
+    {
+        track->setOverdubGains (oldGain, newGain);
+    }
+}

@@ -137,13 +137,10 @@ void LoopTrack::copyInputToLoopBuffer (const int ch, const float* bufPtr, const 
 
     if (isRecording && isOverdubbing())
     {
-        const float overdubGain = 1.0f;    // scale new layer
-        const float overdubOldGain = 1.0f; // scale old layer
-
         juce::FloatVectorOperations::copyWithMultiply (loopPtr + offset, loopPtr + offset, overdubOldGain, numSamples);
 
         auto* tmpPtr = tmpBuffer.getWritePointer (0);
-        juce::FloatVectorOperations::copyWithMultiply (tmpPtr, bufPtr, overdubGain, numSamples);
+        juce::FloatVectorOperations::copyWithMultiply (tmpPtr, bufPtr, overdubNewGain, numSamples);
         juce::FloatVectorOperations::add (loopPtr + offset, tmpPtr, numSamples);
     }
     else if (isRecording)
