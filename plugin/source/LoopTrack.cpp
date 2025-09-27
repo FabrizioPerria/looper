@@ -11,12 +11,11 @@ LoopTrack::~LoopTrack()
 {
 }
 
-void LoopTrack::prepareToPlay (const double currentSampleRate, const uint maxBlockSize, const uint numChannels)
-{
-    prepareToPlay (currentSampleRate, MAX_SECONDS_HARD_LIMIT, maxBlockSize, numChannels);
-}
-
-void LoopTrack::prepareToPlay (const double currentSampleRate, const uint maxSeconds, const uint maxBlockSize, const uint numChannels)
+void LoopTrack::prepareToPlay (const double currentSampleRate,
+                               const uint maxBlockSize,
+                               const uint numChannels,
+                               const uint maxSeconds,
+                               const size_t maxUndoLayers)
 {
     if (currentSampleRate <= 0.0 || maxBlockSize == 0 || numChannels == 0 || maxSeconds == 0)
     {
@@ -31,9 +30,12 @@ void LoopTrack::prepareToPlay (const double currentSampleRate, const uint maxSec
         audioBuffer.setSize ((int) numChannels, (int) bufferSamples, false, true, true);
     }
 
-    if (bufferSamples > (uint) undoBuffer.getNumSamples())
+    undoBuffer.clear();
+    for (int i = 0; i < maxUndoLayers; ++i)
     {
-        undoBuffer.setSize ((int) numChannels, (int) bufferSamples, false, true, true);
+        auto buffer = juce::AudioBuffer<float>();
+        buffer.setSize ((int) numChannels, (int) bufferSamples, false, true, true);
+        undoBuffer.push_back (std::move (buffer));
     }
 
     tmpBuffer.setSize (1, maxBlockSize, false, true, true);
@@ -53,7 +55,11 @@ void LoopTrack::releaseResources()
     }
     clear();
     audioBuffer.setSize (0, 0, false, false, true);
-    undoBuffer.setSize (0, 0, false, false, true);
+    for (auto& buf : undoBuffer)
+    {
+        buf.setSize (0, 0, false, false, true);
+    }
+    undoBuffer.clear();
     tmpBuffer.setSize (0, 0, false, false, true);
     sampleRate = 0.0;
 }
@@ -125,10 +131,15 @@ void LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, con
 
 void LoopTrack::saveToUndoBuffer (const int ch, const int offset, const int numSamples)
 {
-    auto undoPtr = undoBuffer.getWritePointer (ch);
+    auto buffer = std::move (undoBuffer.front());
+    undoBuffer.pop_front();
+
+    auto undoPtr = buffer.getWritePointer (ch);
     const auto loopPtr = audioBuffer.getReadPointer (ch);
 
     juce::FloatVectorOperations::copy (undoPtr + offset, loopPtr + offset, numSamples);
+    undoBuffer.push_back (std::move (buffer));
+    activeUndoLayers = std::min (activeUndoLayers + 1, undoBuffer.size());
 }
 
 void LoopTrack::copyInputToLoopBuffer (const int ch, const float* bufPtr, const int offset, const int numSamples)
@@ -235,28 +246,37 @@ void LoopTrack::advanceReadPos (const int numSamples, const int bufferSamples)
 void LoopTrack::clear()
 {
     audioBuffer.clear();
-    undoBuffer.clear();
+    for (auto& buf : undoBuffer)
+    {
+        buf.clear();
+    }
     tmpBuffer.clear();
     writePos = 0;
     readPos = 0;
     length = 0;
     provisionalLength = 0;
+    activeUndoLayers = 0;
 }
 
 void LoopTrack::undo()
 {
-    if (! isOverdubbing())
+    if (! isOverdubbing() || activeUndoLayers == 0)
     {
         return;
     }
     int numChannels = audioBuffer.getNumChannels();
     int bufferSamples = audioBuffer.getNumSamples();
 
+    auto lastUndo = std::move (undoBuffer.back());
+    undoBuffer.pop_back();
+
     for (int ch = 0; ch < numChannels; ++ch)
     {
         float* loopPtr = audioBuffer.getWritePointer (ch);
-        const float* undoPtr = undoBuffer.getReadPointer (ch);
+        const float* undoPtr = lastUndo.getReadPointer (ch);
         juce::FloatVectorOperations::copy (loopPtr, undoPtr, length);
     }
     finalizeLayer();
+    activeUndoLayers = std::max (activeUndoLayers - 1, (size_t) 0);
+    undoBuffer.push_front (std::move (lastUndo));
 }

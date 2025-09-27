@@ -8,8 +8,11 @@ public:
     LoopTrack();
     ~LoopTrack();
 
-    void prepareToPlay (const double currentSampleRate, const uint maxBlockSize, const uint numChannels);
-    void prepareToPlay (const double currentSampleRate, const uint maxSeconds, const uint maxBlockSize, const uint numChannels);
+    void prepareToPlay (const double currentSampleRate,
+                        const uint maxBlockSize,
+                        const uint numChannels,
+                        const uint maxSeconds = MAX_SECONDS_HARD_LIMIT,
+                        const size_t maxUndoLayers = MAX_UNDO_LAYERS);
     void releaseResources();
 
     void processRecord (const juce::AudioBuffer<float>& input, const int numSamples);
@@ -26,7 +29,7 @@ public:
 
     const juce::AudioBuffer<float>& getUndoBuffer() const
     {
-        return undoBuffer;
+        return undoBuffer.back();
     }
 
     double getSampleRate() const
@@ -87,7 +90,7 @@ public:
 
 private:
     juce::AudioBuffer<float> audioBuffer;
-    juce::AudioBuffer<float> undoBuffer;
+    std::deque<juce::AudioBuffer<float>> undoBuffer;
     juce::AudioBuffer<float> tmpBuffer;
 
     double sampleRate;
@@ -105,6 +108,8 @@ private:
     double overdubNewGain = 1.0;
     double overdubOldGain = 1.0;
 
+    size_t activeUndoLayers = 0;
+
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
     void updateLoopLength (const int numSamples, const int bufferSamples);
     void saveToUndoBuffer (const int ch, const int offset, const int numSamples);
@@ -114,7 +119,8 @@ private:
 
     void processPlaybackChannel (juce::AudioBuffer<float>& output, const int numSamples, const int ch);
 
-    const uint MAX_SECONDS_HARD_LIMIT = 3600; // 1 hour max buffer size
+    static const uint MAX_SECONDS_HARD_LIMIT = 3600; // 1 hour max buffer size
+    static const uint MAX_UNDO_LAYERS = 5;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopTrack)
 };
