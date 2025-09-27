@@ -69,6 +69,22 @@ public:
         return alreadyPrepared;
     }
 
+    void setOverdubGains (const double oldGain, const double newGain)
+    {
+        overdubNewGain = std::clamp (newGain, 0.0, 2.0);
+        overdubOldGain = std::clamp (oldGain, 0.0, 2.0);
+    }
+
+    double getOverdubNewGain() const
+    {
+        return overdubNewGain;
+    }
+
+    double getOverdubOldGain() const
+    {
+        return overdubOldGain;
+    }
+
 private:
     juce::AudioBuffer<float> audioBuffer;
     juce::AudioBuffer<float> undoBuffer;
@@ -85,6 +101,9 @@ private:
 
     bool isRecording = false;
     bool alreadyPrepared = false;
+
+    double overdubNewGain = 1.0;
+    double overdubOldGain = 1.0;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
     void updateLoopLength (const int numSamples, const int bufferSamples);
