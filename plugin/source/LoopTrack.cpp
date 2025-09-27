@@ -199,6 +199,10 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int num
 
 void LoopTrack::processPlaybackChannel (juce::AudioBuffer<float>& output, const int numSamples, const int ch)
 {
+    if (! isOverdubbing() || numSamples <= 0 || ch < 0 || ch >= audioBuffer.getNumChannels())
+    {
+        return;
+    }
     float* outPtr = output.getWritePointer (ch);
     const float* loopPtr = audioBuffer.getReadPointer (ch);
 
@@ -211,8 +215,6 @@ void LoopTrack::processPlaybackChannel (juce::AudioBuffer<float>& output, const 
         {
             currentReadPos = 0;
             block = std::min (samplesLeft, length);
-
-            // break;
         }
         juce::FloatVectorOperations::add (outPtr, loopPtr + currentReadPos, block);
         samplesLeft -= block;

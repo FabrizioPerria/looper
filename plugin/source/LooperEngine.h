@@ -3,6 +3,14 @@
 #include "LoopTrack.h"
 #include <JuceHeader.h>
 
+enum class TransportState
+{
+    Stopped,
+    Recording,
+    Overdubbing,
+    Playing
+};
+
 class LooperEngine
 {
 public:
@@ -16,20 +24,32 @@ public:
     void selectTrack (const int trackIndex);
     void removeTrack (const int trackIndex);
     LoopTrack* getActiveTrack();
+    int getActiveTrackIndex() const
+    {
+        return activeTrackIndex;
+    }
+    int getNumTracks() const
+    {
+        return numTracks;
+    }
 
     void processBlock (const juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages);
 
     void setOverdubGainsForTrack (const int trackIndex, const double oldGain, const double newGain);
 
-private:
-    enum class TransportState
+    TransportState getTransportState() const
     {
-        Stopped,
-        Recording,
-        Overdubbing,
-        Playing
-    };
+        return transportState;
+    }
 
+    void startRecording();
+    void startOverdubbing();
+    void startPlaying();
+    void stop();
+    void undo();
+    void clear();
+
+private:
     struct MidiKey
     {
         int noteNumber;
@@ -65,13 +85,6 @@ private:
     {
         return transportState == TransportState::Stopped;
     }
-
-    void startRecording();
-    void startOverdubbing();
-    void startPlaying();
-    void stop();
-    void undo();
-    void clear();
 
     std::unordered_map<MidiKey, std::function<void (LooperEngine&)>, MidiKeyHash> midiCommandMap;
     void setupMidiCommands();
