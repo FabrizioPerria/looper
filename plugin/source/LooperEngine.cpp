@@ -58,11 +58,6 @@ void LooperEngine::startRecording()
     transportState = TransportState::Recording;
 }
 
-void LooperEngine::startOverdubbing()
-{
-    transportState = TransportState::Overdubbing;
-}
-
 void LooperEngine::startPlaying()
 {
     transportState = TransportState::Playing;
@@ -121,7 +116,17 @@ void LooperEngine::setupMidiCommands()
     const bool NOTE_ON = true;
     const bool NOTE_OFF = false;
     midiCommandMap[{ 60, NOTE_ON }] = [] (LooperEngine& engine) { engine.startRecording(); };
-    midiCommandMap[{ 60, NOTE_OFF }] = [] (LooperEngine& engine) { engine.stop(); };
+    midiCommandMap[{ 61, NOTE_ON }] = [] (LooperEngine& engine)
+    {
+        if (engine.getTransportState() == TransportState::Stopped)
+        {
+            engine.startPlaying();
+        }
+        else
+        {
+            engine.stop();
+        }
+    };
     midiCommandMap[{ 72, NOTE_ON }] = [] (LooperEngine& engine) { engine.undo(); };
     midiCommandMap[{ 84, NOTE_OFF }] = [] (LooperEngine& engine) { engine.clear(); };
 }
@@ -156,7 +161,6 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     switch (transportState)
     {
         case TransportState::Recording:
-        case TransportState::Overdubbing:
             activeTrack->processRecord (buffer, buffer.getNumSamples());
         case TransportState::Playing:
             activeTrack->processPlayback (const_cast<juce::AudioBuffer<float>&> (buffer), buffer.getNumSamples());

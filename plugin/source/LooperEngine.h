@@ -7,7 +7,6 @@ enum class TransportState
 {
     Stopped,
     Recording,
-    Overdubbing,
     Playing
 };
 
@@ -43,7 +42,6 @@ public:
     }
 
     void startRecording();
-    void startOverdubbing();
     void startPlaying();
     void stop();
     void undo();
@@ -72,10 +70,6 @@ private:
     bool isRecording() const
     {
         return transportState == TransportState::Recording;
-    }
-    bool isOverdubbing() const
-    {
-        return transportState == TransportState::Overdubbing;
     }
     bool isPlaying() const
     {
