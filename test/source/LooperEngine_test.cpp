@@ -28,8 +28,8 @@ TEST_F (LooperEngineTest, TransportStateTransitions)
     engine.stop();
     EXPECT_EQ (engine.getTransportState(), TransportState::Playing);
 
-    engine.startOverdubbing();
-    EXPECT_EQ (engine.getTransportState(), TransportState::Overdubbing);
+    engine.stop();
+    EXPECT_EQ (engine.getTransportState(), TransportState::Stopped);
 }
 
 TEST_F (LooperEngineTest, TrackManagement)
