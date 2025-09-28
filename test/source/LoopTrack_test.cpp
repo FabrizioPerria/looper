@@ -184,7 +184,7 @@ TEST (LoopTrackPrepare, UndoBufferMatchesMainBuffer)
     EXPECT_EQ (track.getUndoBuffer().getNumSamples(), track.getAudioBuffer().getNumSamples());
 }
 
-juce::AudioBuffer<float> createSineTestBuffer (int numChannels, int numSamples, double sr, float frequency)
+juce::AudioBuffer<float> createSquareTestBuffer (int numChannels, int numSamples, double sr, float frequency)
 {
     juce::AudioBuffer<float> buffer (numChannels, numSamples);
     for (int ch = 0; ch < numChannels; ++ch)
@@ -192,7 +192,7 @@ juce::AudioBuffer<float> createSineTestBuffer (int numChannels, int numSamples, 
         auto* writePtr = buffer.getWritePointer (ch);
         for (int i = 0; i < numSamples; ++i)
         {
-            writePtr[i] = std::sin (2.0 * M_PI * frequency * i / sr);
+            writePtr[i] = (std::fmod ((i / sr) * frequency, 1.0) < 0.5) ? 1.0f : -1.0f;
         }
     }
     return buffer;
@@ -209,7 +209,7 @@ TEST (LoopTrackRecord, ProcessFullBlockCopiesInput)
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
     const int numSamples = 4;
-    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr, 440.0f);
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     auto* readPtr = input.getReadPointer (0);
 
     track.processRecord (input, numSamples);
@@ -251,7 +251,7 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInput)
 
     const int bufferSamples = track.getAudioBuffer().getNumSamples();
     const int numSamples = 9; // less than block size
-    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr, 440.0f);
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     auto* readPtr = input.getReadPointer (0);
 
     track.processRecord (input, numSamples);
@@ -295,7 +295,7 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputOverMaxBufferSize)
     const int leaveSamples = 10; // leave some space at end of buffer
     const int numSamples = bufferSamples - leaveSamples;
 
-    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr, 440.0f);
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     auto* readPtr = input.getReadPointer (0);
 
     track.processRecord (input, numSamples);
@@ -308,7 +308,7 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputOverMaxBufferSize)
     }
 
     // process another partial block that will wrap around
-    juce::AudioBuffer<float> input2 = createSineTestBuffer (numChannels, numSamples, sr, 440.0f);
+    juce::AudioBuffer<float> input2 = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     auto* readPtr2 = input2.getReadPointer (0);
 
     track.processRecord (input2, numSamples);
@@ -345,7 +345,7 @@ TEST (LoopTrackRecord, ProcessMultipleChannels)
     track.setCrossFadeLength (0);
 
     const int numSamples = 12;
-    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr, 440.0f);
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     auto* readPtrCh0 = input.getReadPointer (0);
     auto* readPtrCh1 = input.getReadPointer (1);
     auto* readPtrCh2 = input.getReadPointer (2);
@@ -406,13 +406,13 @@ TEST (LoopTrackRecord, OffsetOverdub)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
-    juce::AudioBuffer<float> input1 = createSineTestBuffer (numChannels, sr * maxSeconds, sr, 440.0f);
+    juce::AudioBuffer<float> input1 = createSquareTestBuffer (numChannels, sr * maxSeconds, sr, 440.0f);
     track.processRecord (input1, sr * maxSeconds);
     track.finalizeLayer();
 
     const int numSamples = 2;
     track.processPlayback (input1, maxBlock); // advance readPosition position by one block
-    juce::AudioBuffer<float> input2 = createSineTestBuffer (numChannels, numSamples, sr, 880.0f);
+    juce::AudioBuffer<float> input2 = createSquareTestBuffer (numChannels, numSamples, sr, 880.0f);
     track.processRecord (input2, numSamples); // overdub at offset
     track.finalizeLayer();
 
@@ -456,7 +456,7 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
 
     // Create initial loop - 1 second of 440Hz sine
     const int loopLength = 4410; // 0.1 seconds
-    juce::AudioBuffer<float> initialLoop = createSineTestBuffer (numChannels, loopLength, sr, 440.0f);
+    juce::AudioBuffer<float> initialLoop = createSquareTestBuffer (numChannels, loopLength, sr, 440.0f);
     track.processRecord (initialLoop, loopLength);
     track.finalizeLayer();
 
@@ -484,7 +484,7 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
     // Verify:
     // First third should match original
     // Create overdub material - 880Hz sine (one octave higher)
-    juce::AudioBuffer<float> overdubMaterial = createSineTestBuffer (numChannels, loopLength, sr, 880.0f);
+    juce::AudioBuffer<float> overdubMaterial = createSquareTestBuffer (numChannels, loopLength, sr, 880.0f);
 
     // Do intermittent overdubs:
     // Overdub in the middle third of the loop
@@ -533,7 +533,7 @@ TEST (LoopTrackPlayback, ProcessFullBlockCopiesToOutput)
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
     const int numSamples = 4;
-    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr, 440.0f);
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     track.processRecord (input, numSamples);
     track.finalizeLayer();
 
@@ -563,7 +563,7 @@ TEST (LoopTrackPlayback, ProcessPartialBlockCopiesToOutput)
 
     const int bufferSamples = track.getAudioBuffer().getNumSamples();
     const int numSamples = 9; // less than block size
-    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr, 440.0f);
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     track.processRecord (input, numSamples);
     track.finalizeLayer();
 
@@ -595,7 +595,7 @@ TEST (LoopTrackPlayback, ProcessPartialBlockCopiesToOutputWrapAround)
     const int leaveSamples = 10; // leave some space at end of buffer
     const int numSamples = bufferSamples - leaveSamples;
 
-    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr, 440.0f);
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     track.processRecord (input, numSamples);
     track.finalizeLayer();
 
@@ -638,7 +638,7 @@ TEST (LoopTrackPlayback, ProcessMultipleChannels)
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
     const int numSamples = 12;
-    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr, 440.0f);
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     track.processRecord (input, numSamples);
     track.finalizeLayer();
 
@@ -697,7 +697,7 @@ TEST (LoopTrackPlayback, ProcessPlaybackManySmallBlocksWrapAround)
     const int leaveSamples = 10; // leave some space at end of buffer
     const int numSamples = bufferSamples - leaveSamples;
 
-    juce::AudioBuffer<float> input = createSineTestBuffer (numChannels, numSamples, sr, 440.0f);
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     track.processRecord (input, numSamples);
     track.finalizeLayer();
 
@@ -734,7 +734,7 @@ TEST (LoopTrackClear, ClearsBuffersAndResetsState)
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
     const int numSamples = 10;
-    juce::AudioBuffer<float> input = createSineTestBuffer (2, numSamples, 441.0, 440.0f);
+    juce::AudioBuffer<float> input = createSquareTestBuffer (2, numSamples, 441.0, 440.0f);
     track.processRecord (input, numSamples);
     track.finalizeLayer();
 
@@ -778,7 +778,7 @@ TEST (LoopTrackUndo, RestoresPreviousState)
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
     const int numSamples = 10;
-    juce::AudioBuffer<float> input = createSineTestBuffer (1, numSamples, 441.0, 440.0f);
+    juce::AudioBuffer<float> input = createSquareTestBuffer (1, numSamples, 441.0, 440.0f);
     track.processRecord (input, numSamples);
     track.finalizeLayer();
 
@@ -786,7 +786,7 @@ TEST (LoopTrackUndo, RestoresPreviousState)
     auto* loopPtrBefore = loopBufferBefore.getReadPointer (0);
 
     // Modify the loop buffer again
-    juce::AudioBuffer<float> input2 = createSineTestBuffer (1, numSamples, 441.0, 880.0f);
+    juce::AudioBuffer<float> input2 = createSquareTestBuffer (1, numSamples, 441.0, 880.0f);
     track.processRecord (input2, numSamples);
     track.finalizeLayer();
 
@@ -837,56 +837,236 @@ TEST (LoopTrackOverdubs, setOverdubGainLimits)
 TEST (LoopTrackUndo, MultilayerUndo)
 {
     LoopTrack track;
-    const double sr = 441.0;
+    const double sr = 100.0;
     const int maxSeconds = 10;
-    const int maxBlock = 12;
-    const int numChannels = 2;
+    const int maxBlock = 20;
+    const int numChannels = 1;
     const int undoLayers = 3;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
 
-    const int numSamples = 10;
-    juce::AudioBuffer<float> mainLoopSine = createSineTestBuffer (1, numSamples, 441.0, 440.0f);
-    track.processRecord (mainLoopSine, numSamples);
+    juce::AudioBuffer<float> mainLoopSine = createSquareTestBuffer (numChannels, maxBlock, sr, 5.0f);
+
+    juce::AudioBuffer<float> mainLoopCopy (numChannels, maxBlock);
+    mainLoopCopy.clear();
+    mainLoopCopy.copyFrom (0, 0, mainLoopSine, 0, 0, maxBlock);
+    auto* mainLoopCopyPtr = mainLoopCopy.getReadPointer (0);
+
+    auto* scope = mainLoopSine.getReadPointer (0);
+    std::cout << "MAIN(5hz): " << std::endl;
+    for (auto i = 0; i < maxBlock; ++i)
+    {
+        std::cout << scope[i] << " ";
+    }
+    std::cout << std::endl;
+
+    track.processRecord (mainLoopSine, maxBlock);
     track.finalizeLayer();
 
-    const auto& mainLoop = track.getAudioBuffer();
-    auto* mainLoopPtr = mainLoop.getReadPointer (0);
+    const auto& audioBuffer = track.getAudioBuffer();
+    auto* audioBufferPtr = audioBuffer.getReadPointer (0);
 
-    juce::AudioBuffer<float> firstOverdubSine = createSineTestBuffer (1, numSamples, 441.0, 880.0f);
-    track.processRecord (firstOverdubSine, numSamples);
+    juce::AudioBuffer<float> firstOverdubSine = createSquareTestBuffer (numChannels, maxBlock, sr, 10.0f);
+    auto* firstOverdubPtr = firstOverdubSine.getReadPointer (0);
+    std::cout << "FIRST(10hz): " << std::endl;
+    for (auto i = 0; i < maxBlock; ++i)
+    {
+        std::cout << firstOverdubPtr[i] << " ";
+    }
+    std::cout << std::endl;
+    track.processRecord (firstOverdubSine, maxBlock);
     track.finalizeLayer();
 
-    const auto& firstOverdub = track.getAudioBuffer();
-    auto* firstOverdubPtr = firstOverdub.getReadPointer (0);
-
-    juce::AudioBuffer<float> secondOverdubSine = createSineTestBuffer (1, numSamples, 441.0, 1760.0f);
-    track.processRecord (secondOverdubSine, numSamples);
+    juce::AudioBuffer<float> secondOverdubSine = createSquareTestBuffer (numChannels, maxBlock, sr, 2.5f);
+    auto* secondOverdubPtr = secondOverdubSine.getReadPointer (0);
+    std::cout << "SECOND(2.5hz): " << std::endl;
+    for (auto i = 0; i < maxBlock; ++i)
+    {
+        std::cout << secondOverdubPtr[i] << " ";
+    }
+    std::cout << std::endl;
+    track.processRecord (secondOverdubSine, maxBlock);
     track.finalizeLayer();
+
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
+    }
+
+    juce::AudioBuffer<float> thirdOverdubSine = createSquareTestBuffer (numChannels, maxBlock, sr, 25.0f);
+    auto* thirdOverdubPtr = thirdOverdubSine.getReadPointer (0);
+    std::cout << "THIRD(25hz): " << std::endl;
+    for (auto i = 0; i < maxBlock; ++i)
+    {
+        std::cout << scope[i] << " ";
+    }
+    std::cout << std::endl;
+    track.processRecord (thirdOverdubSine, maxBlock);
+    track.finalizeLayer();
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i] + thirdOverdubPtr[i]);
+    }
 
     track.undo();
-    const auto& firstUndo = track.getAudioBuffer();
-    auto* firstUndoPtr = firstUndo.getReadPointer (0);
 
-    for (int i = 0; i < numSamples; ++i)
+    for (int i = 0; i < maxBlock; ++i)
     {
-        EXPECT_FLOAT_EQ (firstUndoPtr[i], firstOverdubPtr[i]);
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
     }
 
     track.undo();
     const auto& secondUndo = track.getAudioBuffer();
     auto* secondUndoPtr = secondUndo.getReadPointer (0);
 
-    for (int i = 0; i < numSamples; ++i)
+    for (int i = 0; i < maxBlock; ++i)
     {
-        EXPECT_FLOAT_EQ (secondUndoPtr[i], mainLoopPtr[i]);
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
     }
 
     track.undo();
-    const auto& loopBufferAfterUndo3 = track.getAudioBuffer();
-    auto* loopPtrAfterUndo3 = loopBufferAfterUndo3.getReadPointer (0);
-    for (int i = 0; i < numSamples; ++i)
+    for (int i = 0; i < maxBlock; ++i)
     {
-        EXPECT_FLOAT_EQ (loopPtrAfterUndo3[i], mainLoopPtr[i]);
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
+    }
+
+    // Further undo should have no effect
+    track.undo();
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
+    }
+
+    track.processRecord (thirdOverdubSine, maxBlock);
+    track.finalizeLayer();
+    auto* thirdOverdubSinePtr = thirdOverdubSine.getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + thirdOverdubSinePtr[i]);
+    }
+
+    track.undo();
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
+    }
+}
+
+TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
+{
+    LoopTrack track;
+    const double sr = 100.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 20;
+    const int numChannels = 1;
+    const int undoLayers = 2;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+
+    juce::AudioBuffer<float> mainLoopSine = createSquareTestBuffer (numChannels, maxBlock, sr, 5.0f);
+
+    juce::AudioBuffer<float> mainLoopCopy (numChannels, maxBlock);
+    mainLoopCopy.clear();
+    mainLoopCopy.copyFrom (0, 0, mainLoopSine, 0, 0, maxBlock);
+    auto* mainLoopCopyPtr = mainLoopCopy.getReadPointer (0);
+
+    auto* scope = mainLoopSine.getReadPointer (0);
+    std::cout << "MAIN(5hz): " << std::endl;
+    for (auto i = 0; i < maxBlock; ++i)
+    {
+        std::cout << scope[i] << " ";
+    }
+    std::cout << std::endl;
+
+    track.processRecord (mainLoopSine, maxBlock);
+    track.finalizeLayer();
+
+    const auto& audioBuffer = track.getAudioBuffer();
+    auto* audioBufferPtr = audioBuffer.getReadPointer (0);
+
+    juce::AudioBuffer<float> firstOverdubSine = createSquareTestBuffer (numChannels, maxBlock, sr, 10.0f);
+    auto* firstOverdubPtr = firstOverdubSine.getReadPointer (0);
+    std::cout << "FIRST(10hz): " << std::endl;
+    for (auto i = 0; i < maxBlock; ++i)
+    {
+        std::cout << firstOverdubPtr[i] << " ";
+    }
+    std::cout << std::endl;
+    track.processRecord (firstOverdubSine, maxBlock);
+    track.finalizeLayer();
+
+    juce::AudioBuffer<float> secondOverdubSine = createSquareTestBuffer (numChannels, maxBlock, sr, 2.5f);
+    auto* secondOverdubPtr = secondOverdubSine.getReadPointer (0);
+    std::cout << "SECOND(2.5hz): " << std::endl;
+    for (auto i = 0; i < maxBlock; ++i)
+    {
+        std::cout << secondOverdubPtr[i] << " ";
+    }
+    std::cout << std::endl;
+    track.processRecord (secondOverdubSine, maxBlock);
+    track.finalizeLayer();
+
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
+    }
+
+    juce::AudioBuffer<float> thirdOverdubSine = createSquareTestBuffer (numChannels, maxBlock, sr, 25.0f);
+    auto* thirdOverdubPtr = thirdOverdubSine.getReadPointer (0);
+    std::cout << "THIRD(25hz): " << std::endl;
+    for (auto i = 0; i < maxBlock; ++i)
+    {
+        std::cout << scope[i] << " ";
+    }
+    std::cout << std::endl;
+    track.processRecord (thirdOverdubSine, maxBlock);
+    track.finalizeLayer();
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i] + thirdOverdubPtr[i]);
+    }
+
+    track.undo();
+
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
+    }
+
+    track.undo();
+    const auto& secondUndo = track.getAudioBuffer();
+    auto* secondUndoPtr = secondUndo.getReadPointer (0);
+
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
+    }
+
+    track.undo();
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
+    }
+
+    // Further undo should have no effect
+    track.undo();
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
+    }
+
+    track.processRecord (thirdOverdubSine, maxBlock);
+    track.finalizeLayer();
+    auto* thirdOverdubSinePtr = thirdOverdubSine.getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + thirdOverdubSinePtr[i]);
+    }
+
+    track.undo();
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
     }
 }
 } // namespace audio_plugin_test

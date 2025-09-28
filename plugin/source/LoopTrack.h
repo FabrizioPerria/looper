@@ -62,11 +62,6 @@ public:
         crossFadeLength = newLength;
     }
 
-    bool isOverdubbing() const
-    {
-        return length > 0;
-    }
-
     bool isPrepared() const
     {
         return alreadyPrepared;
@@ -109,10 +104,11 @@ private:
     double overdubOldGain = 1.0;
 
     size_t activeUndoLayers = 0;
+    size_t undoIndex = 0;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
     void updateLoopLength (const int numSamples, const int bufferSamples);
-    void saveToUndoBuffer (const int ch, const int offset, const int numSamples);
+    void saveToUndoBuffer (const int numSamples);
     void copyInputToLoopBuffer (const int ch, const float* bufPtr, const int offset, const int numSamples);
     void advanceWritePos (const int numSamples, const int bufferSamples);
     void advanceReadPos (const int numSamples, const int bufferSamples);
