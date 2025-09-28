@@ -269,8 +269,7 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInput)
     track.finalizeLayer();
     loopPtr = loopBuffer.getReadPointer (0);
 
-    // Check samples written before wrap
-    for (int i = 0; i < 100; ++i)
+    for (int i = 0; i < numSamples; ++i)
     {
         EXPECT_FLOAT_EQ (loopPtr[numSamples + i], readPtr2[i]);
     }
@@ -470,8 +469,7 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
         auto* ptr2 = buf2.getReadPointer (0, start);
         for (int i = 0; i < length; ++i)
         {
-            if (ptr1[i] != ptr2[i])
-                return false;
+            if (ptr1[i] != ptr2[i]) return false;
         }
         return true;
     };

@@ -104,16 +104,26 @@ private:
     double overdubOldGain = 1.0;
 
     size_t activeUndoLayers = 0;
-    size_t undoIndex = 0;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
     void updateLoopLength (const int numSamples, const int bufferSamples);
-    void saveToUndoBuffer (const int numSamples);
+    void saveToUndoBuffer();
     void copyInputToLoopBuffer (const int ch, const float* bufPtr, const int offset, const int numSamples);
     void advanceWritePos (const int numSamples, const int bufferSamples);
     void advanceReadPos (const int numSamples, const int bufferSamples);
 
     void processPlaybackChannel (juce::AudioBuffer<float>& output, const int numSamples, const int ch);
+
+    bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float> input, const int numSamples) const
+    {
+        return numSamples <= 0 || input.getNumSamples() < numSamples || ! alreadyPrepared
+               || input.getNumChannels() != audioBuffer.getNumChannels();
+    }
+
+    bool isOverdubbing() const
+    {
+        return isRecording && length > 0;
+    }
 
     static const uint MAX_SECONDS_HARD_LIMIT = 3600; // 1 hour max buffer size
     static const uint MAX_UNDO_LAYERS = 5;
