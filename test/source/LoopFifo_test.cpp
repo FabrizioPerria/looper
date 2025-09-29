@@ -7,7 +7,8 @@ protected:
     void SetUp() override
     {
         // Create a loop FIFO with size 1000 for most tests
-        fifo = std::make_unique<LoopFifo> (1000);
+        fifo = std::make_unique<LoopFifo>();
+        fifo->prepareToPlay (1000);
     }
 
     std::unique_ptr<LoopFifo> fifo;
@@ -15,7 +16,8 @@ protected:
 
 TEST_F (LoopFifoTest, Constructor)
 {
-    LoopFifo f (1000);
+    LoopFifo f;
+    f.prepareToPlay (1000);
     EXPECT_EQ (f.getMusicalLength(), 1000);
     EXPECT_EQ (f.getReadPos(), 0);
     EXPECT_EQ (f.getWritePos(), 0);

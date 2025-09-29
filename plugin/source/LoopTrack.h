@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LoopFifo.h"
+#include "UndoBuffer.h"
 #include <JuceHeader.h>
 
 class LoopTrack
@@ -28,25 +29,15 @@ public:
         return audioBuffer;
     }
 
-    const juce::AudioBuffer<float>& getUndoBuffer() const
-    {
-        return undoBuffer.back();
-    }
+    // const juce::AudioBuffer<float>& getUndoBuffer() const
+    // {
+    //     return undoBuffer.back();
+    // }
 
     double getSampleRate() const
     {
         return sampleRate;
     }
-
-    // int getWritePos() const
-    // {
-    //     return writePos;
-    // }
-    //
-    // void setWritePos (const uint newPos)
-    // {
-    //     writePos = newPos;
-    // }
 
     int getLength() const
     {
@@ -84,9 +75,14 @@ public:
         return overdubOldGain;
     }
 
+    const UndoBuffer& getUndoBuffer() const
+    {
+        return undoBuffer;
+    }
+
 private:
     juce::AudioBuffer<float> audioBuffer;
-    std::deque<juce::AudioBuffer<float>> undoBuffer;
+    UndoBuffer undoBuffer;
     juce::AudioBuffer<float> tmpBuffer;
 
     double sampleRate;
@@ -106,8 +102,6 @@ private:
     double overdubNewGain = 1.0;
     double overdubOldGain = 1.0;
 
-    uint activeUndoLayers = 0;
-
     void processRecordChannel (const juce::AudioBuffer<float>& input, const uint numSamples, const uint ch);
     void updateLoopLength (const uint numSamples, const uint bufferSamples);
     void saveToUndoBuffer();
@@ -123,9 +117,9 @@ private:
                || input.getNumChannels() != audioBuffer.getNumChannels();
     }
 
-    bool shouldNotPlayback (const uint numSamples, const uint ch) const
+    bool shouldNotPlayback (const uint numSamples) const
     {
-        return ! isPrepared() || length == 0 || numSamples == 0 || ch >= (uint) audioBuffer.getNumChannels();
+        return ! isPrepared() || length == 0 || numSamples == 0;
     }
 
     bool shouldOverdub() const

@@ -19,11 +19,13 @@ TEST (LoopTrackPrepare, PreallocatesCorrectSize)
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
     EXPECT_TRUE (track.isPrepared());
+    EXPECT_DOUBLE_EQ (track.getSampleRate(), sr);
     EXPECT_EQ (track.getAudioBuffer().getNumChannels(), numChannels);
     EXPECT_EQ (track.getAudioBuffer().getNumSamples(), bufferSamples);
 
-    EXPECT_EQ (track.getUndoBuffer().getNumChannels(), numChannels);
     EXPECT_EQ (track.getUndoBuffer().getNumSamples(), bufferSamples);
+    EXPECT_EQ (track.getUndoBuffer().getNumChannels(), numChannels);
+    EXPECT_EQ (track.getUndoBuffer().getNumLayers(), (size_t) undoLayers);
 }
 
 TEST (LoopTrackPrepare, BuffersClearedToZero)
@@ -46,10 +48,11 @@ TEST (LoopTrackPrepare, BuffersClearedToZero)
         }
     }
 
-    const auto undoBuffer = track.getUndoBuffer();
+    const auto& undoBuffer = track.getUndoBuffer();
     for (int ch = 0; ch < undoBuffer.getNumChannels(); ++ch)
     {
-        auto* ptr = undoBuffer.getReadPointer (ch);
+        auto undoBufferContents = undoBuffer.getBuffers()[0];
+        auto* ptr = undoBufferContents.getReadPointer (ch);
         for (int i = 0; i < undoBuffer.getNumSamples(); ++i)
         {
             EXPECT_FLOAT_EQ (ptr[i], 0.0f);
@@ -742,10 +745,11 @@ TEST (LoopTrackClear, ClearsBuffersAndResetsState)
         }
     }
 
-    const auto undoBuffer = track.getUndoBuffer();
+    const auto& undoBuffer = track.getUndoBuffer();
     for (int ch = 0; ch < undoBuffer.getNumChannels(); ++ch)
     {
-        auto* ptr = undoBuffer.getReadPointer (ch);
+        auto undoBufferContents = undoBuffer.getBuffers()[0];
+        auto* ptr = undoBufferContents.getReadPointer (ch);
         for (int i = 0; i < undoBuffer.getNumSamples(); ++i)
         {
             EXPECT_FLOAT_EQ (ptr[i], 0.0f);

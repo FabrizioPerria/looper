@@ -4,10 +4,17 @@
 class LoopFifo
 {
 public:
-    LoopFifo() = default;
-
-    LoopFifo (int totalSize) : bufferSize (totalSize), musicalLength (totalSize), writePos (0), readPos (0)
+    void prepareToPlay (int totalSize)
     {
+        bufferSize = totalSize;
+        musicalLength = totalSize;
+        writePos = 0;
+        readPos = 0;
+    }
+
+    void clear()
+    {
+        prepareToPlay (0);
     }
 
     void setMusicalLength (int length)
