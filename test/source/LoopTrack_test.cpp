@@ -60,7 +60,6 @@ TEST (LoopTrackPrepare, BuffersClearedToZero)
 TEST (LoopTrackPrepare, StateReset)
 {
     LoopTrack track;
-    track.setWritePos (1000);
     track.setLength (5000);
 
     const double sr = 44100.0;
@@ -70,7 +69,6 @@ TEST (LoopTrackPrepare, StateReset)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
-    EXPECT_EQ (track.getWritePos(), 0);
     EXPECT_EQ (track.getLength(), 0);
 }
 
@@ -221,7 +219,6 @@ TEST (LoopTrackRecord, ProcessFullBlockCopiesInput)
         EXPECT_FLOAT_EQ (loopPtr[i], readPtr[i]);
     }
 
-    EXPECT_EQ (track.getWritePos(), numSamples);
     EXPECT_EQ (track.getLength(), 0);
 
     // process another block and check it appends correctly
@@ -233,7 +230,6 @@ TEST (LoopTrackRecord, ProcessFullBlockCopiesInput)
         EXPECT_FLOAT_EQ (loopPtr[i + numSamples], readPtr[i]);
     }
 
-    EXPECT_EQ (track.getWritePos(), numSamples * 2);
     EXPECT_EQ (track.getLength(), numSamples * 2);
 }
 
@@ -274,7 +270,6 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInput)
         EXPECT_FLOAT_EQ (loopPtr[numSamples + i], readPtr2[i]);
     }
 
-    EXPECT_EQ (track.getWritePos(), numSamples * 2);
     EXPECT_EQ (track.getLength(), numSamples * 2);
 }
 
@@ -328,7 +323,6 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputOverMaxBufferSize)
         EXPECT_FLOAT_EQ (loopPtr[i], readPtr[i]);
     }
 
-    EXPECT_EQ (track.getWritePos(), 0);
     EXPECT_EQ (track.getLength(), bufferSamples);
 }
 
@@ -363,7 +357,6 @@ TEST (LoopTrackRecord, ProcessMultipleChannels)
         EXPECT_FLOAT_EQ (loopPtrCh2[i], readPtrCh2[i]);
     }
 
-    EXPECT_EQ (track.getWritePos(), numSamples);
     EXPECT_EQ (track.getLength(), numSamples);
 }
 
@@ -391,7 +384,6 @@ TEST (LoopTrackRecord, ZeroLengthInputDoesNothing)
         }
     }
 
-    EXPECT_EQ (track.getWritePos(), 0);
     EXPECT_EQ (track.getLength(), 0);
 }
 
@@ -737,7 +729,6 @@ TEST (LoopTrackClear, ClearsBuffersAndResetsState)
     track.finalizeLayer();
 
     EXPECT_GT (track.getLength(), 0);
-    EXPECT_GT (track.getWritePos(), 0);
 
     track.clear();
 
@@ -761,7 +752,6 @@ TEST (LoopTrackClear, ClearsBuffersAndResetsState)
         }
     }
 
-    EXPECT_EQ (track.getWritePos(), 0);
     EXPECT_EQ (track.getLength(), 0);
 }
 

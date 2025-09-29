@@ -67,6 +67,8 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
         allocateBuffer (audioBuffer, numChannels, bufferSamples);
     }
 
+    fifo = LoopFifo ((int) bufferSamples);
+
     undoBuffer.clear();
     undoBuffer.resize (maxUndoLayers);
     for (auto& buf : undoBuffer)
@@ -112,48 +114,22 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
         saveToUndoBuffer();
     }
 
-    const uint bufferSamples = (uint) audioBuffer.getNumSamples();
-    const uint samplesCanRecord = std::min (numSamples, bufferSamples - provisionalLength);
+    int start1, size1, start2, size2;
+    fifo.prepareToWrite ((int) numSamples, start1, size1, start2, size2);
 
-    for (uint ch = 0; ch < (uint) audioBuffer.getNumChannels(); ++ch)
-        processRecordChannel (input, samplesCanRecord, ch);
-
-    if (! shouldOverdub()) updateLoopLength (samplesCanRecord, bufferSamples);
-
-    advanceWritePos (samplesCanRecord, bufferSamples);
-
-    bool isBufferFull = samplesCanRecord < numSamples;
-    if (isBufferFull)
+    for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
     {
-        finalizeLayer();
+        if (size1 > 0) copyInputToLoopBuffer ((uint) ch, input.getReadPointer (ch), (uint) start1, (uint) size1);
+        if (size2 > 0 && shouldOverdub())
+        {
+            copyInputToLoopBuffer ((uint) ch, input.getReadPointer (ch) + size1, (uint) start2, (uint) size2);
+        }
     }
-}
 
-void LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, const uint numSamples, const uint ch)
-{
-    if (numSamples == 0 || ch >= (uint) audioBuffer.getNumChannels()) return;
+    int actualWritten = size1 + size2;
+    fifo.finishedWrite (actualWritten, shouldOverdub());
 
-    const float* inputPtr = input.getReadPointer ((int) ch);
-    uint bufferSize = (uint) audioBuffer.getNumSamples();
-
-    uint currentWritePos = writePos;
-    uint samplesLeft = numSamples;
-
-    // when loop exists, wrap the target write region to the musical length
-    const uint wrapSize = (shouldOverdub() ? length : bufferSize);
-
-    while (samplesLeft > 0)
-    {
-        uint wrappedPosition = currentWritePos % wrapSize;
-        int block = (int) std::min (samplesLeft, wrapSize - wrappedPosition);
-        if (block <= 0) break;
-
-        copyInputToLoopBuffer (ch, inputPtr, wrappedPosition, block);
-
-        inputPtr += block;
-        samplesLeft -= block;
-        currentWritePos = (currentWritePos + block) % bufferSize;
-    }
+    updateLoopLength ((uint) actualWritten, (uint) audioBuffer.getNumSamples());
 }
 
 void LoopTrack::saveToUndoBuffer()
@@ -169,10 +145,7 @@ void LoopTrack::saveToUndoBuffer()
     }
 
     undoBuffer.push_front (std::move (buf));
-
     activeUndoLayers = std::min (activeUndoLayers + 1, (uint) undoBuffer.size());
-
-    //printBuffer (undoBuffer, 0, length, "UNDO");
 }
 
 void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples)
@@ -181,22 +154,15 @@ void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const
 
     if (isRecording && length > 0)
     {
-        //printBuffer (audioBuffer, ch, length, "LOOP BEFORE ADD/SCALE");
         for (uint i = 0; i < numSamples; ++i)
         {
             loopPtr[i + offset] = loopPtr[i + offset] * overdubOldGain + bufPtr[i] * overdubNewGain;
         }
-        //printBuffer (audioBuffer, ch, length, "LOOP AFTER SCALE");
     }
     else if (isRecording)
     {
         juce::FloatVectorOperations::copy (loopPtr + offset, bufPtr, (int) numSamples);
     }
-}
-
-void LoopTrack::advanceWritePos (const uint numSamples, const uint bufferSamples)
-{
-    writePos = (writePos + numSamples) % bufferSamples;
 }
 
 void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSamples)
@@ -206,7 +172,12 @@ void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSample
 
 void LoopTrack::finalizeLayer()
 {
-    length = std::max ({ provisionalLength, length, 1u });
+    const int currentLength = std::max ({ length, provisionalLength, 1u });
+    if (length == 0)
+    {
+        fifo.setMusicalLength ((int) currentLength);
+        length = currentLength;
+    }
     provisionalLength = 0;
     isRecording = false;
 
@@ -226,50 +197,25 @@ void LoopTrack::finalizeLayer()
         audioBuffer.applyGainRamp (0, fadeSamples, 0.0f, overallGain);                    // fade in
         audioBuffer.applyGainRamp (length - fadeSamples, fadeSamples, overallGain, 0.0f); // fade out
     }
-
-    //printBuffer (audioBuffer, 0, length, "FINALIZED LOOP");
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint numSamples)
 {
     jassert (output.getNumChannels() == audioBuffer.getNumChannels());
-    int numChannels = audioBuffer.getNumChannels();
 
-    for (int ch = 0; ch < numChannels; ++ch)
+    int start1, size1, start2, size2;
+    fifo.prepareToRead ((int) numSamples, start1, size1, start2, size2);
+
+    for (int ch = 0; ch < output.getNumChannels(); ++ch)
     {
-        processPlaybackChannel (output, numSamples, ch);
+        float* outPtr = output.getWritePointer (ch);
+        const float* loopPtr = audioBuffer.getReadPointer (ch);
+
+        if (size1 > 0) juce::FloatVectorOperations::add (outPtr, loopPtr + start1, size1);
+        if (size2 > 0) juce::FloatVectorOperations::add (outPtr + size1, loopPtr + start2, size2);
     }
-    advanceReadPos (numSamples, length);
-}
 
-void LoopTrack::processPlaybackChannel (juce::AudioBuffer<float>& output, const uint numSamples, const uint ch)
-{
-    if (shouldNotPlayback (numSamples, ch)) return;
-
-    float* outPtr = output.getWritePointer (ch);
-    const float* loopPtr = audioBuffer.getReadPointer (ch);
-
-    uint currentReadPos = readPos;
-    uint samplesLeft = numSamples;
-    while (samplesLeft > 0)
-    {
-        int block = (int) std::min (samplesLeft, length - currentReadPos);
-        if (block <= 0)
-        {
-            currentReadPos = 0;
-            block = std::min (samplesLeft, length);
-        }
-        juce::FloatVectorOperations::add (outPtr, loopPtr + currentReadPos, block);
-        samplesLeft -= block;
-        outPtr += block;
-        currentReadPos = (currentReadPos + block) % length;
-    }
-}
-
-void LoopTrack::advanceReadPos (const uint numSamples, const uint bufferSamples)
-{
-    readPos = (readPos + numSamples) % bufferSamples;
-    if (shouldOverdub()) writePos = readPos; // keep write position in sync for overdubbing
+    fifo.finishedRead (size1 + size2, shouldOverdub());
 }
 
 void LoopTrack::clear()
@@ -291,8 +237,6 @@ void LoopTrack::undo()
 {
     if (length <= 0 || activeUndoLayers == 0) return;
 
-    //printBuffer (audioBuffer, 0, length, "BEFORE UNDO");
-
     auto frontBuf = std::move (undoBuffer.front());
     undoBuffer.pop_front();
 
@@ -303,10 +247,6 @@ void LoopTrack::undo()
 
     frontBuf.clear();
     undoBuffer.push_back (std::move (frontBuf));
-
-    //printBuffer (audioBuffer, 0, length, "AFTER UNDO");
-
-    //printBuffer (undoBuffer, 0, length, "UNDO");
 
     activeUndoLayers--;
 
