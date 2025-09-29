@@ -62,7 +62,7 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     fifo.prepareToPlay ((int) bufferSamples);
     undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) bufferSamples);
 
-    allocateBuffer (tmpBuffer, numChannels, maxBlockSize);
+    allocateBuffer (tmpBuffer, numChannels, bufferSamples);
 
     clear();
     setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade

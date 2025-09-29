@@ -24,15 +24,6 @@ public:
         if (size1 > 0) // always 0 or 1 for single-slot writes
             copyBuffer (buffers[(size_t) start1], source);
 
-        for (int i = 0; i < buffers.size(); ++i)
-        {
-            std::cout << "UNDO " << i << ": ";
-            auto* scope = buffers[(size_t) i].getReadPointer (0);
-            for (auto j = 0; j < buffers[(size_t) i].getNumSamples(); ++j)
-                std::cout << scope[j] << " ";
-            std::cout << std::endl;
-        }
-
         lifo.finishedWrite (size1, false);
     }
 
