@@ -5,7 +5,7 @@
 
 namespace
 {
-constexpr bool kDebug = true;
+constexpr bool kDebug = false;
 
 static void printBuffer (const juce::AudioBuffer<float>& buffer, const uint ch, const uint numSamples, const std::string& label)
 {
@@ -33,14 +33,6 @@ inline void allocateBuffer (juce::AudioBuffer<float>& buffer, uint numChannels, 
     buffer.setSize ((int) numChannels, (int) numSamples, false, true, true);
 }
 
-inline void copyBuffer (juce::AudioBuffer<float>& dst, const juce::AudioBuffer<float>& src)
-{
-    jassert (dst.getNumChannels() == src.getNumChannels());
-    jassert (dst.getNumSamples() == src.getNumSamples());
-
-    for (int ch = 0; ch < dst.getNumChannels(); ++ch)
-        juce::FloatVectorOperations::copy (dst.getWritePointer (ch), src.getReadPointer (ch), dst.getNumSamples());
-}
 } // namespace
 
 //==============================================================================
@@ -67,12 +59,8 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
         allocateBuffer (audioBuffer, numChannels, bufferSamples);
     }
 
-    fifo = LoopFifo ((int) bufferSamples);
-
-    undoBuffer.clear();
-    undoBuffer.resize (maxUndoLayers);
-    for (auto& buf : undoBuffer)
-        allocateBuffer (buf, numChannels, bufferSamples);
+    fifo.prepareToPlay ((int) bufferSamples);
+    undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) bufferSamples);
 
     allocateBuffer (tmpBuffer, numChannels, maxBlockSize);
 
@@ -89,10 +77,8 @@ void LoopTrack::releaseResources()
     clear();
     audioBuffer.setSize (0, 0, false, false, true);
 
-    for (auto& buf : undoBuffer)
-        buf.setSize (0, 0, false, false, true);
-
     undoBuffer.clear();
+    fifo.clear();
 
     tmpBuffer.setSize (0, 0, false, false, true);
 
@@ -120,10 +106,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
     for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
     {
         if (size1 > 0) copyInputToLoopBuffer ((uint) ch, input.getReadPointer (ch), (uint) start1, (uint) size1);
-        if (size2 > 0 && shouldOverdub())
-        {
-            copyInputToLoopBuffer ((uint) ch, input.getReadPointer (ch) + size1, (uint) start2, (uint) size2);
-        }
+        if (size2 > 0 && shouldOverdub()) copyInputToLoopBuffer ((uint) ch, input.getReadPointer (ch) + size1, (uint) start2, (uint) size2);
     }
 
     int actualWritten = size1 + size2;
@@ -136,16 +119,7 @@ void LoopTrack::saveToUndoBuffer()
 {
     if (! isPrepared() || ! shouldOverdub()) return;
 
-    auto buf = std::move (undoBuffer.back());
-    undoBuffer.pop_back();
-
-    for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
-    {
-        juce::FloatVectorOperations::copy (buf.getWritePointer (ch), audioBuffer.getReadPointer (ch), audioBuffer.getNumSamples());
-    }
-
-    undoBuffer.push_front (std::move (buf));
-    activeUndoLayers = std::min (activeUndoLayers + 1, (uint) undoBuffer.size());
+    undoBuffer.pushLayer (audioBuffer);
 }
 
 void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples)
@@ -221,34 +195,26 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
 void LoopTrack::clear()
 {
     audioBuffer.clear();
-    for (auto& buf : undoBuffer)
-    {
-        buf.clear();
-    }
+    undoBuffer.clear();
     tmpBuffer.clear();
     writePos = 0;
     readPos = 0;
     length = 0;
     provisionalLength = 0;
-    activeUndoLayers = 0;
 }
 
 void LoopTrack::undo()
 {
-    if (length <= 0 || activeUndoLayers == 0) return;
+    if (! shouldOverdub() || ! isPrepared()) return;
 
-    auto frontBuf = std::move (undoBuffer.front());
-    undoBuffer.pop_front();
-
-    for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
+    if (undoBuffer.popLayer (tmpBuffer))
     {
-        juce::FloatVectorOperations::copy (audioBuffer.getWritePointer (ch), frontBuf.getReadPointer (ch), audioBuffer.getNumSamples());
+        for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
+        {
+            juce::FloatVectorOperations::copy (audioBuffer.getWritePointer (ch),
+                                               tmpBuffer.getReadPointer (ch),
+                                               audioBuffer.getNumSamples());
+        }
+        finalizeLayer();
     }
-
-    frontBuf.clear();
-    undoBuffer.push_back (std::move (frontBuf));
-
-    activeUndoLayers--;
-
-    finalizeLayer();
 }
