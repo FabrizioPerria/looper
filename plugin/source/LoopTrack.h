@@ -117,9 +117,9 @@ private:
                || input.getNumChannels() != audioBuffer.getNumChannels();
     }
 
-    bool shouldNotPlayback (const uint numSamples, const uint ch) const
+    bool shouldNotPlayback (const uint numSamples) const
     {
-        return ! isPrepared() || length == 0 || numSamples == 0 || ch >= (uint) audioBuffer.getNumChannels();
+        return ! isPrepared() || length == 0 || numSamples == 0;
     }
 
     bool shouldOverdub() const

@@ -19,6 +19,7 @@ TEST (LoopTrackPrepare, PreallocatesCorrectSize)
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
     EXPECT_TRUE (track.isPrepared());
+    EXPECT_DOUBLE_EQ (track.getSampleRate(), sr);
     EXPECT_EQ (track.getAudioBuffer().getNumChannels(), numChannels);
     EXPECT_EQ (track.getAudioBuffer().getNumSamples(), bufferSamples);
 

@@ -63,10 +63,6 @@ public:
     {
         return writePos;
     }
-    int getReadPos() const
-    {
-        return (writePos - 1 + capacity) % capacity;
-    } // newest layer
 
     int getActiveLayers() const
     {

@@ -100,16 +100,21 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
         saveToUndoBuffer();
     }
 
-    int start1, size1, start2, size2;
-    fifo.prepareToWrite ((int) numSamples, start1, size1, start2, size2);
+    int writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap;
+    fifo.prepareToWrite ((int) numSamples, writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap);
 
     for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
     {
-        if (size1 > 0) copyInputToLoopBuffer ((uint) ch, input.getReadPointer (ch), (uint) start1, (uint) size1);
-        if (size2 > 0 && shouldOverdub()) copyInputToLoopBuffer ((uint) ch, input.getReadPointer (ch) + size1, (uint) start2, (uint) size2);
+        if (samplesBeforeWrap > 0)
+            copyInputToLoopBuffer ((uint) ch, input.getReadPointer (ch), (uint) writePosBeforeWrap, (uint) samplesBeforeWrap);
+        if (samplesAfterWrap > 0 && shouldOverdub())
+            copyInputToLoopBuffer ((uint) ch,
+                                   input.getReadPointer (ch) + samplesBeforeWrap,
+                                   (uint) writePosAfterWrap,
+                                   (uint) samplesAfterWrap);
     }
 
-    int actualWritten = size1 + size2;
+    int actualWritten = samplesBeforeWrap + samplesAfterWrap;
     fifo.finishedWrite (actualWritten, shouldOverdub());
 
     updateLoopLength ((uint) actualWritten, (uint) audioBuffer.getNumSamples());
@@ -175,21 +180,23 @@ void LoopTrack::finalizeLayer()
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint numSamples)
 {
-    jassert (output.getNumChannels() == audioBuffer.getNumChannels());
+    if (shouldNotPlayback (numSamples)) return;
 
-    int start1, size1, start2, size2;
-    fifo.prepareToRead ((int) numSamples, start1, size1, start2, size2);
+    int readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap;
+    fifo.prepareToRead ((int) numSamples, readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap);
 
     for (int ch = 0; ch < output.getNumChannels(); ++ch)
     {
         float* outPtr = output.getWritePointer (ch);
         const float* loopPtr = audioBuffer.getReadPointer (ch);
 
-        if (size1 > 0) juce::FloatVectorOperations::add (outPtr, loopPtr + start1, size1);
-        if (size2 > 0) juce::FloatVectorOperations::add (outPtr + size1, loopPtr + start2, size2);
+        if (samplesBeforeWrap > 0) juce::FloatVectorOperations::add (outPtr, loopPtr + readPosBeforeWrap, samplesBeforeWrap);
+        if (samplesAfterWrap > 0)
+            juce::FloatVectorOperations::add (outPtr + samplesBeforeWrap, loopPtr + readPosAfterWrap, samplesAfterWrap);
     }
 
-    fifo.finishedRead (size1 + size2, shouldOverdub());
+    const int actualRead = samplesBeforeWrap + samplesAfterWrap;
+    fifo.finishedRead (actualRead, shouldOverdub());
 }
 
 void LoopTrack::clear()
