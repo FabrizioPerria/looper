@@ -54,5 +54,22 @@ else()
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+option(ENABLE_COVERAGE "Enable test coverage reporting" OFF)
+
+if(ENABLE_COVERAGE)
+  if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(FATAL_ERROR "Coverage requires Debug build type")
+  endif()
+
+  message(STATUS "Building with coverage instrumentation")
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
+    add_compile_options(-O0 -g -fprofile-instr-generate -fcoverage-mapping
+                        -fno-inline -fno-omit-frame-pointer)
+    add_link_options(-fprofile-instr-generate)
+  else()
+    message(FATAL_ERROR "Coverage only supported on Clang/GCC")
+  endif()
+endif()
+
 add_subdirectory(plugin)
 add_subdirectory(test)

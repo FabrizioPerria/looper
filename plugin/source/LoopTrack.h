@@ -15,9 +15,9 @@ public:
                         const size_t maxUndoLayers = MAX_UNDO_LAYERS);
     void releaseResources();
 
-    void processRecord (const juce::AudioBuffer<float>& input, const int numSamples);
+    void processRecord (const juce::AudioBuffer<float>& input, const uint numSamples);
     void finalizeLayer();
-    void processPlayback (juce::AudioBuffer<float>& output, const int numSamples);
+    void processPlayback (juce::AudioBuffer<float>& output, const uint numSamples);
 
     void clear();
     void undo();
@@ -42,7 +42,7 @@ public:
         return writePos;
     }
 
-    void setWritePos (const int newPos)
+    void setWritePos (const uint newPos)
     {
         writePos = newPos;
     }
@@ -60,11 +60,6 @@ public:
     void setCrossFadeLength (const int newLength)
     {
         crossFadeLength = newLength;
-    }
-
-    bool isOverdubbing() const
-    {
-        return length > 0;
     }
 
     bool isPrepared() const
@@ -95,12 +90,12 @@ private:
 
     double sampleRate;
 
-    int writePos = 0;
-    int readPos = 0;
+    uint writePos = 0;
+    uint readPos = 0;
 
-    int length = 0;
-    int provisionalLength = 0;
-    int crossFadeLength = 0;
+    uint length = 0;
+    uint provisionalLength = 0;
+    uint crossFadeLength = 0;
 
     bool isRecording = false;
     bool alreadyPrepared = false;
@@ -108,16 +103,32 @@ private:
     double overdubNewGain = 1.0;
     double overdubOldGain = 1.0;
 
-    size_t activeUndoLayers = 0;
+    uint activeUndoLayers = 0;
 
-    void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
-    void updateLoopLength (const int numSamples, const int bufferSamples);
-    void saveToUndoBuffer (const int ch, const int offset, const int numSamples);
-    void copyInputToLoopBuffer (const int ch, const float* bufPtr, const int offset, const int numSamples);
-    void advanceWritePos (const int numSamples, const int bufferSamples);
-    void advanceReadPos (const int numSamples, const int bufferSamples);
+    void processRecordChannel (const juce::AudioBuffer<float>& input, const uint numSamples, const uint ch);
+    void updateLoopLength (const uint numSamples, const uint bufferSamples);
+    void saveToUndoBuffer();
+    void copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples);
+    void advanceWritePos (const uint numSamples, const uint bufferSamples);
+    void advanceReadPos (const uint numSamples, const uint bufferSamples);
 
-    void processPlaybackChannel (juce::AudioBuffer<float>& output, const int numSamples, const int ch);
+    void processPlaybackChannel (juce::AudioBuffer<float>& output, const uint numSamples, const uint ch);
+
+    bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float> input, const uint numSamples) const
+    {
+        return numSamples == 0 || (uint) input.getNumSamples() < numSamples || ! isPrepared()
+               || input.getNumChannels() != audioBuffer.getNumChannels();
+    }
+
+    bool shouldNotPlayback (const uint numSamples, const uint ch) const
+    {
+        return ! isPrepared() || length == 0 || numSamples == 0 || ch >= (uint) audioBuffer.getNumChannels();
+    }
+
+    bool shouldOverdub() const
+    {
+        return length > 0;
+    }
 
     static const uint MAX_SECONDS_HARD_LIMIT = 3600; // 1 hour max buffer size
     static const uint MAX_UNDO_LAYERS = 5;
