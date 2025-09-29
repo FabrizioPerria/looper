@@ -19,7 +19,8 @@ static void printBuffer (const juce::AudioBuffer<float>& buffer, const uint ch, 
     std::cout << std::endl;
 }
 
-static void printBuffer (const std::deque<juce::AudioBuffer<float>> buffers, const uint ch, const uint numSamples, const std::string& label)
+static void
+    printBuffer (const std::deque<juce::AudioBuffer<float>>& buffers, const uint ch, const uint numSamples, const std::string& label)
 {
     if constexpr (! kDebug) return;
 
@@ -139,7 +140,7 @@ void LoopTrack::processRecordChannel (const juce::AudioBuffer<float>& input, con
     uint samplesLeft = numSamples;
 
     // when loop exists, wrap the target write region to the musical length
-    uint wrapSize = (shouldOverdub() ? length : bufferSize);
+    const uint wrapSize = (shouldOverdub() ? length : bufferSize);
 
     while (samplesLeft > 0)
     {
@@ -171,7 +172,7 @@ void LoopTrack::saveToUndoBuffer()
 
     activeUndoLayers = std::min (activeUndoLayers + 1, (uint) undoBuffer.size());
 
-    printBuffer (undoBuffer, 0, length, "UNDO");
+    //printBuffer (undoBuffer, 0, length, "UNDO");
 }
 
 void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples)
@@ -180,12 +181,12 @@ void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const
 
     if (isRecording && length > 0)
     {
-        printBuffer (audioBuffer, ch, length, "LOOP BEFORE ADD/SCALE");
+        //printBuffer (audioBuffer, ch, length, "LOOP BEFORE ADD/SCALE");
         for (uint i = 0; i < numSamples; ++i)
         {
             loopPtr[i + offset] = loopPtr[i + offset] * overdubOldGain + bufPtr[i] * overdubNewGain;
         }
-        printBuffer (audioBuffer, ch, length, "LOOP AFTER SCALE");
+        //printBuffer (audioBuffer, ch, length, "LOOP AFTER SCALE");
     }
     else if (isRecording)
     {
@@ -226,7 +227,7 @@ void LoopTrack::finalizeLayer()
         audioBuffer.applyGainRamp (length - fadeSamples, fadeSamples, overallGain, 0.0f); // fade out
     }
 
-    printBuffer (audioBuffer, 0, length, "FINALIZED LOOP");
+    //printBuffer (audioBuffer, 0, length, "FINALIZED LOOP");
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint numSamples)
@@ -290,7 +291,7 @@ void LoopTrack::undo()
 {
     if (length <= 0 || activeUndoLayers == 0) return;
 
-    printBuffer (audioBuffer, 0, length, "BEFORE UNDO");
+    //printBuffer (audioBuffer, 0, length, "BEFORE UNDO");
 
     auto frontBuf = std::move (undoBuffer.front());
     undoBuffer.pop_front();
@@ -303,9 +304,9 @@ void LoopTrack::undo()
     frontBuf.clear();
     undoBuffer.push_back (std::move (frontBuf));
 
-    printBuffer (audioBuffer, 0, length, "AFTER UNDO");
+    //printBuffer (audioBuffer, 0, length, "AFTER UNDO");
 
-    printBuffer (undoBuffer, 0, length, "UNDO");
+    //printBuffer (undoBuffer, 0, length, "UNDO");
 
     activeUndoLayers--;
 
