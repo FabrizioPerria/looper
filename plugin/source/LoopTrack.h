@@ -1,5 +1,6 @@
 #pragma once
 
+#include "LoopFifo.h"
 #include <JuceHeader.h>
 
 class LoopTrack
@@ -37,15 +38,15 @@ public:
         return sampleRate;
     }
 
-    int getWritePos() const
-    {
-        return writePos;
-    }
-
-    void setWritePos (const uint newPos)
-    {
-        writePos = newPos;
-    }
+    // int getWritePos() const
+    // {
+    //     return writePos;
+    // }
+    //
+    // void setWritePos (const uint newPos)
+    // {
+    //     writePos = newPos;
+    // }
 
     int getLength() const
     {
@@ -89,6 +90,8 @@ private:
     juce::AudioBuffer<float> tmpBuffer;
 
     double sampleRate;
+
+    LoopFifo fifo;
 
     uint writePos = 0;
     uint readPos = 0;
