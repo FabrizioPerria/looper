@@ -35,8 +35,6 @@ public:
         undoLifo.finishedWrite (size1, false);
 
         redoLifo.clear();
-        for (auto& b : redoBuffers)
-            b.clear();
     }
 
     bool undo (juce::AudioBuffer<float>& destination)
