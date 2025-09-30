@@ -105,3 +105,81 @@ TEST_F (LoopLifoTest, PopEmptyReturnsZeroSize)
     EXPECT_EQ (size1, 0);
     EXPECT_EQ (size2, 0);
 }
+
+TEST_F (LoopLifoTest, ReadWithNoActiveLayersDoesNothing)
+{
+    int start1, size1, start2, size2;
+    lifo->prepareToRead (1, start1, size1, start2, size2);
+    lifo->finishedRead (1, false); // should do nothing
+
+    EXPECT_EQ (lifo->getActiveLayers(), 0);
+    EXPECT_EQ (lifo->getWritePos(), 0);
+}
+
+// prepareToRead branch: activeLayers == 0
+TEST_F (LoopLifoTest, PrepareToReadEmptyStack)
+{
+    int start1, size1, start2, size2;
+    lifo->prepareToRead (1, start1, size1, start2, size2);
+
+    EXPECT_EQ (size1, 0);
+    EXPECT_EQ (size2, 0);
+}
+
+// finishedRead branch: activeLayers == 0
+TEST_F (LoopLifoTest, FinishedReadEmptyStack)
+{
+    int start1, size1, start2, size2;
+
+    // Attempt to pop with empty stack
+    lifo->prepareToRead (1, start1, size1, start2, size2);
+    lifo->finishedRead (1, false);
+
+    EXPECT_EQ (lifo->getActiveLayers(), 0);
+    EXPECT_EQ (lifo->getWritePos(), 0);
+}
+
+// prepareToRead and finishedRead branch: non-empty stack
+TEST_F (LoopLifoTest, PrepareAndFinishedReadNonEmptyStack)
+{
+    int start1, size1, start2, size2;
+
+    // Push a layer
+    lifo->prepareToWrite (1, start1, size1, start2, size2);
+    lifo->finishedWrite (1, false);
+
+    // Pop the layer
+    lifo->prepareToRead (1, start1, size1, start2, size2);
+    EXPECT_EQ (size1, 1);
+    EXPECT_EQ (size2, 0);
+    EXPECT_EQ (start1, 0);
+
+    lifo->finishedRead (1, false);
+    EXPECT_EQ (lifo->getActiveLayers(), 0);
+    EXPECT_EQ (lifo->getWritePos(), 0);
+}
+
+// ensure wraparound branches are touched
+TEST_F (LoopLifoTest, WrapAroundPushAndPop)
+{
+    int start1, size1, start2, size2;
+
+    // Fill stack completely
+    for (int i = 0; i < 3; ++i)
+    {
+        lifo->prepareToWrite (1, start1, size1, start2, size2);
+        lifo->finishedWrite (1, false);
+    }
+
+    EXPECT_EQ (lifo->getActiveLayers(), 3);
+
+    // Pop all layers
+    for (int i = 0; i < 3; ++i)
+    {
+        lifo->prepareToRead (1, start1, size1, start2, size2);
+        lifo->finishedRead (1, false);
+    }
+
+    EXPECT_EQ (lifo->getActiveLayers(), 0);
+    EXPECT_EQ (lifo->getWritePos(), 0);
+}

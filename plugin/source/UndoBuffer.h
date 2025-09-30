@@ -67,6 +67,14 @@ public:
             buf.clear();
     }
 
+    void releaseResources()
+    {
+        lifo.clear();
+        for (auto& buf : buffers)
+            buf.setSize (0, 0, false, false, true);
+        buffers.clear();
+    }
+
 private:
     LoopLifo lifo;
     std::vector<juce::AudioBuffer<float>> buffers {};

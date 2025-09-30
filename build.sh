@@ -24,6 +24,7 @@ llvm-cov show "$TEST_TARGET_DIR" \
     -instr-profile="$MERGED_FILE" \
     -format=html \
     -output-dir="$HTML_DIR" \
+    --show-branches=percent \
     $(find "$PWD/plugin/source" -name '*.cpp' -o -name '*.h')
 
 echo "Coverage report generated at $HTML_DIR/index.html"

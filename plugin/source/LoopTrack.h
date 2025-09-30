@@ -85,12 +85,9 @@ private:
     UndoBuffer undoBuffer;
     juce::AudioBuffer<float> tmpBuffer;
 
-    double sampleRate;
+    double sampleRate = 0.0;
 
     LoopFifo fifo;
-
-    uint writePos = 0;
-    uint readPos = 0;
 
     uint length = 0;
     uint provisionalLength = 0;
