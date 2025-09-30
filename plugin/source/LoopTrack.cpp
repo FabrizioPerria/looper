@@ -28,11 +28,6 @@ static void
         printBuffer (buffers[i], ch, numSamples, label + " " + std::to_string (i));
 }
 
-inline void allocateBuffer (juce::AudioBuffer<float>& buffer, uint numChannels, uint numSamples)
-{
-    buffer.setSize ((int) numChannels, (int) numSamples, false, true, true);
-}
-
 } // namespace
 
 //==============================================================================
@@ -51,18 +46,18 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     if (isPrepared() || currentSampleRate <= 0.0 || ! maxBlockSize || ! numChannels || ! maxSeconds) return;
 
     sampleRate = currentSampleRate;
-    const uint totalSamples = std::max ((uint) currentSampleRate * maxSeconds, 1u); // at least 1 block will be allocated
-    const uint bufferSamples = ((totalSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
+    const uint requestedSamples = std::max ((uint) currentSampleRate * maxSeconds, 1u); // at least 1 block will be allocated
+    const uint alignedBufferSize = ((requestedSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
 
-    if (bufferSamples > (uint) audioBuffer.getNumSamples())
+    if (alignedBufferSize > (uint) audioBuffer.getNumSamples())
     {
-        allocateBuffer (audioBuffer, numChannels, bufferSamples);
+        audioBuffer.setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
     }
 
-    fifo.prepareToPlay ((int) bufferSamples);
-    undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) bufferSamples);
+    fifo.prepareToPlay ((int) alignedBufferSize);
+    undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
 
-    allocateBuffer (tmpBuffer, numChannels, bufferSamples);
+    tmpBuffer.setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
 
     clear();
     setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
@@ -103,6 +98,8 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
     int writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap;
     fifo.prepareToWrite ((int) numSamples, writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap);
 
+    const int actualWritten = samplesBeforeWrap + samplesAfterWrap;
+
     for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
     {
         if (samplesBeforeWrap > 0)
@@ -114,7 +111,6 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
                                    (uint) samplesAfterWrap);
     }
 
-    int actualWritten = samplesBeforeWrap + samplesAfterWrap;
     fifo.finishedWrite (actualWritten, shouldOverdub());
 
     updateLoopLength ((uint) actualWritten, (uint) audioBuffer.getNumSamples());
@@ -184,6 +180,7 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
 
     int readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap;
     fifo.prepareToRead ((int) numSamples, readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap);
+    const int actualRead = samplesBeforeWrap + samplesAfterWrap;
 
     for (int ch = 0; ch < output.getNumChannels(); ++ch)
     {
@@ -195,7 +192,6 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
             juce::FloatVectorOperations::add (outPtr + samplesBeforeWrap, loopPtr + readPosAfterWrap, samplesAfterWrap);
     }
 
-    const int actualRead = samplesBeforeWrap + samplesAfterWrap;
     fifo.finishedRead (actualRead, shouldOverdub());
 }
 
