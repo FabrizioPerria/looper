@@ -28,7 +28,6 @@ public:
         return musicalLength;
     }
 
-    // Prepare to write N samples with wraparound
     void prepareToWrite (int numToWrite, int& start1, int& size1, int& start2, int& size2)
     {
         start1 = writePos;
@@ -90,7 +89,7 @@ public:
     }
 
 private:
-    int bufferSize = 0;    // total buffer size allocated
+    int bufferSize = 0;
     int musicalLength = 0; // current loop length
     int writePos = 0;
     int readPos = 0;

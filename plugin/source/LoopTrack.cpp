@@ -3,33 +3,6 @@
 #include <algorithm>
 #include <cassert>
 
-// namespace
-// {
-// constexpr bool kDebug = false;
-//
-// static void printBuffer (const juce::AudioBuffer<float>& buffer, const uint ch, const uint numSamples, const std::string& label)
-// {
-//     if constexpr (! kDebug) return;
-//
-//     auto* ptr = buffer.getReadPointer ((int) ch);
-//     std::cout << label << ": ";
-//     for (auto i = 0; i < numSamples; ++i)
-//         std::cout << ptr[i] << " ";
-//
-//     std::cout << std::endl;
-// }
-//
-// static void
-//     printBuffer (const std::deque<juce::AudioBuffer<float>>& buffers, const uint ch, const uint numSamples, const std::string& label)
-// {
-//     if constexpr (! kDebug) return;
-//
-//     for (size_t i = 0; i < buffers.size(); ++i)
-//         printBuffer (buffers[i], ch, numSamples, label + " " + std::to_string (i));
-// }
-//
-// } // namespace
-
 //==============================================================================
 // Setup
 //==============================================================================
@@ -208,14 +181,47 @@ void LoopTrack::undo()
 {
     if (! shouldOverdub() || ! isPrepared()) return;
 
-    if (undoBuffer.popLayer (tmpBuffer))
+    std::cout << "Destination before undo: ";
+    for (int j = 0; j < std::min (20, audioBuffer.getNumSamples()); ++j)
+        std::cout << audioBuffer.getReadPointer (0)[j] << " ";
+    std::cout << "\n";
+
+    if (undoBuffer.undo (audioBuffer))
     {
-        for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
-        {
-            juce::FloatVectorOperations::copy (audioBuffer.getWritePointer (ch),
-                                               tmpBuffer.getReadPointer (ch),
-                                               audioBuffer.getNumSamples());
-        }
+        // for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
+        // {
+        //     juce::FloatVectorOperations::copy (audioBuffer.getWritePointer (ch),
+        //                                        tmpBuffer.getReadPointer (ch),
+        //                                        audioBuffer.getNumSamples());
+        // }
         finalizeLayer();
     }
+    std::cout << "Destination after undo: ";
+    for (int j = 0; j < std::min (20, audioBuffer.getNumSamples()); ++j)
+        std::cout << audioBuffer.getReadPointer (0)[j] << " ";
+    std::cout << "\n";
+}
+
+void LoopTrack::redo()
+{
+    if (! shouldOverdub() || ! isPrepared()) return;
+
+    std::cout << "Destination before redo: ";
+    for (int j = 0; j < std::min (20, audioBuffer.getNumSamples()); ++j)
+        std::cout << audioBuffer.getReadPointer (0)[j] << " ";
+    std::cout << "\n";
+    if (undoBuffer.redo (audioBuffer))
+    {
+        // for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
+        // {
+        //     juce::FloatVectorOperations::copy (audioBuffer.getWritePointer (ch),
+        //                                        tmpBuffer.getReadPointer (ch),
+        //                                        audioBuffer.getNumSamples());
+        // }
+        finalizeLayer();
+    }
+    std::cout << "Destination after redo: ";
+    for (int j = 0; j < std::min (20, audioBuffer.getNumSamples()); ++j)
+        std::cout << audioBuffer.getReadPointer (0)[j] << " ";
+    std::cout << "\n";
 }

@@ -23,16 +23,12 @@ public:
 
     void clear();
     void undo();
+    void redo();
 
     const juce::AudioBuffer<float>& getAudioBuffer() const
     {
         return audioBuffer;
     }
-
-    // const juce::AudioBuffer<float>& getUndoBuffer() const
-    // {
-    //     return undoBuffer.back();
-    // }
 
     double getSampleRate() const
     {
