@@ -93,7 +93,7 @@ void LoopTrack::saveToUndoBuffer()
 {
     if (! isPrepared() || ! shouldOverdub()) return;
 
-    undoBuffer.pushLayer (audioBuffer);
+    undoBuffer.pushLayer (audioBuffer, length);
 }
 
 void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples)

@@ -20,16 +20,22 @@ public:
 
         for (auto& b : redoBuffers)
             b.setSize (numChannels, bufferSamples, false, true, true);
+        length = 0;
     }
 
-    void pushLayer (const juce::AudioBuffer<float>& source)
+    void pushLayer (const juce::AudioBuffer<float>& source, size_t loopLength)
     {
         int start1, size1, start2, size2;
         undoLifo.prepareToWrite (1, start1, size1, start2, size2);
 
+        if (loopLength > 0 && loopLength < (size_t) source.getNumSamples())
+            length = loopLength;
+        else
+            length = (size_t) source.getNumSamples();
+
         if (size1 > 0)
         {
-            copyBuffer (undoBuffers[(size_t) start1], source);
+            copyBuffer (undoBuffers[(size_t) start1], source, length);
         }
 
         undoLifo.finishedWrite (size1, false);
@@ -46,10 +52,10 @@ public:
         {
             int rStart1, rSize1, rStart2, rSize2;
             redoLifo.prepareToWrite (1, rStart1, rSize1, rStart2, rSize2);
-            copyBuffer (redoBuffers[(size_t) rStart1], destination);
+            copyBuffer (redoBuffers[(size_t) rStart1], destination, length);
             redoLifo.finishedWrite (rSize1, false);
 
-            copyBuffer (destination, undoBuffers[(size_t) uStart1]);
+            copyBuffer (destination, undoBuffers[(size_t) uStart1], length);
             undoLifo.finishedRead (uSize1, false);
 
             return true;
@@ -67,11 +73,11 @@ public:
             // Save current destination to undo stack
             int uStart1, uSize1, uStart2, uSize2;
             undoLifo.prepareToWrite (1, uStart1, uSize1, uStart2, uSize2);
-            copyBuffer (undoBuffers[(size_t) uStart1], destination);
+            copyBuffer (undoBuffers[(size_t) uStart1], destination, length);
             undoLifo.finishedWrite (uSize1, false);
 
             // Restore from redo
-            copyBuffer (destination, redoBuffers[(size_t) rStart1]);
+            copyBuffer (destination, redoBuffers[(size_t) rStart1], length);
             redoLifo.finishedRead (rSize1, false);
 
             return true;
@@ -102,6 +108,7 @@ public:
         undoLifo.clear();
         for (auto& buf : undoBuffers)
             buf.clear();
+        length = 0;
     }
 
     void releaseResources()
@@ -113,13 +120,13 @@ public:
     }
 
 private:
-    static void copyBuffer (juce::AudioBuffer<float>& dst, const juce::AudioBuffer<float>& src)
+    static void copyBuffer (juce::AudioBuffer<float>& dst, const juce::AudioBuffer<float>& src, size_t length)
     {
         jassert (dst.getNumChannels() == src.getNumChannels());
         jassert (dst.getNumSamples() == src.getNumSamples());
 
         for (int ch = 0; ch < dst.getNumChannels(); ++ch)
-            juce::FloatVectorOperations::copy (dst.getWritePointer (ch), src.getReadPointer (ch), dst.getNumSamples());
+            juce::FloatVectorOperations::copy (dst.getWritePointer (ch), src.getReadPointer (ch), length);
     }
 
     LoopStack undoLifo;
@@ -127,4 +134,6 @@ private:
 
     LoopStack redoLifo;
     std::vector<juce::AudioBuffer<float>> redoBuffers {};
+
+    size_t length { 0 };
 };
