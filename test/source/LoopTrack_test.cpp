@@ -1061,4 +1061,92 @@ TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
     }
 }
+
+TEST (LoopTrackRelease, ReleasesResources)
+{
+    LoopTrack track;
+    const double sr = 441.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 12;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+
+    EXPECT_TRUE (track.isPrepared());
+    EXPECT_NO_THROW (track.releaseResources());
+    EXPECT_EQ (track.getAudioBuffer().getNumSamples(), 0);
+    EXPECT_EQ (track.getUndoBuffer().getNumSamples(), 0);
+    EXPECT_DOUBLE_EQ (track.getSampleRate(), 0.0);
+}
+
+TEST (LoopTrackRelease, ReleaseUnprepareResourcesDoesNothing)
+{
+    LoopTrack track;
+
+    EXPECT_EQ (track.getAudioBuffer().getNumSamples(), 0);
+    EXPECT_EQ (track.getUndoBuffer().getNumSamples(), 0);
+    EXPECT_DOUBLE_EQ (track.getSampleRate(), 0.0);
+    EXPECT_NO_THROW (track.releaseResources());
+    EXPECT_EQ (track.getAudioBuffer().getNumSamples(), 0);
+    EXPECT_EQ (track.getUndoBuffer().getNumSamples(), 0);
+    EXPECT_DOUBLE_EQ (track.getSampleRate(), 0.0);
+}
+
+TEST (LoopTrackPlayback, PlaybackWithoutRecordingProducesSilence)
+{
+    LoopTrack track;
+    const double sr = 441.0;
+    const int maxSeconds = 1; // Reduce buffer size to force wrap-around
+    const int maxBlock = 12;
+    const int numChannels = 1;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+
+    const int numSamples = 9; // less than block size
+    juce::AudioBuffer<float> output (numChannels, numSamples);
+    output.clear();
+
+    track.processPlayback (output, numSamples);
+
+    auto* outPtr = output.getReadPointer (0);
+    for (int i = 0; i < numSamples; ++i)
+    {
+        EXPECT_FLOAT_EQ (outPtr[i], 0.0f);
+    }
+}
+
+TEST (LoopTrackPlayback, PlaybackTwiceWillWrapCorrectly)
+{
+    LoopTrack track;
+    const double sr = 441.0;
+    const int maxSeconds = 1; // Reduce buffer size to force wrap-around
+    const int maxBlock = 12;
+    const int numChannels = 1;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+
+    const int bufferSamples = track.getAudioBuffer().getNumSamples();
+    const int leaveSamples = 10; // leave some space at end of buffer
+    const int numSamples = bufferSamples - leaveSamples;
+
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
+    track.processRecord (input, numSamples);
+    track.finalizeLayer();
+
+    int requestedSamples = bufferSamples + 71;
+    juce::AudioBuffer<float> output1 (numChannels, requestedSamples);
+    output1.clear();
+
+    track.processPlayback (output1, requestedSamples);
+
+    const auto& loopBuffer = track.getAudioBuffer();
+    auto* loopPtr = loopBuffer.getReadPointer (0);
+    auto* outPtr1 = output1.getReadPointer (0);
+    for (int i = 0; i < requestedSamples; ++i)
+    {
+        auto index = i % numSamples;
+        EXPECT_FLOAT_EQ (outPtr1[index], loopPtr[index]);
+    }
+}
+
 } // namespace audio_plugin_test
