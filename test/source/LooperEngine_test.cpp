@@ -7,7 +7,7 @@ class LooperEngineTest : public ::testing::Test
 protected:
     void SetUp() override
     {
-        engine.prepareToPlay (44100.0, 512, 2, 2); // standard audio settings
+        engine.prepareToPlay (8000.0, 64, 2, 2); // reduced sample rate and buffer size
     }
 
     LooperEngine engine;
@@ -47,7 +47,7 @@ TEST_F (LooperEngineTest, TrackManagement)
 
 TEST_F (LooperEngineTest, MidiCommandHandling)
 {
-    juce::AudioBuffer<float> audio (2, 512);
+    juce::AudioBuffer<float> audio (2, 64);
     juce::MidiBuffer midi;
     juce::MidiMessage noteOn = juce::MidiMessage::noteOn (1, 60, 1.0f);
     midi.addEvent (noteOn, 0);
@@ -58,7 +58,7 @@ TEST_F (LooperEngineTest, MidiCommandHandling)
 
 TEST_F (LooperEngineTest, AudioProcessing)
 {
-    juce::AudioBuffer<float> buffer (2, 512);
+    juce::AudioBuffer<float> buffer (2, 64);
     juce::MidiBuffer midiMessages;
 
     // Fill buffer with test data
@@ -78,7 +78,7 @@ TEST_F (LooperEngineTest, AudioProcessing)
     // Test playback
     engine.stop();
 
-    juce::AudioBuffer<float> outputBuffer (2, 512);
+    juce::AudioBuffer<float> outputBuffer (2, 64);
     engine.processBlock (outputBuffer, midiMessages);
 
     // Verify output isn't silent
@@ -100,7 +100,7 @@ TEST_F (LooperEngineTest, AudioProcessing)
 
 TEST_F (LooperEngineTest, UndoAndClear)
 {
-    juce::AudioBuffer<float> buffer (2, 512);
+    juce::AudioBuffer<float> buffer (2, 64);
     juce::MidiBuffer midiMessages;
 
     // Record something

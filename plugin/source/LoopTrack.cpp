@@ -3,33 +3,6 @@
 #include <algorithm>
 #include <cassert>
 
-// namespace
-// {
-// constexpr bool kDebug = false;
-//
-// static void printBuffer (const juce::AudioBuffer<float>& buffer, const uint ch, const uint numSamples, const std::string& label)
-// {
-//     if constexpr (! kDebug) return;
-//
-//     auto* ptr = buffer.getReadPointer ((int) ch);
-//     std::cout << label << ": ";
-//     for (auto i = 0; i < numSamples; ++i)
-//         std::cout << ptr[i] << " ";
-//
-//     std::cout << std::endl;
-// }
-//
-// static void
-//     printBuffer (const std::deque<juce::AudioBuffer<float>>& buffers, const uint ch, const uint numSamples, const std::string& label)
-// {
-//     if constexpr (! kDebug) return;
-//
-//     for (size_t i = 0; i < buffers.size(); ++i)
-//         printBuffer (buffers[i], ch, numSamples, label + " " + std::to_string (i));
-// }
-//
-// } // namespace
-
 //==============================================================================
 // Setup
 //==============================================================================
@@ -120,7 +93,7 @@ void LoopTrack::saveToUndoBuffer()
 {
     if (! isPrepared() || ! shouldOverdub()) return;
 
-    undoBuffer.pushLayer (audioBuffer);
+    undoBuffer.pushLayer (audioBuffer, length);
 }
 
 void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples)
@@ -208,14 +181,18 @@ void LoopTrack::undo()
 {
     if (! shouldOverdub() || ! isPrepared()) return;
 
-    if (undoBuffer.popLayer (tmpBuffer))
+    if (undoBuffer.undo (audioBuffer))
     {
-        for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
-        {
-            juce::FloatVectorOperations::copy (audioBuffer.getWritePointer (ch),
-                                               tmpBuffer.getReadPointer (ch),
-                                               audioBuffer.getNumSamples());
-        }
+        finalizeLayer();
+    }
+}
+
+void LoopTrack::redo()
+{
+    if (! shouldOverdub() || ! isPrepared()) return;
+
+    if (undoBuffer.redo (audioBuffer))
+    {
         finalizeLayer();
     }
 }
