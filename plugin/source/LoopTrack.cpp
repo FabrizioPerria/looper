@@ -96,19 +96,12 @@ void LoopTrack::saveToUndoBuffer()
 
 void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples)
 {
-    auto* loopPtr = audioBuffer->getWritePointer ((int) ch);
+    if (! isRecording) return;
 
-    if (isRecording && length > 0)
-    {
-        for (uint i = 0; i < numSamples; ++i)
-        {
-            loopPtr[i + offset] = loopPtr[i + offset] * overdubOldGain + bufPtr[i] * overdubNewGain;
-        }
-    }
-    else if (isRecording)
-    {
-        juce::FloatVectorOperations::copy (loopPtr + offset, bufPtr, (int) numSamples);
-    }
+    auto* dest = audioBuffer->getWritePointer ((int) ch) + offset;
+
+    juce::FloatVectorOperations::multiply (dest, shouldOverdub() ? overdubOldGain : 0, (int) numSamples);
+    juce::FloatVectorOperations::addWithMultiply (dest, bufPtr, overdubNewGain, (int) numSamples);
 }
 
 void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSamples)
