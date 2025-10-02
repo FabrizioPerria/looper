@@ -25,12 +25,11 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     if (alignedBufferSize > (uint) audioBuffer->getNumSamples())
     {
         audioBuffer->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
+        tmpBuffer->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
     }
 
     fifo.prepareToPlay ((int) alignedBufferSize);
     undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
-
-    // tmpBuffer.setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
 
     clear();
     setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
@@ -44,11 +43,10 @@ void LoopTrack::releaseResources()
 
     clear();
     audioBuffer->setSize (0, 0, false, false, true);
+    tmpBuffer->setSize (0, 0, false, false, true);
 
     undoBuffer.releaseResources();
     fifo.clear();
-
-    // tmpBuffer.setSize (0, 0, false, false, true);
 
     sampleRate = 0.0;
     alreadyPrepared = false;
@@ -93,24 +91,17 @@ void LoopTrack::saveToUndoBuffer()
 {
     if (! isPrepared() || ! shouldOverdub()) return;
 
-    undoBuffer.pushLayer (audioBuffer, length);
+    undoBuffer.pushLayer (tmpBuffer, length);
 }
 
 void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples)
 {
-    auto* loopPtr = audioBuffer->getWritePointer ((int) ch);
+    if (! isRecording) return;
 
-    if (isRecording && length > 0)
-    {
-        for (uint i = 0; i < numSamples; ++i)
-        {
-            loopPtr[i + offset] = loopPtr[i + offset] * overdubOldGain + bufPtr[i] * overdubNewGain;
-        }
-    }
-    else if (isRecording)
-    {
-        juce::FloatVectorOperations::copy (loopPtr + offset, bufPtr, (int) numSamples);
-    }
+    auto* dest = audioBuffer->getWritePointer ((int) ch) + offset;
+
+    juce::FloatVectorOperations::multiply (dest, shouldOverdub() ? overdubOldGain : 0, (int) numSamples);
+    juce::FloatVectorOperations::addWithMultiply (dest, bufPtr, overdubNewGain, (int) numSamples);
 }
 
 void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSamples)
@@ -144,6 +135,11 @@ void LoopTrack::finalizeLayer()
     {
         audioBuffer->applyGainRamp (0, fadeSamples, 0.0f, overallGain);                    // fade in
         audioBuffer->applyGainRamp (length - fadeSamples, fadeSamples, overallGain, 0.0f); // fade out
+    }
+
+    for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+    {
+        juce::FloatVectorOperations::copy (tmpBuffer->getWritePointer (ch), audioBuffer->getReadPointer (ch), (int) length);
     }
 }
 

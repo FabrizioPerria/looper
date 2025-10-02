@@ -69,12 +69,9 @@ public:
         else
             length = (size_t) source->getNumSamples();
 
-        printSummary (*source, start1, -1, " Before Copy");
-        if (size1 > 0)
-        {
-            copyBuffer (undoBuffers[(size_t) start1], source, length);
-        }
-        printSummary (*source, start1, -1, " After Copy");
+        // printSummary (*source, start1, -1, " Before Copy");
+        std::swap (undoBuffers[(size_t) start1], source);
+        // printSummary (*source, start1, -1, " After Copy");
 
         undoLifo.finishedWrite (size1, false);
 
@@ -91,11 +88,11 @@ public:
             int rStart1, rSize1, rStart2, rSize2;
             redoLifo.prepareToWrite (1, rStart1, rSize1, rStart2, rSize2);
 
-            printSummary (*destination, uStart1, rStart1, " Before Undo");
+            // printSummary (*destination, uStart1, rStart1, " Before Undo");
 
             std::swap (redoBuffers[(size_t) rStart1], destination);
             std::swap (destination, undoBuffers[(size_t) uStart1]);
-            printSummary (*destination, uStart1, rStart1, " After Undo");
+            // printSummary (*destination, uStart1, rStart1, " After Undo");
 
             redoLifo.finishedWrite (rSize1, false);
             undoLifo.finishedRead (uSize1, false);
@@ -116,11 +113,11 @@ public:
             int uStart1, uSize1, uStart2, uSize2;
             undoLifo.prepareToWrite (1, uStart1, uSize1, uStart2, uSize2);
 
-            printSummary (*destination, uStart1, rStart1, " Before Redo");
+            // printSummary (*destination, uStart1, rStart1, " Before Redo");
 
             std::swap (undoBuffers[(size_t) uStart1], destination);
             std::swap (destination, redoBuffers[(size_t) rStart1]);
-            printSummary (*destination, uStart1, rStart1, " After Redo");
+            // printSummary (*destination, uStart1, rStart1, " After Redo");
 
             undoLifo.finishedWrite (uSize1, false);
             redoLifo.finishedRead (rSize1, false);
