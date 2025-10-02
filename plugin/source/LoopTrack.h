@@ -1,41 +1,12 @@
 #pragma once
 
+#include "CopyJob.h"
 #include "LoopFifo.h"
 #include "UndoBuffer.h"
+#include "juce_core/juce_core.h"
 #include <JuceHeader.h>
-
-class CopyJob : public juce::ThreadPoolJob
-{
-public:
-    CopyJob() : ThreadPoolJob ("CopyJob")
-    {
-    }
-
-    void prepare (juce::AudioBuffer<float>* destination, juce::AudioBuffer<float>* source, int numChannels, int numSamples)
-    {
-        dest = destination;
-        src = source;
-        channels = numChannels;
-        samples = numSamples;
-    }
-
-    JobStatus runJob() override
-    {
-        for (int ch = 0; ch < channels; ++ch)
-        {
-            juce::FloatVectorOperations::copy (dest->getWritePointer (ch), src->getReadPointer (ch), samples);
-        }
-        return jobHasFinished;
-    }
-
-private:
-    juce::AudioBuffer<float>* dest;
-    juce::AudioBuffer<float>* src;
-    int channels;
-    int samples;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CopyJob)
-};
+#include <cstdint>
+#include <mutex>
 
 class LoopTrack
 {
@@ -112,8 +83,14 @@ public:
 private:
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
-    juce::ThreadPool backgroundPool { 1 };
-    std::unique_ptr<CopyJob> copyJob = std::make_unique<CopyJob>();
+
+    juce::ThreadPool backgroundPool { MAX_POOL_SIZE };
+
+    std::vector<std::unique_ptr<CopyInputJob>> copyBlockJobs;
+    std::vector<std::unique_ptr<CopyLoopJob>> copyLoopJobs;
+    std::vector<juce::AudioBuffer<float>*> blockSnapshots;
+
+    std::unique_ptr<std::atomic<uint32_t>> state = std::make_unique<std::atomic<uint32_t>> (0);
 
     UndoBuffer undoBuffer;
 
@@ -158,6 +135,69 @@ private:
 
     static const uint MAX_SECONDS_HARD_LIMIT = 3600; // 1 hour max buffer size
     static const uint MAX_UNDO_LAYERS = 5;
+    static const int MAX_POOL_SIZE = 10;
 
+    // try to start a snapshot: succeed if neither LOOP_BIT nor WANT_LOOP_BIT are set.
+    // multiple input jobs can succeed concurrently thanks to CAS increments.
+    bool tryBeginSnapshot()
+    {
+        uint32_t s = state->load (std::memory_order_acquire);
+        while (true)
+        {
+            // If a loop is running or a loop wants to run, refuse to start a new snapshot
+            if ((s & (LOOP_BIT | WANT_LOOP_BIT)) != 0) return false;
+
+            uint64_t desired = s + SNAPSHOT_INC; // increment snapshot count
+            if (state->compare_exchange_weak (s, desired, std::memory_order_acq_rel, std::memory_order_acquire)) return true;
+            // s is updated with current state; retry
+        }
+    }
+
+    // finish a snapshot (simple decrement)
+    void endSnapshot()
+    {
+        state->fetch_sub (SNAPSHOT_INC, std::memory_order_acq_rel);
+    }
+
+    // Indicate intent to run loop: set WANT_LOOP_BIT so no new snapshots start.
+    // Returns once WANT_LOOP_BIT is set.
+    void setWantLoop()
+    {
+        uint32_t s = state->load (std::memory_order_acquire);
+        while (true)
+        {
+            if ((s & WANT_LOOP_BIT) != 0) // already set
+                return;
+            uint32_t desired = s | WANT_LOOP_BIT;
+            if (state->compare_exchange_weak (s, desired, std::memory_order_acq_rel, std::memory_order_acquire)) return;
+        }
+    }
+
+    // Try to begin loop only if snapshot count == 0 and WANT_LOOP_BIT is set (optional),
+    // or just snapshot count == 0. We'll use WANT_LOOP_BIT to prevent new snapshots.
+    bool tryBeginLoop()
+    {
+        uint32_t s = state->load (std::memory_order_acquire);
+        while (true)
+        {
+            // only start loop if no snapshots are active (snapshot bits 2..)
+            if ((s & SNAPSHOT_MASK) != 0) return false;
+
+            // set LOOP_BIT and clear WANT_LOOP_BIT atomically (so no further snapshots can start).
+            uint32_t desired = (s | LOOP_BIT) & ~WANT_LOOP_BIT;
+            if (state->compare_exchange_weak (s, desired, std::memory_order_acq_rel, std::memory_order_acquire)) return true;
+            // otherwise retry with updated s
+        }
+    }
+
+    void endLoop()
+    {
+        state->fetch_and (~LOOP_BIT, std::memory_order_release);
+    }
+
+    static constexpr uint32_t LOOP_BIT = 1ull << 0;
+    static constexpr uint32_t WANT_LOOP_BIT = 1ull << 1;
+    static constexpr uint32_t SNAPSHOT_INC = 1ull << 2;
+    static constexpr uint32_t SNAPSHOT_MASK = ~((1ull << 2) - 1); // all bits from bit2 up
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopTrack)
 };

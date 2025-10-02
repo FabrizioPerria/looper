@@ -34,6 +34,22 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     clear();
     setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
 
+    copyLoopJobs.clear();
+    copyLoopJobs.reserve (MAX_POOL_SIZE);
+    copyBlockJobs.clear();
+    copyBlockJobs.reserve (MAX_POOL_SIZE);
+    blockSnapshots.clear();
+    blockSnapshots.reserve (MAX_POOL_SIZE);
+    for (int i = 0; i < MAX_POOL_SIZE; ++i)
+    {
+        auto loopJob = std::make_unique<CopyLoopJob>();
+        copyLoopJobs.push_back (std::move (loopJob));
+        auto blockJob = std::make_unique<CopyInputJob>();
+        copyBlockJobs.push_back (std::move (blockJob));
+        blockSnapshots.push_back (new juce::AudioBuffer<float>());
+        blockSnapshots.back()->setSize ((int) numChannels, (int) maxBlockSize, false, true, true);
+    }
+
     alreadyPrepared = true;
 }
 
@@ -71,16 +87,42 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
 
     const int actualWritten = samplesBeforeWrap + samplesAfterWrap;
 
-    for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
-    {
-        if (samplesBeforeWrap > 0)
-            copyInputToLoopBuffer ((uint) ch, input.getReadPointer (ch), (uint) writePosBeforeWrap, (uint) samplesBeforeWrap);
-        if (samplesAfterWrap > 0 && shouldOverdub())
-            copyInputToLoopBuffer ((uint) ch,
-                                   input.getReadPointer (ch) + samplesBeforeWrap,
-                                   (uint) writePosAfterWrap,
-                                   (uint) samplesAfterWrap);
-    }
+    static int copyJobIndexMain = 0;
+    // if (copyJobIndex < 0)
+    // {
+    //     // no free copy job, skip this block
+    //     fifo.finishedWrite (0, shouldOverdub());
+    //     return;
+    // }
+    int copyJobIndex = copyJobIndexMain++ % MAX_POOL_SIZE;
+
+    // copy block in temporary buffer for async processing
+    for (int ch = 0; ch < input.getNumChannels(); ++ch)
+        juce::FloatVectorOperations::copy (blockSnapshots[(size_t) copyJobIndex]->getWritePointer (ch),
+                                           input.getReadPointer (ch),
+                                           (int) numSamples);
+
+    backgroundPool.addJob (
+        [this, writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap, copyJobIndex]()
+        {
+            while (! tryBeginSnapshot())
+                std::this_thread::yield();
+
+            auto* src = blockSnapshots[(size_t) copyJobIndex];
+            for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+            {
+                if (samplesBeforeWrap > 0)
+                    copyInputToLoopBuffer ((uint) ch, src->getReadPointer (ch), (uint) writePosBeforeWrap, (uint) samplesBeforeWrap);
+
+                if (samplesAfterWrap > 0 && shouldOverdub())
+                    copyInputToLoopBuffer ((uint) ch,
+                                           src->getReadPointer (ch) + samplesBeforeWrap,
+                                           (uint) writePosAfterWrap,
+                                           (uint) samplesAfterWrap);
+            }
+
+            endSnapshot();
+        });
 
     fifo.finishedWrite (actualWritten, shouldOverdub());
 
@@ -96,8 +138,6 @@ void LoopTrack::saveToUndoBuffer()
 
 void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples)
 {
-    if (! isRecording) return;
-
     auto* audioBufferPtr = audioBuffer->getWritePointer ((int) ch) + offset;
 
     juce::FloatVectorOperations::multiply (audioBufferPtr, shouldOverdub() ? overdubOldGain : 0, (int) numSamples);
@@ -137,12 +177,39 @@ void LoopTrack::finalizeLayer()
         audioBuffer->applyGainRamp (length - fadeSamples, fadeSamples, overallGain, 0.0f); // fade out
     }
 
-    copyJob->prepare (tmpBuffer.get(), audioBuffer.get(), audioBuffer->getNumChannels(), length);
-    backgroundPool.addJob (copyJob.get(), true);
-    // for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+    // int copyJobIndex = getNextFreeCopyLoopJobIndex();
+    // if (copyJobIndex < 0)
     // {
-    //     juce::FloatVectorOperations::copy (tmpBuffer->getWritePointer (ch), audioBuffer->getReadPointer (ch), (int) length);
+    //     // no free copy job, skip this undo layer
+    //     return;
     // }
+    // const int dontcare = 0;
+    // copyLoopJobs[copyJobIndex]->prepare (tmpBuffer.get(),
+    //                                      audioBuffer.get(),
+    //                                      length,
+    //                                      dontcare,
+    //                                      dontcare,
+    //                                      dontcare,
+    //                                      dontcare,
+    //                                      copyState.get(),
+    //                                      shouldOverdub(),
+    //                                      overdubOldGain,
+    //                                      overdubNewGain);
+
+    // backgroundPool.addJob (copyLoopJobs[copyJobIndex].get(), true);
+    backgroundPool.addJob (
+        [this]()
+        {
+            setWantLoop();
+
+            while (! tryBeginLoop())
+                std::this_thread::yield();
+
+            for (int ch = 0; ch < tmpBuffer->getNumChannels(); ++ch)
+                juce::FloatVectorOperations::copy (tmpBuffer->getWritePointer (ch), audioBuffer->getReadPointer (ch), (int) length);
+
+            endLoop();
+        });
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint numSamples)
@@ -171,6 +238,11 @@ void LoopTrack::clear()
     audioBuffer->clear();
     undoBuffer.clear();
     tmpBuffer->clear();
+    for (auto& snapshot : blockSnapshots)
+        snapshot->clear();
+    copyLoopJobs.clear();
+    copyBlockJobs.clear();
+    blockSnapshots.clear();
     length = 0;
     provisionalLength = 0;
 }
