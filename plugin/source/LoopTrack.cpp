@@ -98,10 +98,10 @@ void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const
 {
     if (! isRecording) return;
 
-    auto* dest = audioBuffer->getWritePointer ((int) ch) + offset;
+    auto* audioBufferPtr = audioBuffer->getWritePointer ((int) ch) + offset;
 
-    juce::FloatVectorOperations::multiply (dest, shouldOverdub() ? overdubOldGain : 0, (int) numSamples);
-    juce::FloatVectorOperations::addWithMultiply (dest, bufPtr, overdubNewGain, (int) numSamples);
+    juce::FloatVectorOperations::multiply (audioBufferPtr, shouldOverdub() ? overdubOldGain : 0, (int) numSamples);
+    juce::FloatVectorOperations::addWithMultiply (audioBufferPtr, bufPtr, overdubNewGain, (int) numSamples);
 }
 
 void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSamples)
@@ -137,10 +137,12 @@ void LoopTrack::finalizeLayer()
         audioBuffer->applyGainRamp (length - fadeSamples, fadeSamples, overallGain, 0.0f); // fade out
     }
 
-    for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
-    {
-        juce::FloatVectorOperations::copy (tmpBuffer->getWritePointer (ch), audioBuffer->getReadPointer (ch), (int) length);
-    }
+    copyJob->prepare (tmpBuffer.get(), audioBuffer.get(), audioBuffer->getNumChannels(), length);
+    backgroundPool.addJob (copyJob.get(), true);
+    // for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+    // {
+    //     juce::FloatVectorOperations::copy (tmpBuffer->getWritePointer (ch), audioBuffer->getReadPointer (ch), (int) length);
+    // }
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint numSamples)
@@ -168,7 +170,7 @@ void LoopTrack::clear()
 {
     audioBuffer->clear();
     undoBuffer.clear();
-    // tmpBuffer.clear();
+    tmpBuffer->clear();
     length = 0;
     provisionalLength = 0;
 }

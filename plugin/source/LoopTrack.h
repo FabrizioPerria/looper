@@ -4,6 +4,39 @@
 #include "UndoBuffer.h"
 #include <JuceHeader.h>
 
+class CopyJob : public juce::ThreadPoolJob
+{
+public:
+    CopyJob() : ThreadPoolJob ("CopyJob")
+    {
+    }
+
+    void prepare (juce::AudioBuffer<float>* destination, juce::AudioBuffer<float>* source, int numChannels, int numSamples)
+    {
+        dest = destination;
+        src = source;
+        channels = numChannels;
+        samples = numSamples;
+    }
+
+    JobStatus runJob() override
+    {
+        for (int ch = 0; ch < channels; ++ch)
+        {
+            juce::FloatVectorOperations::copy (dest->getWritePointer (ch), src->getReadPointer (ch), samples);
+        }
+        return jobHasFinished;
+    }
+
+private:
+    juce::AudioBuffer<float>* dest;
+    juce::AudioBuffer<float>* src;
+    int channels;
+    int samples;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CopyJob)
+};
+
 class LoopTrack
 {
 public:
@@ -79,6 +112,8 @@ public:
 private:
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
+    juce::ThreadPool backgroundPool { 1 };
+    std::unique_ptr<CopyJob> copyJob = std::make_unique<CopyJob>();
 
     UndoBuffer undoBuffer;
 
