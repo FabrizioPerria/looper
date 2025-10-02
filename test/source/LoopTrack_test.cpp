@@ -51,8 +51,8 @@ TEST (LoopTrackPrepare, BuffersClearedToZero)
     const auto& undoBuffer = track.getUndoBuffer();
     for (int ch = 0; ch < undoBuffer.getNumChannels(); ++ch)
     {
-        auto undoBufferContents = undoBuffer.getBuffers()[0];
-        auto* ptr = undoBufferContents.getReadPointer (ch);
+        auto& undoBufferContents = undoBuffer.getBuffers()[0];
+        auto* ptr = undoBufferContents->getReadPointer (ch);
         for (int i = 0; i < undoBuffer.getNumSamples(); ++i)
         {
             EXPECT_FLOAT_EQ (ptr[i], 0.0f);
@@ -748,8 +748,8 @@ TEST (LoopTrackClear, ClearsBuffersAndResetsState)
     const auto& undoBuffer = track.getUndoBuffer();
     for (int ch = 0; ch < undoBuffer.getNumChannels(); ++ch)
     {
-        auto undoBufferContents = undoBuffer.getBuffers()[0];
-        auto* ptr = undoBufferContents.getReadPointer (ch);
+        auto& undoBufferContents = undoBuffer.getBuffers()[0];
+        auto* ptr = undoBufferContents->getReadPointer (ch);
         for (int i = 0; i < undoBuffer.getNumSamples(); ++i)
         {
             EXPECT_FLOAT_EQ (ptr[i], 0.0f);
@@ -844,12 +844,8 @@ TEST (LoopTrackUndo, MultilayerUndo)
     mainLoopCopy.copyFrom (0, 0, mainLoopSine, 0, 0, maxBlock);
     auto* mainLoopCopyPtr = mainLoopCopy.getReadPointer (0);
 
-    auto* scope = mainLoopSine.getReadPointer (0);
     track.processRecord (mainLoopSine, maxBlock);
     track.finalizeLayer();
-
-    const auto& audioBuffer = track.getAudioBuffer();
-    auto* audioBufferPtr = audioBuffer.getReadPointer (0);
 
     juce::AudioBuffer<float> firstOverdubSine = createSquareTestBuffer (numChannels, maxBlock, sr, 10.0f);
     auto* firstOverdubPtr = firstOverdubSine.getReadPointer (0);
@@ -861,6 +857,7 @@ TEST (LoopTrackUndo, MultilayerUndo)
     track.processRecord (secondOverdubSine, maxBlock);
     track.finalizeLayer();
 
+    auto* audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
@@ -870,19 +867,21 @@ TEST (LoopTrackUndo, MultilayerUndo)
     auto* thirdOverdubPtr = thirdOverdubSine.getReadPointer (0);
     track.processRecord (thirdOverdubSine, maxBlock);
     track.finalizeLayer();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i] + thirdOverdubPtr[i]);
     }
 
     track.undo();
-
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
     }
 
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     const auto& secondUndo = track.getAudioBuffer();
     auto* secondUndoPtr = secondUndo.getReadPointer (0);
 
@@ -892,6 +891,7 @@ TEST (LoopTrackUndo, MultilayerUndo)
     }
 
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
@@ -899,6 +899,7 @@ TEST (LoopTrackUndo, MultilayerUndo)
 
     // Further undo should have no effect
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
@@ -907,12 +908,14 @@ TEST (LoopTrackUndo, MultilayerUndo)
     track.processRecord (thirdOverdubSine, maxBlock);
     track.finalizeLayer();
     auto* thirdOverdubSinePtr = thirdOverdubSine.getReadPointer (0);
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + thirdOverdubSinePtr[i]);
     }
 
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
@@ -941,9 +944,6 @@ TEST (LoopTrackUndo, MultilayerUndoWithRedo)
     track.processRecord (mainLoopSine, maxBlock);
     track.finalizeLayer();
 
-    const auto& audioBuffer = track.getAudioBuffer();
-    auto* audioBufferPtr = audioBuffer.getReadPointer (0);
-
     juce::AudioBuffer<float> firstOverdubSine = createSquareTestBuffer (numChannels, maxBlock, sr, 10.0f);
     auto* firstOverdubPtr = firstOverdubSine.getReadPointer (0);
     track.processRecord (firstOverdubSine, maxBlock);
@@ -954,6 +954,7 @@ TEST (LoopTrackUndo, MultilayerUndoWithRedo)
     track.processRecord (secondOverdubSine, maxBlock);
     track.finalizeLayer();
 
+    auto* audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
@@ -963,12 +964,14 @@ TEST (LoopTrackUndo, MultilayerUndoWithRedo)
     auto* thirdOverdubPtr = thirdOverdubSine.getReadPointer (0);
     track.processRecord (thirdOverdubSine, maxBlock);
     track.finalizeLayer();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i] + thirdOverdubPtr[i]);
     }
 
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
@@ -978,48 +981,56 @@ TEST (LoopTrackUndo, MultilayerUndoWithRedo)
     const auto& secondUndo = track.getAudioBuffer();
     auto* secondUndoPtr = secondUndo.getReadPointer (0);
 
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
     }
 
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
     }
 
     track.redo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
     }
 
     track.redo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
     }
 
     track.redo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i] + thirdOverdubPtr[i]);
     }
 
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
     }
 
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
     }
 
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
@@ -1027,6 +1038,7 @@ TEST (LoopTrackUndo, MultilayerUndoWithRedo)
 
     // Further undo should have no effect
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
@@ -1035,18 +1047,21 @@ TEST (LoopTrackUndo, MultilayerUndoWithRedo)
     track.processRecord (thirdOverdubSine, maxBlock);
     track.finalizeLayer();
     auto* thirdOverdubSinePtr = thirdOverdubSine.getReadPointer (0);
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + thirdOverdubSinePtr[i]);
     }
 
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
     }
 
     track.redo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + thirdOverdubSinePtr[i]);
@@ -1075,9 +1090,6 @@ TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
     track.processRecord (mainLoopSine, maxBlock);
     track.finalizeLayer();
 
-    const auto& audioBuffer = track.getAudioBuffer();
-    auto* audioBufferPtr = audioBuffer.getReadPointer (0);
-
     juce::AudioBuffer<float> firstOverdubSine = createSquareTestBuffer (numChannels, maxBlock, sr, 10.0f);
     auto* firstOverdubPtr = firstOverdubSine.getReadPointer (0);
     track.processRecord (firstOverdubSine, maxBlock);
@@ -1088,6 +1100,7 @@ TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
     track.processRecord (secondOverdubSine, maxBlock);
     track.finalizeLayer();
 
+    auto* audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
@@ -1097,13 +1110,14 @@ TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
     auto* thirdOverdubPtr = thirdOverdubSine.getReadPointer (0);
     track.processRecord (thirdOverdubSine, maxBlock);
     track.finalizeLayer();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i] + thirdOverdubPtr[i]);
     }
 
     track.undo();
-
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
@@ -1113,12 +1127,14 @@ TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
     const auto& secondUndo = track.getAudioBuffer();
     auto* secondUndoPtr = secondUndo.getReadPointer (0);
 
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
     }
 
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
@@ -1126,6 +1142,7 @@ TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
 
     // Further undo should have no effect
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
@@ -1134,12 +1151,14 @@ TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
     track.processRecord (thirdOverdubSine, maxBlock);
     track.finalizeLayer();
     auto* thirdOverdubSinePtr = thirdOverdubSine.getReadPointer (0);
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + thirdOverdubSinePtr[i]);
     }
 
     track.undo();
+    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);

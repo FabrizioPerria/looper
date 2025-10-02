@@ -27,7 +27,7 @@ public:
 
     const juce::AudioBuffer<float>& getAudioBuffer() const
     {
-        return audioBuffer;
+        return *audioBuffer;
     }
 
     double getSampleRate() const
@@ -77,9 +77,10 @@ public:
     }
 
 private:
-    juce::AudioBuffer<float> audioBuffer;
+    std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
+
     UndoBuffer undoBuffer;
-    juce::AudioBuffer<float> tmpBuffer;
+    // juce::AudioBuffer<float> tmpBuffer;
 
     double sampleRate = 0.0;
 
@@ -107,7 +108,7 @@ private:
     bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float> input, const uint numSamples) const
     {
         return numSamples == 0 || (uint) input.getNumSamples() < numSamples || ! isPrepared()
-               || input.getNumChannels() != audioBuffer.getNumChannels();
+               || input.getNumChannels() != audioBuffer->getNumChannels();
     }
 
     bool shouldNotPlayback (const uint numSamples) const

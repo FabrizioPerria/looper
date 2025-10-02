@@ -105,6 +105,11 @@ void LooperEngine::undo()
     loopTracks[activeTrackIndex]->undo();
 }
 
+void LooperEngine::redo()
+{
+    loopTracks[activeTrackIndex]->redo();
+}
+
 void LooperEngine::clear()
 {
     loopTracks[activeTrackIndex]->clear();
@@ -128,6 +133,7 @@ void LooperEngine::setupMidiCommands()
         }
     };
     midiCommandMap[{ 72, NOTE_ON }] = [] (LooperEngine& engine) { engine.undo(); };
+    midiCommandMap[{ 74, NOTE_ON }] = [] (LooperEngine& engine) { engine.redo(); };
     midiCommandMap[{ 84, NOTE_OFF }] = [] (LooperEngine& engine) { engine.clear(); };
 }
 

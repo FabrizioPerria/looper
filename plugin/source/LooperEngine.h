@@ -45,6 +45,7 @@ public:
     void startPlaying();
     void stop();
     void undo();
+    void redo();
     void clear();
 
 private:
