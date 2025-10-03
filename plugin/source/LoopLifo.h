@@ -4,6 +4,9 @@
 class LoopLifo
 {
 public:
+    LoopLifo() = default;
+    ~LoopLifo() = default;
+
     void prepareToPlay (int totalSize)
     {
         capacity = totalSize;
@@ -77,4 +80,6 @@ private:
     int capacity = 0;     // total slots
     int writePos = 0;     // next slot to push
     int activeLayers = 0; // number of valid layers
+                          //
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopLifo)
 };

@@ -290,25 +290,41 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputOverMaxBufferSize)
 
     const int bufferSamples = track.getAudioBuffer().getNumSamples();
     const int leaveSamples = 10; // leave some space at end of buffer
-    const int numSamples = bufferSamples - leaveSamples;
+    const int totalSamples = bufferSamples - leaveSamples;
 
-    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
-    auto* readPtr = input.getReadPointer (0);
+    // Create first input buffer
+    juce::AudioBuffer<float> fullInput = createSquareTestBuffer (numChannels, totalSamples, sr, 440.0f);
+    auto* readPtr = fullInput.getReadPointer (0);
 
-    track.processRecord (input, numSamples);
+    // Process first recording in blocks
+    for (int i = 0; i < totalSamples; i += maxBlock)
+    {
+        const int samplesThisBlock = std::min (maxBlock, totalSamples - i);
+        juce::AudioBuffer<float> blockBuffer (numChannels, samplesThisBlock);
+        blockBuffer.copyFrom (0, 0, fullInput, 0, i, samplesThisBlock);
+        track.processRecord (blockBuffer, samplesThisBlock);
+    }
 
+    // Verify first recording
     const auto& loopBuffer = track.getAudioBuffer();
     auto* loopPtr = loopBuffer.getReadPointer (0);
-    for (int i = 0; i < numSamples; ++i)
+    for (int i = 0; i < totalSamples; ++i)
     {
         EXPECT_FLOAT_EQ (loopPtr[i], readPtr[i]);
     }
 
-    // process another partial block that will wrap around
-    juce::AudioBuffer<float> input2 = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
-    auto* readPtr2 = input2.getReadPointer (0);
+    // Create second input buffer
+    juce::AudioBuffer<float> fullInput2 = createSquareTestBuffer (numChannels, totalSamples, sr, 440.0f);
+    auto* readPtr2 = fullInput2.getReadPointer (0);
 
-    track.processRecord (input2, numSamples);
+    // Process second recording in blocks
+    for (int i = 0; i < totalSamples; i += maxBlock)
+    {
+        const int samplesThisBlock = std::min (maxBlock, totalSamples - i);
+        juce::AudioBuffer<float> blockBuffer (numChannels, samplesThisBlock);
+        blockBuffer.copyFrom (0, 0, fullInput2, 0, i, samplesThisBlock);
+        track.processRecord (blockBuffer, samplesThisBlock);
+    }
     track.finalizeLayer();
 
     loopPtr = loopBuffer.getReadPointer (0);
@@ -316,11 +332,10 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputOverMaxBufferSize)
     // Check samples written before wrap
     for (int i = 0; i < leaveSamples; ++i)
     {
-        EXPECT_FLOAT_EQ (loopPtr[numSamples + i], readPtr2[i]);
+        EXPECT_FLOAT_EQ (loopPtr[totalSamples + i], readPtr2[i]);
     }
 
-    readPtr = input.getReadPointer (0);
-    // Check samples written after wrap. overdub of end and start of buffer
+    // Check samples written after wrap (overdub of end and start of buffer)
     for (int i = 0; i < leaveSamples; ++i)
     {
         EXPECT_FLOAT_EQ (loopPtr[i], readPtr[i]);
@@ -448,10 +463,18 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
 
     track.setCrossFadeLength (0);
 
-    // Create initial loop - 1 second of 440Hz sine
-    const int loopLength = 4410; // 0.1 seconds
+    // Create initial loop - 0.1 seconds of 440Hz sine
+    const int loopLength = 4410;
     juce::AudioBuffer<float> initialLoop = createSquareTestBuffer (numChannels, loopLength, sr, 440.0f);
-    track.processRecord (initialLoop, loopLength);
+
+    // Record initial loop in blocks
+    for (int i = 0; i < loopLength; i += maxBlock)
+    {
+        const int samplesThisBlock = std::min (maxBlock, loopLength - i);
+        juce::AudioBuffer<float> blockBuffer (numChannels, samplesThisBlock);
+        blockBuffer.copyFrom (0, 0, initialLoop, 0, i, samplesThisBlock);
+        track.processRecord (blockBuffer, samplesThisBlock);
+    }
     track.finalizeLayer();
 
     // Save copy of original loop for comparison
@@ -469,23 +492,28 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
         return true;
     };
 
-    // Do an initial playback to set read position to zero
-    track.processPlayback (initialLoop, loopLength);
+    // Do initial playback in blocks to set read position to zero
+    for (int i = 0; i < loopLength; i += maxBlock)
+    {
+        const int samplesThisBlock = std::min (maxBlock, loopLength - i);
+        juce::AudioBuffer<float> playbackBuffer (numChannels, samplesThisBlock);
+        track.processPlayback (playbackBuffer, samplesThisBlock);
+    }
 
     EXPECT_TRUE (compareBuffers (track.getAudioBuffer(), originalLoop, 0, loopLength));
 
-    // Verify:
-    // First third should match original
     // Create overdub material - 880Hz sine (one octave higher)
     juce::AudioBuffer<float> overdubMaterial = createSquareTestBuffer (numChannels, loopLength, sr, 880.0f);
 
-    // Do intermittent overdubs:
-    // Overdub in the middle third of the loop
     const int thirdLength = loopLength / 3;
 
-    // First third - just playback
-    juce::AudioBuffer<float> playbackBuffer1 (numChannels, thirdLength);
-    track.processPlayback (playbackBuffer1, thirdLength);
+    // First third - playback in blocks
+    for (int i = 0; i < thirdLength; i += maxBlock)
+    {
+        const int samplesThisBlock = std::min (maxBlock, thirdLength - i);
+        juce::AudioBuffer<float> playbackBuffer (numChannels, samplesThisBlock);
+        track.processPlayback (playbackBuffer, samplesThisBlock);
+    }
 
     // Middle third - overdub
     juce::AudioBuffer<float> overdubSection (numChannels, thirdLength);
@@ -493,15 +521,18 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
     track.processRecord (overdubSection, thirdLength);
     track.finalizeLayer();
 
-    // Last third - just playback
-    juce::AudioBuffer<float> playbackBuffer2 (numChannels, thirdLength);
-    track.processPlayback (playbackBuffer2, thirdLength);
+    // Last third - playback in blocks
+    for (int i = 0; i < thirdLength; i += maxBlock)
+    {
+        const int samplesThisBlock = std::min (maxBlock, thirdLength - i);
+        juce::AudioBuffer<float> playbackBuffer (numChannels, samplesThisBlock);
+        track.processPlayback (playbackBuffer, samplesThisBlock);
+    }
 
-    // Verify:
-    // First third should match original
+    // Verify first third matches original
     EXPECT_TRUE (compareBuffers (track.getAudioBuffer(), originalLoop, 0, thirdLength));
 
-    // Middle third should be sum of original and overdub
+    // Verify middle third is sum of original and overdub
     auto* loopPtr = track.getAudioBuffer().getReadPointer (0);
     auto* originalPtr = originalLoop.getReadPointer (0);
     auto* overdubPtr = overdubMaterial.getReadPointer (0);
@@ -511,7 +542,7 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
         EXPECT_FLOAT_EQ (loopPtr[thirdLength + i], expectedSum);
     }
 
-    // Last third should match original
+    // Verify last third matches original
     EXPECT_TRUE (compareBuffers (track.getAudioBuffer(), originalLoop, 2 * thirdLength, thirdLength));
 }
 
@@ -586,37 +617,61 @@ TEST (LoopTrackPlayback, ProcessPartialBlockCopiesToOutputWrapAround)
 
     const int bufferSamples = track.getAudioBuffer().getNumSamples();
     const int leaveSamples = 10; // leave some space at end of buffer
-    const int numSamples = bufferSamples - leaveSamples;
+    const int totalSamples = bufferSamples - leaveSamples;
 
-    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
-    track.processRecord (input, numSamples);
+    // Create full test buffer
+    juce::AudioBuffer<float> fullInput = createSquareTestBuffer (numChannels, totalSamples, sr, 440.0f);
+
+    // Process recording in blocks
+    for (int i = 0; i < totalSamples; i += maxBlock)
+    {
+        const int samplesThisBlock = std::min (maxBlock, totalSamples - i);
+        juce::AudioBuffer<float> blockBuffer (numChannels, samplesThisBlock);
+        blockBuffer.copyFrom (0, 0, fullInput, 0, i, samplesThisBlock);
+        track.processRecord (blockBuffer, samplesThisBlock);
+    }
     track.finalizeLayer();
 
-    juce::AudioBuffer<float> output (numChannels, numSamples);
+    // Create output buffer for first pass
+    juce::AudioBuffer<float> output (numChannels, totalSamples);
     output.clear();
 
-    track.processPlayback (output, numSamples);
+    // Process first playback in blocks
+    for (int i = 0; i < totalSamples; i += maxBlock)
+    {
+        const int samplesThisBlock = std::min (maxBlock, totalSamples - i);
+        juce::AudioBuffer<float> blockBuffer (numChannels, samplesThisBlock);
+        track.processPlayback (blockBuffer, samplesThisBlock);
+        output.copyFrom (0, i, blockBuffer, 0, 0, samplesThisBlock);
+    }
 
+    // Check first playback matches loop buffer
     const auto& loopBuffer = track.getAudioBuffer();
     auto* loopPtr = loopBuffer.getReadPointer (0);
     auto* outPtr = output.getReadPointer (0);
-    // Check samples read before wrap
-    for (int i = 0; i < numSamples; ++i)
+    for (int i = 0; i < totalSamples; ++i)
     {
         EXPECT_FLOAT_EQ (outPtr[i], loopPtr[i]);
     }
 
-    // process another partial block that will wrap around
-    juce::AudioBuffer<float> output2 (numChannels, numSamples);
+    // Create output buffer for second pass (wrap around)
+    juce::AudioBuffer<float> output2 (numChannels, totalSamples);
     output2.clear();
 
-    track.processPlayback (output2, numSamples);
-    outPtr = output2.getReadPointer (0);
-
-    // Check samples read after wrap.
-    for (int i = 0; i < numSamples; ++i)
+    // Process second playback in blocks
+    for (int i = 0; i < totalSamples; i += maxBlock)
     {
-        EXPECT_FLOAT_EQ (outPtr[i], loopPtr[(numSamples + i) % numSamples]);
+        const int samplesThisBlock = std::min (maxBlock, totalSamples - i);
+        juce::AudioBuffer<float> blockBuffer (numChannels, samplesThisBlock);
+        track.processPlayback (blockBuffer, samplesThisBlock);
+        output2.copyFrom (0, i, blockBuffer, 0, 0, samplesThisBlock);
+    }
+
+    // Check wrapped playback
+    outPtr = output2.getReadPointer (0);
+    for (int i = 0; i < totalSamples; ++i)
+    {
+        EXPECT_FLOAT_EQ (outPtr[i], loopPtr[(totalSamples + i) % totalSamples]);
     }
 }
 
@@ -688,20 +743,30 @@ TEST (LoopTrackPlayback, ProcessPlaybackManySmallBlocksWrapAround)
 
     const int bufferSamples = track.getAudioBuffer().getNumSamples();
     const int leaveSamples = 10; // leave some space at end of buffer
-    const int numSamples = bufferSamples - leaveSamples;
+    const int totalSamples = bufferSamples - leaveSamples;
 
-    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
-    track.processRecord (input, numSamples);
+    // Create full test buffer
+    juce::AudioBuffer<float> fullInput = createSquareTestBuffer (numChannels, totalSamples, sr, 440.0f);
+
+    // Process recording in blocks
+    for (int i = 0; i < totalSamples; i += maxBlock)
+    {
+        const int samplesThisBlock = std::min (maxBlock, totalSamples - i);
+        juce::AudioBuffer<float> blockBuffer (numChannels, samplesThisBlock);
+        blockBuffer.copyFrom (0, 0, fullInput, 0, i, samplesThisBlock);
+        track.processRecord (blockBuffer, samplesThisBlock);
+    }
     track.finalizeLayer();
 
-    int chunkSize = 8; // process in very small chunks
+    // Test playback with small chunks, but always <= maxBlock
+    const int chunkSize = std::min (8, maxBlock); // ensure chunk size never exceeds maxBlock
     int playbackPos = 0;
-    while (playbackPos < numSamples)
+    while (playbackPos < totalSamples)
     {
-        juce::AudioBuffer<float> output (numChannels, chunkSize);
+        const int thisChunk = std::min (chunkSize, totalSamples - playbackPos);
+        juce::AudioBuffer<float> output (numChannels, thisChunk);
         output.clear();
 
-        int thisChunk = std::min (chunkSize, numSamples - playbackPos);
         track.processPlayback (output, thisChunk);
 
         const auto& loopBuffer = track.getAudioBuffer();
@@ -1230,25 +1295,44 @@ TEST (LoopTrackPlayback, PlaybackTwiceWillWrapCorrectly)
 
     const int bufferSamples = track.getAudioBuffer().getNumSamples();
     const int leaveSamples = 10; // leave some space at end of buffer
-    const int numSamples = bufferSamples - leaveSamples;
+    const int totalSamples = bufferSamples - leaveSamples;
 
-    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
-    track.processRecord (input, numSamples);
+    // Create full test buffer
+    juce::AudioBuffer<float> fullInput = createSquareTestBuffer (numChannels, totalSamples, sr, 440.0f);
+
+    // Process recording in blocks
+    for (int i = 0; i < totalSamples; i += maxBlock)
+    {
+        const int samplesThisBlock = std::min (maxBlock, totalSamples - i);
+        juce::AudioBuffer<float> blockBuffer (numChannels, samplesThisBlock);
+        blockBuffer.copyFrom (0, 0, fullInput, 0, i, samplesThisBlock);
+        track.processRecord (blockBuffer, samplesThisBlock);
+    }
     track.finalizeLayer();
 
-    int requestedSamples = bufferSamples + 71;
-    juce::AudioBuffer<float> output1 (numChannels, requestedSamples);
-    output1.clear();
+    // Test playback with wrap-around
+    const int requestedSamples = bufferSamples + 71;
+    juce::AudioBuffer<float> output (numChannels, requestedSamples);
+    output.clear();
 
-    track.processPlayback (output1, requestedSamples);
+    // Process playback in blocks
+    for (int i = 0; i < requestedSamples; i += maxBlock)
+    {
+        const int samplesThisBlock = std::min (maxBlock, requestedSamples - i);
+        juce::AudioBuffer<float> blockBuffer (numChannels, samplesThisBlock);
+        track.processPlayback (blockBuffer, samplesThisBlock);
+
+        // Copy to main output buffer
+        output.copyFrom (0, i, blockBuffer, 0, 0, samplesThisBlock);
+    }
 
     const auto& loopBuffer = track.getAudioBuffer();
     auto* loopPtr = loopBuffer.getReadPointer (0);
-    auto* outPtr1 = output1.getReadPointer (0);
+    auto* outPtr = output.getReadPointer (0);
     for (int i = 0; i < requestedSamples; ++i)
     {
-        auto index = i % numSamples;
-        EXPECT_FLOAT_EQ (outPtr1[index], loopPtr[index]);
+        auto index = i % totalSamples;
+        EXPECT_FLOAT_EQ (outPtr[i], loopPtr[index]);
     }
 }
 

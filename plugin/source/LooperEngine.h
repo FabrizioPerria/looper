@@ -23,11 +23,11 @@ public:
     void selectTrack (const int trackIndex);
     void removeTrack (const int trackIndex);
     LoopTrack* getActiveTrack();
-    int getActiveTrackIndex() const
+    size_t getActiveTrackIndex() const
     {
         return activeTrackIndex;
     }
-    int getNumTracks() const
+    uint getNumTracks() const
     {
         return numTracks;
     }
@@ -87,10 +87,10 @@ private:
 
     TransportState transportState;
     double sampleRate;
-    int maxBlockSize;
-    int numChannels;
-    int numTracks;
-    int activeTrackIndex { 0 };
+    uint maxBlockSize;
+    uint numChannels;
+    uint numTracks;
+    size_t activeTrackIndex { 0 };
 
     std::vector<std::unique_ptr<LoopTrack>> loopTracks;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LooperEngine)

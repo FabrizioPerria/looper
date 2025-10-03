@@ -19,8 +19,8 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
     }
     releaseResources();
     sampleRate = newSampleRate;
-    maxBlockSize = newMaxBlockSize;
-    numChannels = newNumChannels;
+    maxBlockSize = (uint) newMaxBlockSize;
+    numChannels = (uint) newNumChannels;
 
     for (int i = 0; i < newNumTracks; ++i)
     {
@@ -47,9 +47,9 @@ void LooperEngine::releaseResources()
 
 void LooperEngine::selectTrack (const int trackIndex)
 {
-    if (trackIndex >= 0 && trackIndex < numTracks)
+    if (trackIndex >= 0 && (uint) trackIndex < numTracks)
     {
-        activeTrackIndex = trackIndex;
+        activeTrackIndex = (size_t) trackIndex;
     }
 }
 
@@ -79,20 +79,20 @@ void LooperEngine::addTrack()
     auto track = std::make_unique<LoopTrack>();
     track->prepareToPlay (sampleRate, maxBlockSize, numChannels);
     loopTracks.push_back (std::move (track));
-    numTracks = static_cast<int> (loopTracks.size());
+    numTracks = static_cast<uint> (loopTracks.size());
     activeTrackIndex = numTracks - 1;
 }
 
 void LooperEngine::removeTrack (const int trackIndex)
 {
-    if (activeTrackIndex == trackIndex)
+    if (activeTrackIndex == (uint) trackIndex)
     {
         return;
     }
-    if (trackIndex >= 0 && trackIndex < numTracks)
+    if (trackIndex >= 0 && (uint) trackIndex < numTracks)
     {
-        loopTracks.erase (loopTracks.begin() + trackIndex);
-        numTracks = static_cast<int> (loopTracks.size());
+        loopTracks.erase (loopTracks.begin() + (uint) trackIndex);
+        numTracks = static_cast<uint> (loopTracks.size());
         if (activeTrackIndex >= numTracks)
         {
             activeTrackIndex = numTracks - 1;
@@ -167,9 +167,9 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     switch (transportState)
     {
         case TransportState::Recording:
-            activeTrack->processRecord (buffer, buffer.getNumSamples());
+            activeTrack->processRecord (buffer, (uint) buffer.getNumSamples());
         case TransportState::Playing:
-            activeTrack->processPlayback (const_cast<juce::AudioBuffer<float>&> (buffer), buffer.getNumSamples());
+            activeTrack->processPlayback (const_cast<juce::AudioBuffer<float>&> (buffer), (uint) buffer.getNumSamples());
             break;
         case TransportState::Stopped:
             // do nothing
@@ -194,11 +194,11 @@ LoopTrack* LooperEngine::getActiveTrack()
 
 void LooperEngine::setOverdubGainsForTrack (const int trackIndex, const double oldGain, const double newGain)
 {
-    if (trackIndex < 0 || trackIndex >= numTracks)
+    if (trackIndex < 0 || (uint) trackIndex >= numTracks)
     {
         return;
     }
-    auto& track = loopTracks[trackIndex];
+    auto& track = loopTracks[(size_t) trackIndex];
     if (track)
     {
         track->setOverdubGains (oldGain, newGain);

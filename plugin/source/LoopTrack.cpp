@@ -7,9 +7,6 @@
 // Setup
 //==============================================================================
 
-LoopTrack::LoopTrack() = default;
-LoopTrack::~LoopTrack() = default;
-
 void LoopTrack::prepareToPlay (const double currentSampleRate,
                                const uint maxBlockSize,
                                const uint numChannels,
@@ -32,7 +29,7 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
 
     clear();
-    setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
+    setCrossFadeLength ((uint) (0.01 * sampleRate)); // default 10 ms crossfade
 
     copyLoopJobs.clear();
     copyLoopJobs.reserve (MAX_POOL_SIZE);
@@ -74,6 +71,9 @@ void LoopTrack::releaseResources()
 
 void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint numSamples)
 {
+    jassert (input.getNumChannels() == audioBuffer->getNumChannels());
+    jassert (numSamples <= (uint) input.getNumSamples());
+    jassert (isPrepared());
     if (shouldNotRecordInputBuffer (input, numSamples)) return;
 
     if (! isRecording)
@@ -98,9 +98,10 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
 
     // copy block in temporary buffer for async processing
     for (int ch = 0; ch < input.getNumChannels(); ++ch)
-        juce::FloatVectorOperations::copy (blockSnapshots[(size_t) copyJobIndex]->getWritePointer (ch),
-                                           input.getReadPointer (ch),
-                                           (int) numSamples);
+        // juce::FloatVectorOperations::copy (blockSnapshots[(size_t) copyJobIndex]->getWritePointer (ch),
+        //                                    input.getReadPointer (ch),
+        //                                    (int) numSamples);
+        blockSnapshots[(size_t) copyJobIndex]->copyFrom (ch, 0, input, ch, 0, (int) numSamples);
 
     backgroundPool.addJob (
         [this, writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap, copyJobIndex]()
@@ -140,8 +141,8 @@ void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const
 {
     auto* audioBufferPtr = audioBuffer->getWritePointer ((int) ch) + offset;
 
-    juce::FloatVectorOperations::multiply (audioBufferPtr, shouldOverdub() ? overdubOldGain : 0, (int) numSamples);
-    juce::FloatVectorOperations::addWithMultiply (audioBufferPtr, bufPtr, overdubNewGain, (int) numSamples);
+    juce::FloatVectorOperations::multiply (audioBufferPtr, shouldOverdub() ? (float) overdubOldGain : 0.0f, (int) numSamples);
+    juce::FloatVectorOperations::addWithMultiply (audioBufferPtr, bufPtr, (float) overdubNewGain, (int) numSamples);
 }
 
 void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSamples)
@@ -151,8 +152,8 @@ void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSample
 
 void LoopTrack::finalizeLayer()
 {
-    const int currentLength = std::max ({ length, provisionalLength, 1u });
-    if (length == 0)
+    const uint currentLength = std::max ({ length, provisionalLength, 1u });
+    if (length == 0u)
     {
         fifo.setMusicalLength ((int) currentLength);
         length = currentLength;
@@ -173,8 +174,8 @@ void LoopTrack::finalizeLayer()
     const uint fadeSamples = std::min (crossFadeLength, length / 4);
     if (fadeSamples > 0)
     {
-        audioBuffer->applyGainRamp (0, fadeSamples, 0.0f, overallGain);                    // fade in
-        audioBuffer->applyGainRamp (length - fadeSamples, fadeSamples, overallGain, 0.0f); // fade out
+        audioBuffer->applyGainRamp (0, (int) fadeSamples, 0.0f, overallGain);                            // fade in
+        audioBuffer->applyGainRamp ((int) (length - fadeSamples), (int) fadeSamples, overallGain, 0.0f); // fade out
     }
 
     // int copyJobIndex = getNextFreeCopyLoopJobIndex();

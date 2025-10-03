@@ -4,6 +4,9 @@
 class LoopFifo
 {
 public:
+    LoopFifo() = default;
+    ~LoopFifo() = default;
+
     void prepareToPlay (int totalSize)
     {
         bufferSize = totalSize;
@@ -93,4 +96,6 @@ private:
     int musicalLength = 0; // current loop length
     int writePos = 0;
     int readPos = 0;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopFifo)
 };

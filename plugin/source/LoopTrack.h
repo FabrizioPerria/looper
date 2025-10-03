@@ -6,13 +6,18 @@
 #include "juce_core/juce_core.h"
 #include <JuceHeader.h>
 #include <cstdint>
-#include <mutex>
 
 class LoopTrack
 {
 public:
-    LoopTrack();
-    ~LoopTrack();
+    LoopTrack()
+    {
+    }
+
+    ~LoopTrack()
+    {
+        releaseResources();
+    }
 
     void prepareToPlay (const double currentSampleRate,
                         const uint maxBlockSize,
@@ -31,6 +36,8 @@ public:
 
     const juce::AudioBuffer<float>& getAudioBuffer() const
     {
+        while (backgroundPool.getNumJobs() > 0)
+            juce::Thread::sleep (0);
         return *audioBuffer;
     }
 
@@ -41,15 +48,15 @@ public:
 
     int getLength() const
     {
-        return length;
+        return (int) length;
     }
 
-    void setLength (const int newLength)
+    void setLength (const uint newLength)
     {
         length = newLength;
     }
 
-    void setCrossFadeLength (const int newLength)
+    void setCrossFadeLength (const uint newLength)
     {
         crossFadeLength = newLength;
     }
@@ -147,7 +154,7 @@ private:
             // If a loop is running or a loop wants to run, refuse to start a new snapshot
             if ((s & (LOOP_BIT | WANT_LOOP_BIT)) != 0) return false;
 
-            uint64_t desired = s + SNAPSHOT_INC; // increment snapshot count
+            uint32_t desired = s + SNAPSHOT_INC; // increment snapshot count
             if (state->compare_exchange_weak (s, desired, std::memory_order_acq_rel, std::memory_order_acquire)) return true;
             // s is updated with current state; retry
         }
@@ -195,9 +202,9 @@ private:
         state->fetch_and (~LOOP_BIT, std::memory_order_release);
     }
 
-    static constexpr uint32_t LOOP_BIT = 1ull << 0;
-    static constexpr uint32_t WANT_LOOP_BIT = 1ull << 1;
-    static constexpr uint32_t SNAPSHOT_INC = 1ull << 2;
-    static constexpr uint32_t SNAPSHOT_MASK = ~((1ull << 2) - 1); // all bits from bit2 up
+    static constexpr uint32_t LOOP_BIT = 1 << 0;
+    static constexpr uint32_t WANT_LOOP_BIT = 1 << 1;
+    static constexpr uint32_t SNAPSHOT_INC = 1 << 2;
+    static constexpr uint32_t SNAPSHOT_MASK = ~((1u << 2) - 1); // all bits from bit2 up
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopTrack)
 };

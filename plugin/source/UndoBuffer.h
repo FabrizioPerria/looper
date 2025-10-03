@@ -7,6 +7,15 @@
 class UndoBuffer
 {
 public:
+    UndoBuffer()
+    {
+    }
+
+    ~UndoBuffer()
+    {
+        releaseResources();
+    }
+
     void prepareToPlay (int numLayers, int numChannels, int bufferSamples)
     {
         undoLifo.prepareToPlay (numLayers);
@@ -186,4 +195,6 @@ private:
     std::vector<std::unique_ptr<juce::AudioBuffer<float>>> redoBuffers {};
 
     size_t length { 0 };
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (UndoBuffer)
 };
