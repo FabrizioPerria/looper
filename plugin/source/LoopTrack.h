@@ -84,7 +84,6 @@ public:
 private:
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
-    std::unique_ptr<juce::AudioBuffer<float>> undoStaging = std::make_unique<juce::AudioBuffer<float>>();
 
     UndoBuffer undoBuffer;
 

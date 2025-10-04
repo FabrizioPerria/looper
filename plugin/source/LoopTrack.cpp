@@ -23,7 +23,6 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     {
         audioBuffer->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
         tmpBuffer->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
-        undoStaging->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
     }
 
     fifo.prepareToPlay ((int) alignedBufferSize);
@@ -89,15 +88,8 @@ void LoopTrack::saveToUndoBuffer()
 {
     if (! isPrepared() || ! shouldOverdub()) return;
 
-    for (int ch = 0; ch < tmpBuffer->getNumChannels(); ++ch)
-    {
-        juce::FloatVectorOperations::copy (undoStaging->getWritePointer (ch), tmpBuffer->getReadPointer (ch), (int) length);
-    }
-
-    // Push staging buffer to undo (swaps undoStaging, not tmpBuffer)
-    undoBuffer.pushLayer (undoStaging, length);
-
-    // Note: tmpBuffer is now unchanged and remains valid for overdubbing reference
+    // undoBuffer.pushLayer (tmpBuffer, length);
+    undoBuffer.finalizeCopyAndPush (tmpBuffer, length);
 }
 
 void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples)
@@ -143,7 +135,7 @@ void LoopTrack::finalizeLayer()
         audioBuffer->applyGainRamp (length - fadeSamples, fadeSamples, overallGain, 0.0f); // fade out
     }
 
-    copyAudioToTmpBuffer();
+    undoBuffer.startAsyncCopy (audioBuffer.get(), tmpBuffer.get(), length);
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint numSamples)

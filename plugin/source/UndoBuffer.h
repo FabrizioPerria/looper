@@ -37,6 +37,8 @@ public:
             b->setSize (numChannels, bufferSamples, false, true, true);
         }
 
+        undoStaging->setSize (numChannels, bufferSamples, false, true, true);
+
         length = 0;
     }
 
@@ -69,6 +71,11 @@ public:
 
     void pushLayer (std::unique_ptr<juce::AudioBuffer<float>>& source, size_t loopLength)
     {
+        for (int ch = 0; ch < source->getNumChannels(); ++ch)
+        {
+            juce::FloatVectorOperations::copy (undoStaging->getWritePointer (ch), source->getReadPointer (ch), (int) length);
+        }
+
         int start1, size1, start2, size2;
         undoLifo.prepareToWrite (1, start1, size1, start2, size2);
 
@@ -161,6 +168,7 @@ public:
             buf->clear();
         for (auto& buf : redoBuffers)
             buf->clear();
+        undoStaging->clear();
         length = 0;
     }
 
@@ -172,20 +180,66 @@ public:
             buf->setSize (0, 0, false, false, true);
         for (auto& buf : redoBuffers)
             buf->setSize (0, 0, false, false, true);
+        undoStaging->setSize (0, 0, false, false, true);
         undoBuffers.clear();
         redoBuffers.clear();
     }
 
-private:
-    static void
-        copyBuffer (std::unique_ptr<juce::AudioBuffer<float>>& dst, const std::unique_ptr<juce::AudioBuffer<float>>& src, size_t length)
+    // UndoBuffer.cpp
+    void startAsyncCopy (const juce::AudioBuffer<float>* source, juce::AudioBuffer<float>* destination, size_t length)
     {
-        jassert (dst->getNumChannels() == src->getNumChannels());
-        jassert (dst->getNumSamples() == src->getNumSamples());
+        // Wait for any previous copy
+        while (activeCopy.inProgress.load (std::memory_order_acquire))
+            juce::Thread::yield();
 
-        for (int ch = 0; ch < dst->getNumChannels(); ++ch)
-            juce::FloatVectorOperations::copy (dst->getWritePointer (ch), src->getReadPointer (ch), length);
+        activeCopy.source = source;
+        activeCopy.destination = destination;
+        activeCopy.length = length;
+        activeCopy.inProgress.store (true, std::memory_order_release);
+
+        threadPool.addJob (
+            [this]()
+            {
+                // Copy using the raw pointers (safe as long as buffers aren't deallocated)
+                for (int ch = 0; ch < activeCopy.source->getNumChannels(); ++ch)
+                {
+                    juce::FloatVectorOperations::copy (activeCopy.destination->getWritePointer (ch),
+                                                       activeCopy.source->getReadPointer (ch),
+                                                       (int) activeCopy.length);
+                }
+
+                activeCopy.inProgress.store (false, std::memory_order_release);
+            });
     }
+
+    void finalizeCopyAndPush (std::unique_ptr<juce::AudioBuffer<float>>& tmpBuffer, size_t loopLength)
+    {
+        // Wait for copy to finish
+        while (activeCopy.inProgress.load (std::memory_order_acquire))
+            juce::Thread::yield();
+
+        // Now safe to swap - background thread is done with tmpBuffer
+        int start1, size1, start2, size2;
+        undoLifo.prepareToWrite (1, start1, size1, start2, size2);
+
+        length = loopLength;
+        std::swap (undoBuffers[(size_t) start1], tmpBuffer);
+
+        undoLifo.finishedWrite (size1, false);
+        redoLifo.clear();
+    }
+
+private:
+    struct CopyOperation
+    {
+        const juce::AudioBuffer<float>* source { nullptr };
+        juce::AudioBuffer<float>* destination { nullptr };
+        size_t length { 0 };
+        std::atomic<bool> inProgress { false };
+    };
+
+    CopyOperation activeCopy;
+    juce::ThreadPool threadPool { 1 };
 
     LoopStack undoLifo;
     std::vector<std::unique_ptr<juce::AudioBuffer<float>>> undoBuffers {};
@@ -194,5 +248,7 @@ private:
     std::vector<std::unique_ptr<juce::AudioBuffer<float>>> redoBuffers {};
 
     size_t length { 0 };
+    std::unique_ptr<juce::AudioBuffer<float>> undoStaging = std::make_unique<juce::AudioBuffer<float>>();
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (UndoBuffer)
 };
