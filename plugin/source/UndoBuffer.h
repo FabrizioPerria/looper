@@ -7,6 +7,14 @@
 class UndoBuffer
 {
 public:
+    UndoBuffer()
+    {
+    }
+    ~UndoBuffer()
+    {
+        releaseResources();
+    }
+
     void prepareToPlay (int numLayers, int numChannels, int bufferSamples)
     {
         undoLifo.prepareToPlay (numLayers);
@@ -52,10 +60,10 @@ public:
     void printSummary (const juce::AudioBuffer<float>& destination, int uStart1, int rStart1, std::string action)
     {
         printBufferSummary (destination, "Dest" + action, false);
-        for (int i = 0; i < undoBuffers.size(); ++i)
-            printBufferSummary (*undoBuffers[i], "Undo Buffer " + std::to_string (i) + action, i == (int) uStart1);
-        for (int i = 0; i < redoBuffers.size(); ++i)
-            printBufferSummary (*redoBuffers[i], "Redo Buffer " + std::to_string (i) + action, i == (int) rStart1);
+        for (uint i = 0; i < undoBuffers.size(); ++i)
+            printBufferSummary (*undoBuffers[i], "Undo Buffer " + std::to_string (i) + action, i == (uint) uStart1);
+        for (uint i = 0; i < redoBuffers.size(); ++i)
+            printBufferSummary (*redoBuffers[i], "Redo Buffer " + std::to_string (i) + action, i == (uint) rStart1);
         std::cout << "----" << std::endl;
     }
 
@@ -186,4 +194,5 @@ private:
     std::vector<std::unique_ptr<juce::AudioBuffer<float>>> redoBuffers {};
 
     size_t length { 0 };
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (UndoBuffer)
 };

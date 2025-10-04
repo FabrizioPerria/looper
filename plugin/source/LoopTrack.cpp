@@ -7,9 +7,6 @@
 // Setup
 //==============================================================================
 
-LoopTrack::LoopTrack() = default;
-LoopTrack::~LoopTrack() = default;
-
 void LoopTrack::prepareToPlay (const double currentSampleRate,
                                const uint maxBlockSize,
                                const uint numChannels,
@@ -111,7 +108,7 @@ void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSample
 
 void LoopTrack::finalizeLayer()
 {
-    const int currentLength = std::max ({ length, provisionalLength, 1u });
+    const size_t currentLength = std::max ({ (int) length, (int) provisionalLength, 1 });
     if (length == 0)
     {
         fifo.setMusicalLength ((int) currentLength);
