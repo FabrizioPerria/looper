@@ -7,9 +7,6 @@
 // Setup
 //==============================================================================
 
-LoopTrack::LoopTrack() = default;
-LoopTrack::~LoopTrack() = default;
-
 void LoopTrack::prepareToPlay (const double currentSampleRate,
                                const uint maxBlockSize,
                                const uint numChannels,

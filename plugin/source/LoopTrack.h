@@ -7,8 +7,13 @@
 class LoopTrack
 {
 public:
-    LoopTrack();
-    ~LoopTrack();
+    LoopTrack()
+    {
+    }
+    ~LoopTrack()
+    {
+        releaseResources();
+    }
 
     void prepareToPlay (const double currentSampleRate,
                         const uint maxBlockSize,
@@ -35,17 +40,17 @@ public:
         return sampleRate;
     }
 
-    int getLength() const
+    size_t getLength() const
     {
         return length;
     }
 
-    void setLength (const int newLength)
+    void setLength (const size_t newLength)
     {
         length = newLength;
     }
 
-    void setCrossFadeLength (const int newLength)
+    void setCrossFadeLength (const size_t newLength)
     {
         crossFadeLength = newLength;
     }
@@ -55,10 +60,10 @@ public:
         return alreadyPrepared;
     }
 
-    void setOverdubGains (const double oldGain, const double newGain)
+    void setOverdubGains (const float oldGain, const float newGain)
     {
-        overdubNewGain = std::clamp (newGain, 0.0, 2.0);
-        overdubOldGain = std::clamp (oldGain, 0.0, 2.0);
+        overdubNewGain = std::clamp (newGain, 0.0f, 2.0f);
+        overdubOldGain = std::clamp (oldGain, 0.0f, 2.0f);
     }
 
     double getOverdubNewGain() const
@@ -86,15 +91,15 @@ private:
 
     LoopFifo fifo;
 
-    uint length = 0;
+    size_t length = 0;
     uint provisionalLength = 0;
-    uint crossFadeLength = 0;
+    size_t crossFadeLength = 0;
 
     bool isRecording = false;
     bool alreadyPrepared = false;
 
-    double overdubNewGain = 1.0;
-    double overdubOldGain = 1.0;
+    float overdubNewGain = 1.0f;
+    float overdubOldGain = 1.0f;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const uint numSamples, const uint ch);
     void updateLoopLength (const uint numSamples, const uint bufferSamples);
