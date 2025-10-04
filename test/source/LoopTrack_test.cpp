@@ -20,8 +20,8 @@ TEST (LoopTrackPrepare, PreallocatesCorrectSize)
 
     EXPECT_TRUE (track.isPrepared());
     EXPECT_DOUBLE_EQ (track.getSampleRate(), sr);
-    EXPECT_EQ (track.getAudioBuffer().getNumChannels(), numChannels);
-    EXPECT_EQ (track.getAudioBuffer().getNumSamples(), bufferSamples);
+    EXPECT_EQ (track.getAudioBufferForTestsOnly().getNumChannels(), numChannels);
+    EXPECT_EQ (track.getAudioBufferForTestsOnly().getNumSamples(), bufferSamples);
 
     EXPECT_EQ (track.getUndoBuffer().getNumSamples(), bufferSamples);
     EXPECT_EQ (track.getUndoBuffer().getNumChannels(), numChannels);
@@ -38,7 +38,7 @@ TEST (LoopTrackPrepare, BuffersClearedToZero)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
-    const auto buffer = track.getAudioBuffer();
+    const auto buffer = track.getAudioBufferForTestsOnly();
     for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
     {
         auto* ptr = buffer.getReadPointer (ch);
@@ -99,7 +99,7 @@ TEST (LoopTrackPrepare, FractionalSampleRateRoundsUp)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
-    EXPECT_GT (track.getAudioBuffer().getNumSamples(), (int) sr * maxSeconds);
+    EXPECT_GT (track.getAudioBufferForTestsOnly().getNumSamples(), (int) sr * maxSeconds);
 }
 
 TEST (LoopTrackPrepare, LargeDurationDoesNotOverflow)
@@ -113,8 +113,8 @@ TEST (LoopTrackPrepare, LargeDurationDoesNotOverflow)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
-    EXPECT_GT (track.getAudioBuffer().getNumSamples(), 0);
-    EXPECT_LT (track.getAudioBuffer().getNumSamples(), INT_MAX);
+    EXPECT_GT (track.getAudioBufferForTestsOnly().getNumSamples(), 0);
+    EXPECT_LT (track.getAudioBufferForTestsOnly().getNumSamples(), INT_MAX);
 }
 
 TEST (LoopTrackPrepare, ReprepareWithLargerBlockGrowsBuffer)
@@ -126,12 +126,12 @@ TEST (LoopTrackPrepare, ReprepareWithLargerBlockGrowsBuffer)
     const int numChannels = 2;
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
-    int firstSize = track.getAudioBuffer().getNumSamples();
+    int firstSize = track.getAudioBufferForTestsOnly().getNumSamples();
 
     // simulate host requesting a bigger block
     maxBlock = 1024;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
-    int secondSize = track.getAudioBuffer().getNumSamples();
+    int secondSize = track.getAudioBufferForTestsOnly().getNumSamples();
 
     EXPECT_GE (secondSize, firstSize);
 }
@@ -161,12 +161,12 @@ TEST (LoopTrackPrepare, ReprepareWithSmallerBlockKeepsBufferSize)
     const int numChannels = 2;
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
-    int firstSize = track.getAudioBuffer().getNumSamples();
+    int firstSize = track.getAudioBufferForTestsOnly().getNumSamples();
 
     // simulate host requesting a smaller block
     maxBlock = 256;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
-    int secondSize = track.getAudioBuffer().getNumSamples();
+    int secondSize = track.getAudioBufferForTestsOnly().getNumSamples();
 
     EXPECT_EQ (secondSize, firstSize);
 }
@@ -181,8 +181,8 @@ TEST (LoopTrackPrepare, UndoBufferMatchesMainBuffer)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
-    EXPECT_EQ (track.getUndoBuffer().getNumChannels(), track.getAudioBuffer().getNumChannels());
-    EXPECT_EQ (track.getUndoBuffer().getNumSamples(), track.getAudioBuffer().getNumSamples());
+    EXPECT_EQ (track.getUndoBuffer().getNumChannels(), track.getAudioBufferForTestsOnly().getNumChannels());
+    EXPECT_EQ (track.getUndoBuffer().getNumSamples(), track.getAudioBufferForTestsOnly().getNumSamples());
 }
 
 juce::AudioBuffer<float> createSquareTestBuffer (int numChannels, int numSamples, double sr, float frequency)
@@ -215,7 +215,7 @@ TEST (LoopTrackRecord, ProcessFullBlockCopiesInput)
 
     track.processRecord (input, numSamples);
 
-    const auto& loopBuffer = track.getAudioBuffer();
+    auto loopBuffer = track.getAudioBufferForTestsOnly();
     auto* loopPtr = loopBuffer.getReadPointer (0);
     for (int i = 0; i < numSamples; ++i)
     {
@@ -227,6 +227,7 @@ TEST (LoopTrackRecord, ProcessFullBlockCopiesInput)
     // process another block and check it appends correctly
     track.processRecord (input, numSamples);
     track.finalizeLayer();
+    loopBuffer = track.getAudioBufferForTestsOnly();
     loopPtr = loopBuffer.getReadPointer (0);
     for (int i = 0; i < numSamples; ++i)
     {
@@ -248,14 +249,14 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInput)
 
     track.setCrossFadeLength (0);
 
-    const int bufferSamples = track.getAudioBuffer().getNumSamples();
+    const int bufferSamples = track.getAudioBufferForTestsOnly().getNumSamples();
     const int numSamples = 9; // less than block size
     juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     auto* readPtr = input.getReadPointer (0);
 
     track.processRecord (input, numSamples);
 
-    const auto& loopBuffer = track.getAudioBuffer();
+    auto loopBuffer = track.getAudioBufferForTestsOnly();
     auto* loopPtr = loopBuffer.getReadPointer (0);
     for (int i = 0; i < numSamples; ++i)
     {
@@ -266,6 +267,8 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInput)
 
     track.processRecord (input, numSamples);
     track.finalizeLayer();
+
+    loopBuffer = track.getAudioBufferForTestsOnly();
     loopPtr = loopBuffer.getReadPointer (0);
 
     for (int i = 0; i < numSamples; ++i)
@@ -288,7 +291,7 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputOverMaxBufferSize)
 
     track.setCrossFadeLength (0);
 
-    const int bufferSamples = track.getAudioBuffer().getNumSamples();
+    const int bufferSamples = track.getAudioBufferForTestsOnly().getNumSamples();
     const int leaveSamples = 10; // leave some space at end of buffer
     const int totalSamples = bufferSamples - leaveSamples;
 
@@ -306,7 +309,7 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputOverMaxBufferSize)
     }
 
     // Verify first recording
-    const auto& loopBuffer = track.getAudioBuffer();
+    const auto& loopBuffer = track.getAudioBufferForTestsOnly();
     auto* loopPtr = loopBuffer.getReadPointer (0);
     for (int i = 0; i < totalSamples; ++i)
     {
@@ -364,7 +367,7 @@ TEST (LoopTrackRecord, ProcessMultipleChannels)
     track.processRecord (input, numSamples);
     track.finalizeLayer();
 
-    const auto& loopBuffer = track.getAudioBuffer();
+    const auto& loopBuffer = track.getAudioBufferForTestsOnly();
     auto* loopPtrCh0 = loopBuffer.getReadPointer (0);
     auto* loopPtrCh1 = loopBuffer.getReadPointer (1);
     auto* loopPtrCh2 = loopBuffer.getReadPointer (2);
@@ -392,7 +395,7 @@ TEST (LoopTrackRecord, ZeroLengthInputDoesNothing)
 
     track.processRecord (input, 0);
 
-    const auto& loopBuffer = track.getAudioBuffer();
+    const auto& loopBuffer = track.getAudioBufferForTestsOnly();
     for (int ch = 0; ch < numChannels; ++ch)
     {
         auto* loopPtr = loopBuffer.getReadPointer (ch);
@@ -425,7 +428,7 @@ TEST (LoopTrackRecord, OffsetOverdub)
     track.processRecord (input2, numSamples); // overdub at offset
     track.finalizeLayer();
 
-    const auto& loopBuffer = track.getAudioBuffer();
+    const auto& loopBuffer = track.getAudioBufferForTestsOnly();
     auto* loopPtr = loopBuffer.getReadPointer (0);
     auto* readPtr1 = input1.getReadPointer (0);
     auto* readPtr2 = input2.getReadPointer (0);
@@ -479,7 +482,7 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
 
     // Save copy of original loop for comparison
     juce::AudioBuffer<float> originalLoop (numChannels, loopLength);
-    originalLoop.copyFrom (0, 0, track.getAudioBuffer(), 0, 0, loopLength);
+    originalLoop.copyFrom (0, 0, track.getAudioBufferForTestsOnly(), 0, 0, loopLength);
 
     auto compareBuffers = [] (const juce::AudioBuffer<float>& buf1, const juce::AudioBuffer<float>& buf2, int start, int length)
     {
@@ -500,7 +503,7 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
         track.processPlayback (playbackBuffer, samplesThisBlock);
     }
 
-    EXPECT_TRUE (compareBuffers (track.getAudioBuffer(), originalLoop, 0, loopLength));
+    EXPECT_TRUE (compareBuffers (track.getAudioBufferForTestsOnly(), originalLoop, 0, loopLength));
 
     // Create overdub material - 880Hz sine (one octave higher)
     juce::AudioBuffer<float> overdubMaterial = createSquareTestBuffer (numChannels, loopLength, sr, 880.0f);
@@ -530,10 +533,10 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
     }
 
     // Verify first third matches original
-    EXPECT_TRUE (compareBuffers (track.getAudioBuffer(), originalLoop, 0, thirdLength));
+    EXPECT_TRUE (compareBuffers (track.getAudioBufferForTestsOnly(), originalLoop, 0, thirdLength));
 
     // Verify middle third is sum of original and overdub
-    auto* loopPtr = track.getAudioBuffer().getReadPointer (0);
+    auto* loopPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     auto* originalPtr = originalLoop.getReadPointer (0);
     auto* overdubPtr = overdubMaterial.getReadPointer (0);
     for (int i = 0; i < thirdLength; ++i)
@@ -543,7 +546,7 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
     }
 
     // Verify last third matches original
-    EXPECT_TRUE (compareBuffers (track.getAudioBuffer(), originalLoop, 2 * thirdLength, thirdLength));
+    EXPECT_TRUE (compareBuffers (track.getAudioBufferForTestsOnly(), originalLoop, 2 * thirdLength, thirdLength));
 }
 
 TEST (LoopTrackPlayback, ProcessFullBlockCopiesToOutput)
@@ -566,7 +569,7 @@ TEST (LoopTrackPlayback, ProcessFullBlockCopiesToOutput)
 
     track.processPlayback (output, numSamples);
 
-    const auto& loopBuffer = track.getAudioBuffer();
+    const auto& loopBuffer = track.getAudioBufferForTestsOnly();
     auto* loopPtr = loopBuffer.getReadPointer (0);
     auto* outPtr = output.getReadPointer (0);
     for (int i = 0; i < numSamples; ++i)
@@ -585,7 +588,7 @@ TEST (LoopTrackPlayback, ProcessPartialBlockCopiesToOutput)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
-    const int bufferSamples = track.getAudioBuffer().getNumSamples();
+    const int bufferSamples = track.getAudioBufferForTestsOnly().getNumSamples();
     const int numSamples = 9; // less than block size
     juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     track.processRecord (input, numSamples);
@@ -596,7 +599,7 @@ TEST (LoopTrackPlayback, ProcessPartialBlockCopiesToOutput)
 
     track.processPlayback (output, numSamples);
 
-    const auto& loopBuffer = track.getAudioBuffer();
+    const auto& loopBuffer = track.getAudioBufferForTestsOnly();
     auto* loopPtr = loopBuffer.getReadPointer (0);
     auto* outPtr = output.getReadPointer (0);
     for (int i = 0; i < numSamples; ++i)
@@ -615,7 +618,7 @@ TEST (LoopTrackPlayback, ProcessPartialBlockCopiesToOutputWrapAround)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
-    const int bufferSamples = track.getAudioBuffer().getNumSamples();
+    const int bufferSamples = track.getAudioBufferForTestsOnly().getNumSamples();
     const int leaveSamples = 10; // leave some space at end of buffer
     const int totalSamples = bufferSamples - leaveSamples;
 
@@ -646,7 +649,7 @@ TEST (LoopTrackPlayback, ProcessPartialBlockCopiesToOutputWrapAround)
     }
 
     // Check first playback matches loop buffer
-    const auto& loopBuffer = track.getAudioBuffer();
+    auto loopBuffer = track.getAudioBufferForTestsOnly();
     auto* loopPtr = loopBuffer.getReadPointer (0);
     auto* outPtr = output.getReadPointer (0);
     for (int i = 0; i < totalSamples; ++i)
@@ -669,6 +672,8 @@ TEST (LoopTrackPlayback, ProcessPartialBlockCopiesToOutputWrapAround)
 
     // Check wrapped playback
     outPtr = output2.getReadPointer (0);
+    loopBuffer = track.getAudioBufferForTestsOnly();
+    loopPtr = loopBuffer.getReadPointer (0);
     for (int i = 0; i < totalSamples; ++i)
     {
         EXPECT_FLOAT_EQ (outPtr[i], loopPtr[(totalSamples + i) % totalSamples]);
@@ -695,7 +700,7 @@ TEST (LoopTrackPlayback, ProcessMultipleChannels)
 
     track.processPlayback (output, numSamples);
 
-    const auto& loopBuffer = track.getAudioBuffer();
+    const auto& loopBuffer = track.getAudioBufferForTestsOnly();
     for (int ch = 0; ch < numChannels; ++ch)
     {
         auto* loopPtr = loopBuffer.getReadPointer (ch);
@@ -721,7 +726,7 @@ TEST (LoopTrackPlayback, ZeroLengthOutputDoesNothing)
 
     track.processPlayback (output, 0);
 
-    const auto& loopBuffer = track.getAudioBuffer();
+    const auto& loopBuffer = track.getAudioBufferForTestsOnly();
     for (int ch = 0; ch < numChannels; ++ch)
     {
         auto* loopPtr = loopBuffer.getReadPointer (ch);
@@ -741,7 +746,7 @@ TEST (LoopTrackPlayback, ProcessPlaybackManySmallBlocksWrapAround)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
-    const int bufferSamples = track.getAudioBuffer().getNumSamples();
+    const int bufferSamples = track.getAudioBufferForTestsOnly().getNumSamples();
     const int leaveSamples = 10; // leave some space at end of buffer
     const int totalSamples = bufferSamples - leaveSamples;
 
@@ -769,7 +774,7 @@ TEST (LoopTrackPlayback, ProcessPlaybackManySmallBlocksWrapAround)
 
         track.processPlayback (output, thisChunk);
 
-        const auto& loopBuffer = track.getAudioBuffer();
+        const auto& loopBuffer = track.getAudioBufferForTestsOnly();
         auto* loopPtr = loopBuffer.getReadPointer (0);
         auto* outPtr = output.getReadPointer (0);
         for (int j = 0; j < thisChunk; ++j)
@@ -800,7 +805,7 @@ TEST (LoopTrackClear, ClearsBuffersAndResetsState)
 
     track.clear();
 
-    const auto buffer = track.getAudioBuffer();
+    const auto buffer = track.getAudioBufferForTestsOnly();
     for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
     {
         auto* ptr = buffer.getReadPointer (ch);
@@ -839,7 +844,7 @@ TEST (LoopTrackUndo, RestoresPreviousState)
     track.processRecord (input, numSamples);
     track.finalizeLayer();
 
-    const auto& loopBufferBefore = track.getAudioBuffer();
+    const auto& loopBufferBefore = track.getAudioBufferForTestsOnly();
     auto* loopPtrBefore = loopBufferBefore.getReadPointer (0);
 
     // Modify the loop buffer again
@@ -850,7 +855,7 @@ TEST (LoopTrackUndo, RestoresPreviousState)
     // Undo the last change
     track.undo();
 
-    const auto& loopBufferAfter = track.getAudioBuffer();
+    const auto& loopBufferAfter = track.getAudioBufferForTestsOnly();
     auto* loopPtrAfter = loopBufferAfter.getReadPointer (0);
 
     for (int i = 0; i < numSamples; ++i)
@@ -922,7 +927,7 @@ TEST (LoopTrackUndo, MultilayerUndo)
     track.processRecord (secondOverdubSine, maxBlock);
     track.finalizeLayer();
 
-    auto* audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    auto* audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
@@ -932,23 +937,21 @@ TEST (LoopTrackUndo, MultilayerUndo)
     auto* thirdOverdubPtr = thirdOverdubSine.getReadPointer (0);
     track.processRecord (thirdOverdubSine, maxBlock);
     track.finalizeLayer();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i] + thirdOverdubPtr[i]);
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
-    const auto& secondUndo = track.getAudioBuffer();
-    auto* secondUndoPtr = secondUndo.getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
 
     for (int i = 0; i < maxBlock; ++i)
     {
@@ -956,7 +959,7 @@ TEST (LoopTrackUndo, MultilayerUndo)
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
@@ -964,7 +967,7 @@ TEST (LoopTrackUndo, MultilayerUndo)
 
     // Further undo should have no effect
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
@@ -973,14 +976,14 @@ TEST (LoopTrackUndo, MultilayerUndo)
     track.processRecord (thirdOverdubSine, maxBlock);
     track.finalizeLayer();
     auto* thirdOverdubSinePtr = thirdOverdubSine.getReadPointer (0);
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + thirdOverdubSinePtr[i]);
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
@@ -1019,7 +1022,7 @@ TEST (LoopTrackUndo, MultilayerUndoWithRedo)
     track.processRecord (secondOverdubSine, maxBlock);
     track.finalizeLayer();
 
-    auto* audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    auto* audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
@@ -1029,73 +1032,73 @@ TEST (LoopTrackUndo, MultilayerUndoWithRedo)
     auto* thirdOverdubPtr = thirdOverdubSine.getReadPointer (0);
     track.processRecord (thirdOverdubSine, maxBlock);
     track.finalizeLayer();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i] + thirdOverdubPtr[i]);
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
     }
 
     track.undo();
-    const auto& secondUndo = track.getAudioBuffer();
+    const auto& secondUndo = track.getAudioBufferForTestsOnly();
     auto* secondUndoPtr = secondUndo.getReadPointer (0);
 
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
     }
 
     track.redo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
     }
 
     track.redo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
     }
 
     track.redo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i] + thirdOverdubPtr[i]);
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
@@ -1103,7 +1106,7 @@ TEST (LoopTrackUndo, MultilayerUndoWithRedo)
 
     // Further undo should have no effect
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
@@ -1112,21 +1115,21 @@ TEST (LoopTrackUndo, MultilayerUndoWithRedo)
     track.processRecord (thirdOverdubSine, maxBlock);
     track.finalizeLayer();
     auto* thirdOverdubSinePtr = thirdOverdubSine.getReadPointer (0);
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + thirdOverdubSinePtr[i]);
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i]);
     }
 
     track.redo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + thirdOverdubSinePtr[i]);
@@ -1165,7 +1168,7 @@ TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
     track.processRecord (secondOverdubSine, maxBlock);
     track.finalizeLayer();
 
-    auto* audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    auto* audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
@@ -1175,31 +1178,31 @@ TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
     auto* thirdOverdubPtr = thirdOverdubSine.getReadPointer (0);
     track.processRecord (thirdOverdubSine, maxBlock);
     track.finalizeLayer();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i] + thirdOverdubPtr[i]);
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + secondOverdubPtr[i]);
     }
 
     track.undo();
-    const auto& secondUndo = track.getAudioBuffer();
+    const auto& secondUndo = track.getAudioBufferForTestsOnly();
     auto* secondUndoPtr = secondUndo.getReadPointer (0);
 
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
@@ -1207,7 +1210,7 @@ TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
 
     // Further undo should have no effect
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
@@ -1216,14 +1219,14 @@ TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
     track.processRecord (thirdOverdubSine, maxBlock);
     track.finalizeLayer();
     auto* thirdOverdubSinePtr = thirdOverdubSine.getReadPointer (0);
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i] + thirdOverdubSinePtr[i]);
     }
 
     track.undo();
-    audioBufferPtr = track.getAudioBuffer().getReadPointer (0);
+    audioBufferPtr = track.getAudioBufferForTestsOnly().getReadPointer (0);
     for (int i = 0; i < maxBlock; ++i)
     {
         EXPECT_FLOAT_EQ (audioBufferPtr[i], mainLoopCopyPtr[i] + firstOverdubPtr[i]);
@@ -1242,7 +1245,7 @@ TEST (LoopTrackRelease, ReleasesResources)
 
     EXPECT_TRUE (track.isPrepared());
     EXPECT_NO_THROW (track.releaseResources());
-    EXPECT_EQ (track.getAudioBuffer().getNumSamples(), 0);
+    EXPECT_EQ (track.getAudioBufferForTestsOnly().getNumSamples(), 0);
     EXPECT_EQ (track.getUndoBuffer().getNumSamples(), 0);
     EXPECT_DOUBLE_EQ (track.getSampleRate(), 0.0);
 }
@@ -1251,11 +1254,11 @@ TEST (LoopTrackRelease, ReleaseUnprepareResourcesDoesNothing)
 {
     LoopTrack track;
 
-    EXPECT_EQ (track.getAudioBuffer().getNumSamples(), 0);
+    EXPECT_EQ (track.getAudioBufferForTestsOnly().getNumSamples(), 0);
     EXPECT_EQ (track.getUndoBuffer().getNumSamples(), 0);
     EXPECT_DOUBLE_EQ (track.getSampleRate(), 0.0);
     EXPECT_NO_THROW (track.releaseResources());
-    EXPECT_EQ (track.getAudioBuffer().getNumSamples(), 0);
+    EXPECT_EQ (track.getAudioBufferForTestsOnly().getNumSamples(), 0);
     EXPECT_EQ (track.getUndoBuffer().getNumSamples(), 0);
     EXPECT_DOUBLE_EQ (track.getSampleRate(), 0.0);
 }
@@ -1293,7 +1296,7 @@ TEST (LoopTrackPlayback, PlaybackTwiceWillWrapCorrectly)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
-    const int bufferSamples = track.getAudioBuffer().getNumSamples();
+    const int bufferSamples = track.getAudioBufferForTestsOnly().getNumSamples();
     const int leaveSamples = 10; // leave some space at end of buffer
     const int totalSamples = bufferSamples - leaveSamples;
 
@@ -1326,7 +1329,7 @@ TEST (LoopTrackPlayback, PlaybackTwiceWillWrapCorrectly)
         output.copyFrom (0, i, blockBuffer, 0, 0, samplesThisBlock);
     }
 
-    const auto& loopBuffer = track.getAudioBuffer();
+    const auto& loopBuffer = track.getAudioBufferForTestsOnly();
     auto* loopPtr = loopBuffer.getReadPointer (0);
     auto* outPtr = output.getReadPointer (0);
     for (int i = 0; i < requestedSamples; ++i)

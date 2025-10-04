@@ -34,10 +34,11 @@ public:
     void undo();
     void redo();
 
-    const juce::AudioBuffer<float>& getAudioBuffer() const
+    const juce::AudioBuffer<float>& getAudioBufferForTestsOnly() const
     {
+        // this is only used in tests, so it's ok to wait
         while (backgroundPool.getNumJobs() > 0)
-            juce::Thread::sleep (0);
+            juce::Thread::sleep (100); // wait for background jobs to finish
         return *audioBuffer;
     }
 
@@ -95,7 +96,7 @@ private:
 
     std::vector<std::unique_ptr<CopyInputJob>> copyBlockJobs;
     std::vector<std::unique_ptr<CopyLoopJob>> copyLoopJobs;
-    std::vector<juce::AudioBuffer<float>*> blockSnapshots;
+    std::vector<std::unique_ptr<juce::AudioBuffer<float>>> blockSnapshots;
 
     std::unique_ptr<std::atomic<uint32_t>> state = std::make_unique<std::atomic<uint32_t>> (0);
 
