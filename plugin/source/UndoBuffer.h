@@ -189,13 +189,12 @@ public:
     void startAsyncCopy (const juce::AudioBuffer<float>* source, juce::AudioBuffer<float>* destination, size_t length)
     {
         // Wait for any previous copy
-        while (activeCopy.inProgress.load (std::memory_order_acquire))
-            juce::Thread::yield();
+        activeCopy.doneEvent.reset();
 
         activeCopy.source = source;
         activeCopy.destination = destination;
         activeCopy.length = length;
-        activeCopy.inProgress.store (true, std::memory_order_release);
+        activeCopy.doneEvent.reset();
 
         threadPool.addJob (
             [this]()
@@ -208,15 +207,14 @@ public:
                                                        (int) activeCopy.length);
                 }
 
-                activeCopy.inProgress.store (false, std::memory_order_release);
+                activeCopy.doneEvent.signal();
             });
     }
 
     void finalizeCopyAndPush (std::unique_ptr<juce::AudioBuffer<float>>& tmpBuffer, size_t loopLength)
     {
         // Wait for copy to finish
-        while (activeCopy.inProgress.load (std::memory_order_acquire))
-            juce::Thread::yield();
+        activeCopy.doneEvent.wait (100); // Wait up to 100ms
 
         // Now safe to swap - background thread is done with tmpBuffer
         int start1, size1, start2, size2;
@@ -235,7 +233,7 @@ private:
         const juce::AudioBuffer<float>* source { nullptr };
         juce::AudioBuffer<float>* destination { nullptr };
         size_t length { 0 };
-        std::atomic<bool> inProgress { false };
+        juce::WaitableEvent doneEvent;
     };
 
     CopyOperation activeCopy;

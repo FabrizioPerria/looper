@@ -88,7 +88,6 @@ void LoopTrack::saveToUndoBuffer()
 {
     if (! isPrepared() || ! shouldOverdub()) return;
 
-    // undoBuffer.pushLayer (tmpBuffer, length);
     undoBuffer.finalizeCopyAndPush (tmpBuffer, length);
 }
 
@@ -163,7 +162,7 @@ void LoopTrack::clear()
 {
     audioBuffer->clear();
     undoBuffer.clear();
-    // tmpBuffer.clear();
+    tmpBuffer->clear();
     length = 0;
     provisionalLength = 0;
 }
