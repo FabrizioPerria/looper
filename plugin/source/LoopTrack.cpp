@@ -16,6 +16,8 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     if (isPrepared() || currentSampleRate <= 0.0 || ! maxBlockSize || ! numChannels || ! maxSeconds) return;
 
     sampleRate = currentSampleRate;
+    blockSize = (int) maxBlockSize;
+    channels = (int) numChannels;
     const uint requestedSamples = std::max ((uint) currentSampleRate * maxSeconds, 1u); // at least 1 block will be allocated
     const uint alignedBufferSize = ((requestedSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
 
@@ -29,7 +31,7 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
 
     clear();
-    setCrossFadeLength ((int) (0.1 * sampleRate)); // default 100 ms crossfade
+    setCrossFadeLength ((int) (0.03 * sampleRate)); // default 30 ms crossfade
 
     alreadyPrepared = true;
 }
@@ -38,11 +40,11 @@ void LoopTrack::releaseResources()
 {
     if (! isPrepared()) return;
 
+    undoBuffer.releaseResources();
     clear();
     audioBuffer->setSize (0, 0, false, false, true);
     tmpBuffer->setSize (0, 0, false, false, true);
 
-    undoBuffer.releaseResources();
     fifo.clear();
 
     sampleRate = 0.0;
@@ -190,4 +192,26 @@ void LoopTrack::redo()
     {
         finalizeLayer();
     }
+}
+
+void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
+{
+    if (! isPrepared() || backingTrack.getNumChannels() != audioBuffer->getNumChannels() || backingTrack.getNumSamples() == 0) return;
+
+    auto prevSampleRate = sampleRate;
+    auto prevBlockSize = blockSize;
+    auto prevChannels = channels;
+    releaseResources();
+    prepareToPlay (prevSampleRate, (uint) prevBlockSize, (uint) prevChannels);
+
+    const size_t copySamples = std::min ((size_t) backingTrack.getNumSamples(), (size_t) MAX_SECONDS_HARD_LIMIT * (size_t) sampleRate);
+
+    for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+    {
+        juce::FloatVectorOperations::copy (audioBuffer->getWritePointer (ch), backingTrack.getReadPointer (ch), copySamples);
+    }
+
+    provisionalLength = (size_t) copySamples;
+
+    finalizeLayer();
 }

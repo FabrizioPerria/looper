@@ -183,6 +183,7 @@ public:
 
     void releaseResources()
     {
+        waitForPendingCopy();
         undoLifo.clear();
         redoLifo.clear();
         for (auto& buf : undoBuffers)
