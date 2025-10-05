@@ -1631,4 +1631,169 @@ TEST (LoopTrackRealWorld, ImmediateUndoAfterFinalize)
     // Should work correctly despite forced wait.
     EXPECT_FLOAT_EQ (track.getAudioBuffer().getSample (0, 2000), 0.5f);
 }
+
+// Test that overdub stops at loop boundary when wrap disabled
+TEST (LoopTrackQuantizedOverdub, StopsAtLoopBoundary)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 1;
+    const int undoLayers = 2;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    // Record 2-second loop
+    const int loopSamples = (int) (2.0 * sr);
+    juce::AudioBuffer<float> initialLoop (numChannels, loopSamples);
+    for (int i = 0; i < loopSamples; ++i)
+        initialLoop.setSample (0, i, 0.5f);
+
+    track.processRecord (initialLoop, loopSamples);
+    track.finalizeLayer();
+
+    EXPECT_EQ (track.getLength(), loopSamples);
+
+    // Disable wrap for quantized overdubs
+    track.preventWrapAround();
+
+    // Try to overdub 3 seconds (longer than loop)
+    const int overdubSamples = (int) (3.0 * sr);
+    juce::AudioBuffer<float> longOverdub (numChannels, overdubSamples);
+    for (int i = 0; i < overdubSamples; ++i)
+        longOverdub.setSample (0, i, 0.3f);
+
+    // Process in blocks
+    int samplesProcessed = 0;
+    while (samplesProcessed < overdubSamples && track.isCurrentlyRecording())
+    {
+        int blockSize = std::min (maxBlock, overdubSamples - samplesProcessed);
+        juce::AudioBuffer<float> block (numChannels, blockSize);
+        block.copyFrom (0, 0, longOverdub, 0, samplesProcessed, blockSize);
+
+        track.processRecord (block, blockSize);
+        samplesProcessed += blockSize;
+    }
+
+    // Loop length should remain unchanged
+    EXPECT_EQ (track.getLength(), loopSamples);
+
+    // Recording should have stopped at loop boundary
+    EXPECT_FALSE (track.isCurrentlyRecording());
+}
+
+// Test wrap-around boundary detection
+TEST (LoopTrackQuantizedOverdub, DetectsWrapBoundary)
+{
+    LoopTrack track;
+    const double sr = 10.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 4;
+    const int numChannels = 1;
+    const int undoLayers = 2;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    // Record 8-sample loop
+    juce::AudioBuffer<float> initialLoop (numChannels, 8);
+    for (int i = 0; i < 8; ++i)
+        initialLoop.setSample (0, i, 0.5f);
+
+    track.processRecord (initialLoop, 8);
+    track.finalizeLayer();
+
+    track.preventWrapAround();
+
+    // Advance playback to near end (sample 6)
+    juce::AudioBuffer<float> dummy (numChannels, maxBlock);
+    track.processPlayback (dummy, 4); // At sample 4
+    track.processPlayback (dummy, 2); // At sample 6
+
+    // Try to record 4 samples (would wrap after 2)
+    juce::AudioBuffer<float> overdub (numChannels, 4);
+    for (int i = 0; i < 4; ++i)
+        overdub.setSample (0, i, 0.3f);
+
+    track.processRecord (overdub, 4);
+
+    // Should have only written 2 samples and finalized
+    EXPECT_FALSE (track.isCurrentlyRecording());
+
+    // Check that only samples 6-7 were overdubbed
+    auto* ptr = track.getAudioBuffer().getReadPointer (0);
+    EXPECT_FLOAT_EQ (ptr[6], 0.8f); // 0.5 + 0.3
+    EXPECT_FLOAT_EQ (ptr[7], 0.8f);
+    EXPECT_FLOAT_EQ (ptr[0], 0.5f); // Unchanged (wrap prevented)
+}
+
+// Test that first recording still allows wrap
+TEST (LoopTrackQuantizedOverdub, FirstRecordingAllowsWrap)
+{
+    LoopTrack track;
+    const double sr = 10.0;
+    const int maxSeconds = 1;
+    const int maxBlock = 12;
+    const int numChannels = 1;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+
+    track.preventWrapAround();
+
+    // First recording should still be able to wrap to establish loop length
+    juce::AudioBuffer<float> input (numChannels, 8);
+    for (int i = 0; i < 8; ++i)
+        input.setSample (0, i, 0.5f);
+
+    track.processRecord (input, 8);
+    track.finalizeLayer();
+
+    EXPECT_EQ (track.getLength(), 8);
+
+    // All 8 samples should be recorded
+    auto* ptr = track.getAudioBuffer().getReadPointer (0);
+    for (int i = 0; i < 8; ++i)
+        EXPECT_FLOAT_EQ (ptr[i], 0.9f); // norma
+}
+
+// Test wrap enabled (default) allows overdub past boundary
+TEST (LoopTrackQuantizedOverdub, WrapEnabledAllowsLongOverdub)
+{
+    LoopTrack track;
+    const double sr = 10.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 4;
+    const int numChannels = 1;
+    const int undoLayers = 2;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    // Record 8-sample loop
+    juce::AudioBuffer<float> initialLoop (numChannels, 8);
+    for (int i = 0; i < 8; ++i)
+        initialLoop.setSample (0, i, 0.5f);
+
+    track.processRecord (initialLoop, 8);
+    track.finalizeLayer();
+
+    // Keep wrap enabled (default)
+    track.allowWrapAround();
+
+    // Record 12 samples (wraps around)
+    juce::AudioBuffer<float> longOverdub (numChannels, 12);
+    for (int i = 0; i < 12; ++i)
+        longOverdub.setSample (0, i, 0.3f);
+
+    track.processRecord (longOverdub, 12);
+    track.finalizeLayer();
+
+    // All 8 samples should have been overdubbed (4 samples wrapped)
+    auto* ptr = track.getAudioBuffer().getReadPointer (0);
+    for (int i = 0; i < 8; ++i)
+        EXPECT_FLOAT_EQ (ptr[i], 0.8f); // 0.5 + 0.3
+}
 } // namespace audio_plugin_test

@@ -98,6 +98,20 @@ public:
 
     void loadBackingTrack (const juce::AudioBuffer<float>& backingTrack);
 
+    void allowWrapAround()
+    {
+        fifo.setWrapAround (true);
+    }
+    void preventWrapAround()
+    {
+        fifo.setWrapAround (false);
+    }
+
+    bool isCurrentlyRecording() const
+    {
+        return isRecording;
+    }
+
 private:
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();

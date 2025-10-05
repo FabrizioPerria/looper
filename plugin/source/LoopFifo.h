@@ -10,6 +10,7 @@ public:
         musicalLength = 0;
         writePos = 0;
         readPos = 0;
+        shouldWrapAround = true;
     }
 
     void prepareToPlay (int totalSize)
@@ -36,23 +37,24 @@ public:
         return musicalLength;
     }
 
+    void setWrapAround (bool shouldWrap)
+    {
+        shouldWrapAround = shouldWrap;
+    }
+
+    bool getWrapAround() const
+    {
+        return shouldWrapAround;
+    }
+
     void prepareToWrite (int numToWrite, int& start1, int& size1, int& start2, int& size2)
     {
         start1 = writePos;
         int remaining = musicalLength - writePos;
 
-        if (numToWrite <= remaining)
-        {
-            size1 = numToWrite;
-            start2 = 0;
-            size2 = 0;
-        }
-        else
-        {
-            size1 = remaining;
-            size2 = numToWrite - remaining;
-            start2 = 0;
-        }
+        size1 = std::min (numToWrite, remaining);
+        start2 = 0;
+        size2 = shouldWrapAround ? std::max (0, numToWrite - remaining) : 0;
     }
 
     void finishedWrite (int numWritten, bool overdub)
@@ -67,18 +69,9 @@ public:
         start1 = readPos;
         int remaining = musicalLength - readPos;
 
-        if (numToRead <= remaining)
-        {
-            size1 = numToRead;
-            start2 = 0;
-            size2 = 0;
-        }
-        else
-        {
-            size1 = remaining;
-            size2 = numToRead - remaining;
-            start2 = 0;
-        }
+        size1 = std::min (numToRead, remaining);
+        start2 = 0;
+        size2 = std::max (0, numToRead - remaining);
     }
 
     void finishedRead (int numRead, bool overdub)
@@ -101,6 +94,7 @@ private:
     int musicalLength; // current loop length
     int writePos;
     int readPos;
+    bool shouldWrapAround { true };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopFifo)
 };
