@@ -238,7 +238,7 @@ public:
         redoLifo.clear();
     }
 
-    void waitForPendingCopy()
+    void waitForPendingCopy() const
     {
         activeCopy.doneEvent.wait (100);
     }
