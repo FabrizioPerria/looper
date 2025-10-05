@@ -83,7 +83,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
 
     fifo.finishedWrite (actualWritten, shouldOverdub());
 
-    updateLoopLength ((uint) actualWritten, (uint) audioBuffer->getNumSamples());
+    updateLoopLength ((uint) samplesBeforeWrap, shouldOverdub() ? length : (uint) audioBuffer->getNumSamples());
 }
 
 void LoopTrack::saveToUndoBuffer()

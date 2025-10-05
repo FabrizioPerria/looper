@@ -147,6 +147,11 @@ private:
         return length > 0;
     }
 
+    void allowWrapAround()
+    {
+        fifo.allowWrapAround();
+    }
+
     void copyAudioToTmpBuffer()
     {
         // Copy current audioBuffer state to tmpBuffer
