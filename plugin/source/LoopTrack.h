@@ -33,6 +33,7 @@ public:
 
     const juce::AudioBuffer<float>& getAudioBuffer() const
     {
+        undoBuffer.waitForPendingCopy();
         return *audioBuffer;
     }
 

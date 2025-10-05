@@ -1439,4 +1439,196 @@ TEST (LoopTrackNormalization, MaintainsChannelBalance)
     // Ratio should be preserved
     EXPECT_NEAR (leftPtr[0] / rightPtr[0], 2.0f, 0.01f);
 }
+TEST (LoopTrackRealWorld, HumanInteractionTiming)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 30;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 5;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.enableOutputNormalization();
+
+    auto simulateAudioCallback = [&] (juce::AudioBuffer<float>& buffer, int numSamples) { track.processPlayback (buffer, numSamples); };
+
+    auto waitHumanReaction = [] (int milliseconds) { juce::Thread::sleep (milliseconds); };
+
+    // === SCENARIO: Musician building a loop ===
+
+    // 1. Record initial 4-bar drum loop (8 seconds at 120 BPM)
+    const int drumLoopSamples = (int) (8.0 * sr);
+    juce::AudioBuffer<float> drumLoop (numChannels, drumLoopSamples);
+    // Use DC offset + sine for non-zero signal
+    for (int ch = 0; ch < numChannels; ++ch)
+        for (int i = 0; i < drumLoopSamples; ++i)
+            // drumLoop.setSample (ch, i, 0.3f + 0.2f * std::sin (2.0 * M_PI * 100.0 * i / sr));
+            drumLoop.setSample (ch, i, 0.5f); // Constant DC signal; easier to test against
+
+    track.processRecord (drumLoop, drumLoopSamples);
+    track.finalizeLayer();
+
+    // Human takes 1 second to listen to the loop
+    waitHumanReaction (1000);
+
+    // During this time, playback continues
+    juce::AudioBuffer<float> playbackBuffer (numChannels, maxBlock);
+    for (int i = 0; i < 20; ++i)
+    {
+        playbackBuffer.clear();
+        simulateAudioCallback (playbackBuffer, maxBlock);
+        waitHumanReaction (50);
+    }
+
+    // 2. User decides to add bass (waits 500ms, then records)
+    waitHumanReaction (500);
+
+    juce::AudioBuffer<float> bassLoop (numChannels, drumLoopSamples);
+    for (int ch = 0; ch < numChannels; ++ch)
+        for (int i = 0; i < drumLoopSamples; ++i)
+            bassLoop.setSample (ch, i, 0.4f + 0.3f * std::sin (2.0 * M_PI * 50.0 * i / sr));
+
+    track.processRecord (bassLoop, drumLoopSamples);
+    track.finalizeLayer();
+
+    EXPECT_TRUE (track.getLength() > 0);
+
+    // Listen again (2 seconds)
+    waitHumanReaction (2000);
+
+    // 3. Add guitar melody
+    waitHumanReaction (300);
+
+    juce::AudioBuffer<float> guitarLoop (numChannels, drumLoopSamples);
+    for (int ch = 0; ch < numChannels; ++ch)
+        for (int i = 0; i < drumLoopSamples; ++i)
+            guitarLoop.setSample (ch, i, 0.35f + 0.25f * std::sin (2.0 * M_PI * 440.0 * i / sr));
+
+    track.processRecord (guitarLoop, drumLoopSamples);
+    track.finalizeLayer();
+
+    // 4. Oops, guitar was too loud - undo
+    waitHumanReaction (1500);
+    track.undo();
+
+    EXPECT_EQ (track.getLength(), drumLoopSamples);
+
+    // 5. Redo to get guitar back
+    waitHumanReaction (800);
+    track.redo();
+
+    // 6. Actually, let's try a different guitar part - undo again
+    waitHumanReaction (500);
+    track.undo();
+
+    // 7. Record new guitar with different melody
+    waitHumanReaction (1000);
+
+    juce::AudioBuffer<float> guitarLoop2 (numChannels, drumLoopSamples);
+    for (int ch = 0; ch < numChannels; ++ch)
+        for (int i = 0; i < drumLoopSamples; ++i)
+            guitarLoop2.setSample (ch, i, 0.3f + 0.2f * std::sin (2.0 * M_PI * 550.0 * i / sr));
+
+    track.processRecord (guitarLoop2, drumLoopSamples);
+    track.finalizeLayer();
+
+    // 8. Multiple rapid undos
+    waitHumanReaction (100);
+    track.undo();
+
+    waitHumanReaction (100);
+    track.undo();
+
+    waitHumanReaction (100);
+    track.undo();
+
+    // Final state: just drums (normalized, should be close to 0.9 peak)
+    auto* ptr = track.getAudioBuffer().getReadPointer (0);
+    // checking sample 2000 which should be outside the crossfade zone
+    EXPECT_LE (std::abs (ptr[2000]), 0.9f); // Normalized peak
+
+    EXPECT_EQ (track.getLength(), drumLoopSamples);
+}
+
+// Stress test: rapid operations
+TEST (LoopTrackRealWorld, RapidOperationsStressTest)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 10;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setOverdubGains (0.7f, 1.0f); // 70% feedback
+
+    const int loopSamples = (int) (2.0 * sr); // 2-second loop
+
+    // Record initial loop
+    juce::AudioBuffer<float> input (numChannels, loopSamples);
+    for (int ch = 0; ch < numChannels; ++ch)
+        for (int i = 0; i < loopSamples; ++i)
+            input.setSample (ch, i, 0.5f);
+
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Rapid overdubs with minimal delay (worst case scenario)
+    for (int layer = 0; layer < 5; ++layer)
+    {
+        juce::Thread::sleep (50); // Just 50ms between operations
+        track.processRecord (input, loopSamples);
+        track.finalizeLayer();
+    }
+
+    // Rapid undo/redo sequence
+    juce::Thread::sleep (50);
+    track.undo();
+
+    juce::Thread::sleep (50);
+    track.redo();
+
+    juce::Thread::sleep (50);
+    track.undo();
+
+    juce::Thread::sleep (50);
+    track.undo();
+
+    // Should survive without crashes
+    EXPECT_GT (track.getLength(), 0);
+}
+
+// Edge case: immediate undo after finalize (no human delay)
+TEST (LoopTrackRealWorld, ImmediateUndoAfterFinalize)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 5;
+    const int maxBlock = 512;
+    const int numChannels = 1;
+    const int undoLayers = 3;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = (int) (1.0 * sr);
+    juce::AudioBuffer<float> input (numChannels, loopSamples);
+    input.clear();
+    for (int i = 0; i < loopSamples; ++i)
+        input.setSample (0, i, 0.5f);
+
+    // First layer
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Second layer
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // IMMEDIATE undo (no delay - worst case)
+    // This will force a wait on the async copy
+    track.undo();
+
+    // Should work correctly despite forced wait.
+    EXPECT_FLOAT_EQ (track.getAudioBuffer().getSample (0, 2000), 0.5f);
+}
 } // namespace audio_plugin_test
