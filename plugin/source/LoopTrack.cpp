@@ -88,7 +88,7 @@ void LoopTrack::saveToUndoBuffer()
 {
     if (! isPrepared() || ! shouldOverdub()) return;
 
-    undoBuffer.pushLayer (tmpBuffer, length);
+    undoBuffer.finalizeCopyAndPush (tmpBuffer, length);
 }
 
 void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples)
@@ -134,10 +134,7 @@ void LoopTrack::finalizeLayer()
         audioBuffer->applyGainRamp (length - fadeSamples, fadeSamples, overallGain, 0.0f); // fade out
     }
 
-    for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
-    {
-        juce::FloatVectorOperations::copy (tmpBuffer->getWritePointer (ch), audioBuffer->getReadPointer (ch), (int) length);
-    }
+    undoBuffer.startAsyncCopy (audioBuffer.get(), tmpBuffer.get(), length);
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint numSamples)
@@ -165,7 +162,7 @@ void LoopTrack::clear()
 {
     audioBuffer->clear();
     undoBuffer.clear();
-    // tmpBuffer.clear();
+    tmpBuffer->clear();
     length = 0;
     provisionalLength = 0;
 }

@@ -126,6 +126,16 @@ private:
         return length > 0;
     }
 
+    void copyAudioToTmpBuffer()
+    {
+        // Copy current audioBuffer state to tmpBuffer
+        // This prepares tmpBuffer to be pushed to undo stack on next overdub
+        for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+        {
+            juce::FloatVectorOperations::copy (tmpBuffer->getWritePointer (ch), audioBuffer->getReadPointer (ch), (int) length);
+        }
+    }
+
     static const uint MAX_SECONDS_HARD_LIMIT = 3600; // 1 hour max buffer size
     static const uint MAX_UNDO_LAYERS = 5;
 
