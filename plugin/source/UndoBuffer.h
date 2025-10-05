@@ -95,6 +95,10 @@ public:
 
     bool undo (std::unique_ptr<juce::AudioBuffer<float>>& destination)
     {
+        // fair to wait even if audio thread runs it. Realistically, only tests will hit the edge case where operations
+        // are so fast that the copy isn't done by the time we get here.
+        waitForPendingCopy();
+
         int uStart1, uSize1, uStart2, uSize2;
         undoLifo.prepareToRead (1, uStart1, uSize1, uStart2, uSize2);
 
@@ -119,6 +123,11 @@ public:
 
     bool redo (std::unique_ptr<juce::AudioBuffer<float>>& destination)
     {
+        // fair to wait even if audio thread runs it. Realistically, only tests will hit the edge case where operations
+        // are so fast that the copy isn't done by the time we get here.
+        waitForPendingCopy();
+
+        // Get top of redo stack
         int rStart1, rSize1, rStart2, rSize2;
         redoLifo.prepareToRead (1, rStart1, rSize1, rStart2, rSize2);
 
@@ -213,8 +222,9 @@ public:
 
     void finalizeCopyAndPush (std::unique_ptr<juce::AudioBuffer<float>>& tmpBuffer, size_t loopLength)
     {
-        // Wait for copy to finish
-        activeCopy.doneEvent.wait (100); // Wait up to 100ms
+        // fair to wait even if audio thread runs it. Realistically, only tests will hit the edge case where operations
+        // are so fast that the copy isn't done by the time we get here.
+        waitForPendingCopy();
 
         // Now safe to swap - background thread is done with tmpBuffer
         int start1, size1, start2, size2;
@@ -225,6 +235,16 @@ public:
 
         undoLifo.finishedWrite (size1, false);
         redoLifo.clear();
+    }
+
+    void waitForPendingCopy()
+    {
+        activeCopy.doneEvent.wait (100);
+    }
+
+    bool isCopyComplete() const
+    {
+        return activeCopy.doneEvent.wait (0);
     }
 
 private:

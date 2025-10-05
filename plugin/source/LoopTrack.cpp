@@ -29,7 +29,7 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
 
     clear();
-    setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
+    setCrossFadeLength ((int) (0.1 * sampleRate)); // default 100 ms crossfade
 
     alreadyPrepared = true;
 }
@@ -108,6 +108,8 @@ void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSample
 
 void LoopTrack::finalizeLayer()
 {
+    undoBuffer.waitForPendingCopy();
+
     const size_t currentLength = std::max ({ (int) length, (int) provisionalLength, 1 });
     if (length == 0)
     {
@@ -117,12 +119,15 @@ void LoopTrack::finalizeLayer()
     provisionalLength = 0;
     isRecording = false;
 
-    // float maxSample = 0.0f;
-    // for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
-    //     maxSample = std::max (maxSample, audioBuffer.getMagnitude (ch, 0, length));
-    //
-    // if (maxSample > 0.0f)
-    //     audioBuffer.applyGain (0, length, 1.0f / maxSample);
+    if (shouldNormalizeOutput)
+    {
+        float maxSample = 0.0f;
+        for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+            maxSample = std::max (maxSample, audioBuffer->getMagnitude (ch, 0, length));
+
+        if (maxSample > 0.001f) // If not silent
+            audioBuffer->applyGain (0, length, 0.9f / maxSample);
+    }
 
     const float overallGain = 1.0f;
     // audioBuffer.applyGain (overallGain);

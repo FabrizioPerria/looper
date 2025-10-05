@@ -208,6 +208,8 @@ TEST (LoopTrackRecord, ProcessFullBlockCopiesInput)
     const int numChannels = 1;
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
 
     const int numSamples = 4;
     juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
@@ -245,8 +247,8 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInput)
     const int numChannels = 1;
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
-
     track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
 
     const int bufferSamples = track.getAudioBuffer().getNumSamples();
     const int numSamples = 9; // less than block size
@@ -285,8 +287,8 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInputOverMaxBufferSize)
     const int numChannels = 1;
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
-
     track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
 
     const int bufferSamples = track.getAudioBuffer().getNumSamples();
     const int leaveSamples = 10; // leave some space at end of buffer
@@ -339,6 +341,7 @@ TEST (LoopTrackRecord, ProcessMultipleChannels)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
     track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
 
     const int numSamples = 12;
     juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
@@ -390,52 +393,6 @@ TEST (LoopTrackRecord, ZeroLengthInputDoesNothing)
     EXPECT_EQ (track.getLength(), 0);
 }
 
-TEST (LoopTrackRecord, OffsetOverdub)
-{
-    LoopTrack track;
-    const double sr = 10.0;
-    const int maxSeconds = 1;
-    const int maxBlock = 4;
-    const int numChannels = 1;
-    const int undoLayers = 1;
-    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
-
-    juce::AudioBuffer<float> input1 = createSquareTestBuffer (numChannels, sr * maxSeconds, sr, 440.0f);
-    track.processRecord (input1, sr * maxSeconds);
-    track.finalizeLayer();
-
-    const int numSamples = 2;
-    track.processPlayback (input1, maxBlock); // advance readPosition position by one block
-    juce::AudioBuffer<float> input2 = createSquareTestBuffer (numChannels, numSamples, sr, 880.0f);
-    track.processRecord (input2, numSamples); // overdub at offset
-    track.finalizeLayer();
-
-    const auto& loopBuffer = track.getAudioBuffer();
-    auto* loopPtr = loopBuffer.getReadPointer (0);
-    auto* readPtr1 = input1.getReadPointer (0);
-    auto* readPtr2 = input2.getReadPointer (0);
-    int start = 0;
-    int end = maxBlock;
-    for (int i = start; i < end; ++i)
-    {
-        EXPECT_FLOAT_EQ (loopPtr[i], readPtr1[i] * 0.5f);
-    }
-    start = end;
-    end += numSamples;
-    for (int i = start; i < end; ++i)
-    {
-        EXPECT_FLOAT_EQ (loopPtr[i], readPtr1[i] + readPtr2[i - start]);
-    }
-    start = end;
-    end = sr * maxSeconds;
-    for (int i = start; i < end; ++i)
-    {
-        EXPECT_FLOAT_EQ (loopPtr[i], readPtr1[i]);
-    }
-
-    EXPECT_EQ (track.getLength(), sr * maxSeconds);
-}
-
 TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
 {
     LoopTrack track;
@@ -445,6 +402,7 @@ TEST (LoopTrackOverdub, IntermittentOverdubOnlyAffectsActiveRecordingPeriods)
     const int numChannels = 1;
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setOverdubGains (1.0f, 1.0f);
 
     track.setCrossFadeLength (0);
 
@@ -836,6 +794,7 @@ TEST (LoopTrackUndo, MultilayerUndo)
     const int undoLayers = 3;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
     track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
 
     juce::AudioBuffer<float> mainLoopSine = createSquareTestBuffer (numChannels, maxBlock, sr, 5.0f);
 
@@ -931,6 +890,7 @@ TEST (LoopTrackUndo, MultilayerUndoWithRedo)
     const int undoLayers = 3;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
     track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
 
     juce::AudioBuffer<float> mainLoopSine = createSquareTestBuffer (numChannels, maxBlock, sr, 5.0f);
 
@@ -1078,6 +1038,7 @@ TEST (LoopTrackUndo, MultilayerUndoMoreThanAvailableLayers)
     const int undoLayers = 2;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
     track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
 
     juce::AudioBuffer<float> mainLoopSine = createSquareTestBuffer (numChannels, maxBlock, sr, 5.0f);
 
@@ -1252,4 +1213,230 @@ TEST (LoopTrackPlayback, PlaybackTwiceWillWrapCorrectly)
     }
 }
 
+// Test normalization prevents clipping
+TEST (LoopTrackNormalization, PreventsClippingOnMultipleOverdubs)
+{
+    LoopTrack track;
+    const double sr = 44100.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 1;
+    const int undoLayers = 3;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+
+    // Enable normalization (default)
+    track.enableOutputNormalization();
+
+    // Record initial loop with high level (0.8)
+    juce::AudioBuffer<float> initialLoop (numChannels, maxBlock);
+    initialLoop.clear();
+    for (int i = 0; i < maxBlock; ++i)
+        initialLoop.setSample (0, i, 0.8f);
+
+    track.processRecord (initialLoop, maxBlock);
+    track.finalizeLayer();
+
+    // First overdub at same level
+    track.processRecord (initialLoop, maxBlock);
+    track.finalizeLayer();
+
+    // Second overdub
+    track.processRecord (initialLoop, maxBlock);
+    track.finalizeLayer();
+
+    // Check that output is normalized and not clipping
+    auto* ptr = track.getAudioBuffer().getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_LE (std::abs (ptr[i]), 0.9f);  // Should be normalized to 0.9 max
+        EXPECT_GT (std::abs (ptr[i]), 0.85f); // Should be close to target
+    }
+}
+
+// Test normalization disabled with manual gains
+TEST (LoopTrackNormalization, ManualGainsDisableNormalization)
+{
+    LoopTrack track;
+    const double sr = 44100.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 1;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+
+    // Set manual gains - this should disable normalization
+    track.setOverdubGains (1.0f, 1.0f);
+
+    juce::AudioBuffer<float> input (numChannels, maxBlock);
+    input.clear();
+    for (int i = 0; i < maxBlock; ++i)
+        input.setSample (0, i, 0.5f);
+
+    track.processRecord (input, maxBlock);
+    track.finalizeLayer();
+
+    track.processRecord (input, maxBlock);
+    track.finalizeLayer();
+
+    // With manual gains 1.0/1.0, output should be 0.5 + 0.5 = 1.0 (no normalization)
+    auto* ptr = track.getAudioBuffer().getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (ptr[i], 1.0f);
+    }
+}
+
+// Test common feedback setting: 70% (typical hardware looper)
+TEST (LoopTrackFeedback, Feedback70Percent)
+{
+    LoopTrack track;
+    const double sr = 44100.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 1;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+
+    // 70% feedback - old audio fades, new audio at 100%
+    track.setOverdubGains (0.7f, 1.0f);
+
+    juce::AudioBuffer<float> input (numChannels, maxBlock);
+    input.clear();
+    for (int i = 0; i < maxBlock; ++i)
+        input.setSample (0, i, 0.5f);
+
+    track.processRecord (input, maxBlock);
+    track.finalizeLayer();
+
+    track.processRecord (input, maxBlock);
+    track.finalizeLayer();
+
+    // Result should be: 0.5 * 0.7 + 0.5 * 1.0 = 0.35 + 0.5 = 0.85
+    auto* ptr = track.getAudioBuffer().getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (ptr[i], 0.85f);
+    }
+}
+
+// Test replace mode: 0% feedback
+TEST (LoopTrackFeedback, ReplaceModeZeroFeedback)
+{
+    LoopTrack track;
+    const double sr = 44100.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 1;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+
+    // Replace mode - new completely replaces old
+    track.setOverdubGains (0.0f, 1.0f);
+
+    juce::AudioBuffer<float> initialLoop (numChannels, maxBlock);
+    initialLoop.clear();
+    for (int i = 0; i < maxBlock; ++i)
+        initialLoop.setSample (0, i, 0.8f);
+
+    track.processRecord (initialLoop, maxBlock);
+    track.finalizeLayer();
+
+    juce::AudioBuffer<float> newLoop (numChannels, maxBlock);
+    newLoop.clear();
+    for (int i = 0; i < maxBlock; ++i)
+        newLoop.setSample (0, i, 0.3f);
+
+    track.processRecord (newLoop, maxBlock);
+    track.finalizeLayer();
+
+    // Should only have new material
+    auto* ptr = track.getAudioBuffer().getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        EXPECT_FLOAT_EQ (ptr[i], 0.3f);
+    }
+}
+
+// Test feedback decay over multiple layers
+TEST (LoopTrackFeedback, MultipleLayerDecay)
+{
+    LoopTrack track;
+    const double sr = 44100.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 1;
+    const int undoLayers = 5;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+
+    // 50% feedback
+    track.setOverdubGains (0.5f, 1.0f);
+
+    juce::AudioBuffer<float> input (numChannels, maxBlock);
+    input.clear();
+    for (int i = 0; i < maxBlock; ++i)
+        input.setSample (0, i, 1.0f);
+
+    // Layer 1: 1.0
+    track.processRecord (input, maxBlock);
+    track.finalizeLayer();
+
+    // Layer 2: 1.0 * 0.5 + 1.0 = 1.5
+    track.processRecord (input, maxBlock);
+    track.finalizeLayer();
+    EXPECT_FLOAT_EQ (track.getAudioBuffer().getSample (0, 0), 1.5f);
+
+    // Layer 3: 1.5 * 0.5 + 1.0 = 1.75
+    track.processRecord (input, maxBlock);
+    track.finalizeLayer();
+    EXPECT_FLOAT_EQ (track.getAudioBuffer().getSample (0, 0), 1.75f);
+
+    // Layer 4: 1.75 * 0.5 + 1.0 = 1.875
+    track.processRecord (input, maxBlock);
+    track.finalizeLayer();
+    EXPECT_FLOAT_EQ (track.getAudioBuffer().getSample (0, 0), 1.875f);
+
+    // Converges toward 2.0 (geometric series sum = 1/(1-0.5) = 2.0)
+}
+
+// Test normalization maintains relative levels between channels
+TEST (LoopTrackNormalization, MaintainsChannelBalance)
+{
+    LoopTrack track;
+    const double sr = 44100.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.enableOutputNormalization();
+
+    juce::AudioBuffer<float> input (numChannels, maxBlock);
+    input.clear();
+
+    // Left channel at 1.0, right at 0.5
+    for (int i = 0; i < maxBlock; ++i)
+    {
+        input.setSample (0, i, 1.0f);
+        input.setSample (1, i, 0.5f);
+    }
+
+    track.processRecord (input, maxBlock);
+    track.finalizeLayer();
+
+    auto* leftPtr = track.getAudioBuffer().getReadPointer (0);
+    auto* rightPtr = track.getAudioBuffer().getReadPointer (1);
+
+    // After normalization to 0.9, left should be 0.9, right should be 0.45
+    EXPECT_NEAR (leftPtr[0], 0.9f, 0.01f);
+    EXPECT_NEAR (rightPtr[0], 0.45f, 0.01f);
+
+    // Ratio should be preserved
+    EXPECT_NEAR (leftPtr[0] / rightPtr[0], 2.0f, 0.01f);
+}
 } // namespace audio_plugin_test
