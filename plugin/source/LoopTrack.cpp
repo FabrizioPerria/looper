@@ -162,7 +162,7 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
     fifo.prepareToRead ((int) numSamples, readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap);
     const int actualRead = samplesBeforeWrap + samplesAfterWrap;
 
-    for (int ch = 0; ch < output.getNumChannels() && ! isMutedTrack(); ++ch)
+    for (int ch = 0; ch < output.getNumChannels() && ! isMuted(); ++ch)
     {
         float* outPtr = output.getWritePointer (ch);
         const float* loopPtr = audioBuffer->getReadPointer (ch);

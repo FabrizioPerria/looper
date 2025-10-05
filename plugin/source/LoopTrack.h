@@ -112,14 +112,14 @@ public:
         return isRecording;
     }
 
-    bool isMutedTrack() const
+    bool isMuted() const
     {
-        return isMuted;
+        return muted;
     }
 
     void setMuted (const bool shouldBeMuted)
     {
-        isMuted = shouldBeMuted;
+        muted = shouldBeMuted;
     }
 
 private:
@@ -146,7 +146,7 @@ private:
 
     bool shouldNormalizeOutput = true;
 
-    bool isMuted = false;
+    bool muted = false;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const uint numSamples, const uint ch);
     void updateLoopLength (const uint numSamples, const uint bufferSamples);

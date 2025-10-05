@@ -1796,4 +1796,64 @@ TEST (LoopTrackQuantizedOverdub, WrapEnabledAllowsLongOverdub)
     for (int i = 0; i < 8; ++i)
         EXPECT_FLOAT_EQ (ptr[i], 0.8f); // 0.5 + 0.3
 }
+
+TEST (LoopTrackMute, MuteUnmuteFunctionality)
+{
+    LoopTrack track;
+    const double sr = 441.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 12;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    juce::AudioBuffer<float> input (numChannels, maxBlock);
+    input.clear();
+    for (int i = 0; i < maxBlock; ++i)
+        input.setSample (0, i, 0.5f); // Left channel
+    for (int i = 0; i < maxBlock; ++i)
+        input.setSample (1, i, 0.25f); // Right channel
+
+    track.processRecord (input, maxBlock);
+    track.finalizeLayer();
+
+    // Initially not muted
+    EXPECT_FALSE (track.isMuted());
+    juce::AudioBuffer<float> playbackBuffer (numChannels, maxBlock);
+    playbackBuffer.clear();
+    track.processPlayback (playbackBuffer, maxBlock);
+    auto* ptr = playbackBuffer.getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+        EXPECT_FLOAT_EQ (ptr[i], 0.5f);
+
+    // Mute the track
+    track.setMuted (true);
+    EXPECT_TRUE (track.isMuted());
+
+    playbackBuffer.clear();
+    track.processPlayback (playbackBuffer, maxBlock);
+    ptr = playbackBuffer.getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+        EXPECT_FLOAT_EQ (ptr[i], 0.0f); // Should be silent when muted
+
+    // Unmute the track
+    track.setMuted (false);
+    EXPECT_FALSE (track.isMuted());
+    playbackBuffer.clear();
+    track.processPlayback (playbackBuffer, maxBlock);
+    ptr = playbackBuffer.getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+        EXPECT_FLOAT_EQ (ptr[i], 0.5f); // Original audio should be back
+    //
+    // Test muting again
+    track.setMuted (true);
+    EXPECT_TRUE (track.isMuted());
+    playbackBuffer.clear();
+    track.processPlayback (playbackBuffer, maxBlock);
+    ptr = playbackBuffer.getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+        EXPECT_FLOAT_EQ (ptr[i], 0.0f); // Should be silent when muted
+}
 } // namespace audio_plugin_test
