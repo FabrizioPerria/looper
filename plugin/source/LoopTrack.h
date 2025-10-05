@@ -149,7 +149,11 @@ private:
 
     void allowWrapAround()
     {
-        fifo.allowWrapAround();
+        fifo.setWrapAround (true);
+    }
+    void preventWrapAround()
+    {
+        fifo.setWrapAround (false);
     }
 
     void copyAudioToTmpBuffer()

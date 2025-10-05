@@ -47,27 +47,9 @@ public:
         start1 = writePos;
         int remaining = musicalLength - writePos;
 
-        if (shouldWrapAround)
-        {
-            if (numToWrite <= remaining)
-            {
-                size1 = numToWrite;
-                start2 = 0;
-                size2 = 0;
-            }
-            else
-            {
-                size1 = remaining;
-                size2 = numToWrite - remaining;
-                start2 = 0;
-            }
-        }
-        else
-        {
-            size1 = std::min (numToWrite, remaining);
-            start2 = 0;
-            size2 = 0;
-        }
+        size1 = std::min (numToWrite, remaining);
+        start2 = 0;
+        size2 = shouldWrapAround ? std::max (0, numToWrite - remaining) : 0;
     }
 
     void finishedWrite (int numWritten, bool overdub)
@@ -82,18 +64,9 @@ public:
         start1 = readPos;
         int remaining = musicalLength - readPos;
 
-        if (numToRead <= remaining)
-        {
-            size1 = numToRead;
-            start2 = 0;
-            size2 = 0;
-        }
-        else
-        {
-            size1 = remaining;
-            size2 = numToRead - remaining;
-            start2 = 0;
-        }
+        size1 = std::min (numToRead, remaining);
+        start2 = 0;
+        size2 = shouldWrapAround ? std::max (0, numToRead - remaining) : 0;
     }
 
     void finishedRead (int numRead, bool overdub)
