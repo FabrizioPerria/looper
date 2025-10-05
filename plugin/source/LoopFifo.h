@@ -42,6 +42,11 @@ public:
         shouldWrapAround = shouldWrap;
     }
 
+    bool getWrapAround() const
+    {
+        return shouldWrapAround;
+    }
+
     void prepareToWrite (int numToWrite, int& start1, int& size1, int& start2, int& size2)
     {
         start1 = writePos;
