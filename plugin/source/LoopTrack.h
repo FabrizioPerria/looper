@@ -112,6 +112,16 @@ public:
         return isRecording;
     }
 
+    bool isMutedTrack() const
+    {
+        return isMuted;
+    }
+
+    void setMuted (const bool shouldBeMuted)
+    {
+        isMuted = shouldBeMuted;
+    }
+
 private:
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
@@ -135,6 +145,8 @@ private:
     float overdubOldGain = 1.0f;
 
     bool shouldNormalizeOutput = true;
+
+    bool isMuted = false;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const uint numSamples, const uint ch);
     void updateLoopLength (const uint numSamples, const uint bufferSamples);
