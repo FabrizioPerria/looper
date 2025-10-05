@@ -120,8 +120,8 @@ void LooperEngine::setupMidiCommands()
 {
     const bool NOTE_ON = true;
     const bool NOTE_OFF = false;
-    midiCommandMap[{ 60, NOTE_ON }] = [] (LooperEngine& engine) { engine.startRecording(); };
-    midiCommandMap[{ 61, NOTE_ON }] = [] (LooperEngine& engine)
+    midiCommandMap[{ 60, NOTE_ON }] = [] (LooperEngine& engine) { engine.startRecording(); }; // C3
+    midiCommandMap[{ 62, NOTE_ON }] = [] (LooperEngine& engine)                               // D3
     {
         if (engine.getTransportState() == TransportState::Stopped)
         {
@@ -132,9 +132,11 @@ void LooperEngine::setupMidiCommands()
             engine.stop();
         }
     };
-    midiCommandMap[{ 72, NOTE_ON }] = [] (LooperEngine& engine) { engine.undo(); };
-    midiCommandMap[{ 74, NOTE_ON }] = [] (LooperEngine& engine) { engine.redo(); };
-    midiCommandMap[{ 84, NOTE_OFF }] = [] (LooperEngine& engine) { engine.clear(); };
+    midiCommandMap[{ 72, NOTE_ON }] = [] (LooperEngine& engine) { engine.undo(); };   // C4
+    midiCommandMap[{ 74, NOTE_ON }] = [] (LooperEngine& engine) { engine.redo(); };   // D4
+    midiCommandMap[{ 84, NOTE_OFF }] = [] (LooperEngine& engine) { engine.clear(); }; // C5
+    juce::File defaultFile = juce::File::getSpecialLocation (juce::File::userDesktopDirectory).getChildFile ("backing.wav");
+    midiCommandMap[{ 86, NOTE_ON }] = [defaultFile] (LooperEngine& engine) { engine.loadWaveFileToActiveTrack (defaultFile); }; // D5
 }
 
 void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
@@ -202,5 +204,15 @@ void LooperEngine::setOverdubGainsForTrack (const int trackIndex, const double o
     if (track)
     {
         track->setOverdubGains (oldGain, newGain);
+    }
+}
+
+void LooperEngine::loadBackingTrackToActiveTrack (const juce::AudioBuffer<float>& backingTrack)
+{
+    auto activeTrack = getActiveTrack();
+    if (activeTrack)
+    {
+        activeTrack->loadBackingTrack (backingTrack);
+        startPlaying();
     }
 }

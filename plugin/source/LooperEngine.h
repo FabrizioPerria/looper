@@ -48,6 +48,25 @@ public:
     void redo();
     void clear();
 
+    void loadBackingTrackToActiveTrack (const juce::AudioBuffer<float>& backingTrack);
+
+    void loadWaveFileToActiveTrack (const juce::File& audioFile)
+    {
+        auto activeTrack = getActiveTrack();
+        if (activeTrack)
+        {
+            juce::AudioFormatManager formatManager;
+            formatManager.registerBasicFormats();
+            std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (audioFile));
+            if (reader)
+            {
+                juce::AudioBuffer<float> backingTrack ((int) reader->numChannels, (int) reader->lengthInSamples);
+                reader->read (&backingTrack, 0, (int) reader->lengthInSamples, 0, true, true);
+                loadBackingTrackToActiveTrack (backingTrack);
+            }
+        }
+    }
+
 private:
     struct MidiKey
     {

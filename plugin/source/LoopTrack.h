@@ -46,6 +46,11 @@ public:
         return length;
     }
 
+    int getLoopDurationSeconds() const
+    {
+        return (int) (length / sampleRate);
+    }
+
     void setLength (const size_t newLength)
     {
         length = newLength;
@@ -90,6 +95,8 @@ public:
         return undoBuffer;
     }
 
+    void loadBackingTrack (const juce::AudioBuffer<float>& backingTrack);
+
 private:
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
@@ -97,6 +104,8 @@ private:
     UndoBuffer undoBuffer;
 
     double sampleRate = 0.0;
+    int blockSize = 0;
+    int channels = 0;
 
     LoopFifo fifo;
 
