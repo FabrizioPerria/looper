@@ -71,7 +71,7 @@ public:
 
         size1 = std::min (numToRead, remaining);
         start2 = 0;
-        size2 = shouldWrapAround ? std::max (0, numToRead - remaining) : 0;
+        size2 = std::max (0, numToRead - remaining);
     }
 
     void finishedRead (int numRead, bool overdub)

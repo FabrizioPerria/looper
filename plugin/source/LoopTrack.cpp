@@ -68,13 +68,11 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
     int writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap;
     fifo.prepareToWrite ((int) numSamples, writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap);
 
-    int actualWritten = 0;
     for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
     {
         if (samplesBeforeWrap > 0)
         {
             copyInputToLoopBuffer ((uint) ch, input.getReadPointer (ch), (uint) writePosBeforeWrap, (uint) samplesBeforeWrap);
-            actualWritten += samplesBeforeWrap;
         }
         if (samplesAfterWrap > 0 && shouldOverdub())
         {
@@ -82,13 +80,13 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
                                    input.getReadPointer (ch) + samplesBeforeWrap,
                                    (uint) writePosAfterWrap,
                                    (uint) samplesAfterWrap);
-            actualWritten += samplesAfterWrap;
         }
     }
 
+    int actualWritten = samplesBeforeWrap + samplesAfterWrap;
     fifo.finishedWrite (actualWritten, shouldOverdub());
 
-    bool fifoPreventedWrap = fifo.getWrapAround() && samplesAfterWrap == 0 && numSamples > samplesBeforeWrap;
+    bool fifoPreventedWrap = ! fifo.getWrapAround() && samplesAfterWrap == 0 && numSamples > samplesBeforeWrap;
     if (fifoPreventedWrap)
     {
         finalizeLayer();
