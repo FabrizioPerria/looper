@@ -10,6 +10,7 @@ public:
     LoopTrack()
     {
     }
+
     ~LoopTrack()
     {
         releaseResources();
@@ -64,6 +65,14 @@ public:
     {
         overdubNewGain = std::clamp (newGain, 0.0f, 2.0f);
         overdubOldGain = std::clamp (oldGain, 0.0f, 2.0f);
+        shouldNormalizeOutput = false;
+    }
+
+    void enableOutputNormalization()
+    {
+        overdubNewGain = 1.0f;
+        overdubOldGain = 1.0f;
+        shouldNormalizeOutput = true;
     }
 
     double getOverdubNewGain() const
@@ -100,6 +109,8 @@ private:
 
     float overdubNewGain = 1.0f;
     float overdubOldGain = 1.0f;
+
+    bool shouldNormalizeOutput = true;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const uint numSamples, const uint ch);
     void updateLoopLength (const uint numSamples, const uint bufferSamples);
