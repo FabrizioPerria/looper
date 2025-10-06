@@ -139,14 +139,11 @@ void LoopTrack::finalizeLayer()
             audioBuffer->applyGain (0, length, 0.9f / maxSample);
     }
 
-    const float overallGain = 1.0f;
-    // audioBuffer.applyGain (overallGain);
-
     const uint fadeSamples = std::min (crossFadeLength, length / 4);
     if (fadeSamples > 0)
     {
-        audioBuffer->applyGainRamp (0, fadeSamples, 0.0f, overallGain);                    // fade in
-        audioBuffer->applyGainRamp (length - fadeSamples, fadeSamples, overallGain, 0.0f); // fade out
+        audioBuffer->applyGainRamp (0, fadeSamples, 0.0f, 1.0f);                    // fade in
+        audioBuffer->applyGainRamp (length - fadeSamples, fadeSamples, 1.0f, 0.0f); // fade out
     }
 
     undoBuffer.startAsyncCopy (audioBuffer.get(), tmpBuffer.get(), length);
@@ -169,6 +166,7 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
         if (samplesAfterWrap > 0)
             juce::FloatVectorOperations::add (outPtr + samplesBeforeWrap, loopPtr + readPosAfterWrap, samplesAfterWrap);
     }
+    output.applyGain (trackVolume);
 
     fifo.finishedRead (actualRead, shouldOverdub());
 }

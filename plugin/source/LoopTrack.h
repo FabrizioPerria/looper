@@ -33,7 +33,6 @@ public:
 
     const juce::AudioBuffer<float>& getAudioBuffer() const
     {
-        // undoBuffer.waitForPendingCopy();
         return *audioBuffer;
     }
 
@@ -122,6 +121,16 @@ public:
         muted = shouldBeMuted;
     }
 
+    float getTrackVolume() const
+    {
+        return trackVolume;
+    }
+
+    void setTrackVolume (const float newVolume)
+    {
+        trackVolume = std::clamp (newVolume, 0.0f, 1.0f);
+    }
+
 private:
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
@@ -147,6 +156,8 @@ private:
     bool shouldNormalizeOutput = true;
 
     bool muted = false;
+
+    float trackVolume = 1.0f;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const uint numSamples, const uint ch);
     void updateLoopLength (const uint numSamples, const uint bufferSamples);
