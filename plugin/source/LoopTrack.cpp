@@ -120,8 +120,6 @@ void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSample
 
 void LoopTrack::finalizeLayer()
 {
-    undoBuffer.waitForPendingCopy();
-
     const size_t currentLength = std::max ({ (int) length, (int) provisionalLength, 1 });
     if (length == 0)
     {

@@ -198,8 +198,9 @@ public:
     // UndoBuffer.cpp
     void startAsyncCopy (const juce::AudioBuffer<float>* source, juce::AudioBuffer<float>* destination, size_t length)
     {
-        // Wait for any previous copy
-        activeCopy.doneEvent.reset();
+        // fair to wait even if audio thread runs it. Realistically, only tests will hit the edge case where operations
+        // are so fast that the copy isn't done by the time we get here.
+        waitForPendingCopy();
 
         activeCopy.source = source;
         activeCopy.destination = destination;
@@ -238,16 +239,6 @@ public:
         redoLifo.clear();
     }
 
-    void waitForPendingCopy() const
-    {
-        activeCopy.doneEvent.wait (100);
-    }
-
-    bool isCopyComplete() const
-    {
-        return activeCopy.doneEvent.wait (0);
-    }
-
 private:
     struct CopyOperation
     {
@@ -268,6 +259,16 @@ private:
 
     size_t length { 0 };
     std::unique_ptr<juce::AudioBuffer<float>> undoStaging = std::make_unique<juce::AudioBuffer<float>>();
+
+    void waitForPendingCopy() const
+    {
+        activeCopy.doneEvent.wait (100);
+    }
+
+    bool isCopyComplete() const
+    {
+        return activeCopy.doneEvent.wait (0);
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (UndoBuffer)
 };
