@@ -262,7 +262,7 @@ private:
 
     void waitForPendingCopy() const
     {
-        activeCopy.doneEvent.wait (100);
+        if (! activeCopy.doneEvent.wait (100)) jassertfalse; // something has gone wrong with the copy operation
     }
 
     bool isCopyComplete() const

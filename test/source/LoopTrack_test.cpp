@@ -1856,4 +1856,64 @@ TEST (LoopTrackMute, MuteUnmuteFunctionality)
     for (int i = 0; i < maxBlock; ++i)
         EXPECT_FLOAT_EQ (ptr[i], 0.0f); // Should be silent when muted
 }
+
+TEST (LoopTrackVolume, VolumeAdjustment)
+{
+    LoopTrack track;
+    const double sr = 441.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 12;
+    const int numChannels = 1;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    juce::AudioBuffer<float> input (numChannels, maxBlock);
+    input.clear();
+    for (int i = 0; i < maxBlock; ++i)
+        input.setSample (0, i, 0.5f); // Mono signal
+
+    track.processRecord (input, maxBlock);
+    track.finalizeLayer();
+
+    // Default volume should be 1.0
+    EXPECT_FLOAT_EQ (track.getTrackVolume(), 1.0f);
+
+    juce::AudioBuffer<float> playbackBuffer (numChannels, maxBlock);
+    playbackBuffer.clear();
+    track.processPlayback (playbackBuffer, maxBlock);
+    auto* ptr = playbackBuffer.getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+        EXPECT_FLOAT_EQ (ptr[i], 0.5f); // Original level
+
+    // Set volume to 0.5
+    track.setTrackVolume (0.5f);
+    EXPECT_FLOAT_EQ (track.getTrackVolume(), 0.5f);
+
+    playbackBuffer.clear();
+    track.processPlayback (playbackBuffer, maxBlock);
+    ptr = playbackBuffer.getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+        EXPECT_FLOAT_EQ (ptr[i], 0.25f); // Half the original level
+
+    // Set volume to 2.0 (boost)
+    track.setTrackVolume (2.0f);
+    EXPECT_FLOAT_EQ (track.getTrackVolume(), 1.0f); // we clamp to 1.0
+
+    playbackBuffer.clear();
+    track.processPlayback (playbackBuffer, maxBlock);
+    ptr = playbackBuffer.getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+        EXPECT_FLOAT_EQ (ptr[i], 0.5f); // Clamped to original level (no boost)
+
+    // Set volume back to 1.0
+    track.setTrackVolume (1.0f);
+    EXPECT_FLOAT_EQ (track.getTrackVolume(), 1.0f);
+    playbackBuffer.clear();
+    track.processPlayback (playbackBuffer, maxBlock);
+    ptr = playbackBuffer.getReadPointer (0);
+    for (int i = 0; i < maxBlock; ++i)
+        EXPECT_FLOAT_EQ (ptr[i], 0.5f); // Original level restored
+}
 } // namespace audio_plugin_test
