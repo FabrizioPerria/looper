@@ -1,6 +1,6 @@
 #pragma once
 
-#include "LoopStack.h"
+#include "LoopLifo.h"
 #include <JuceHeader.h>
 #include <vector>
 
@@ -251,10 +251,10 @@ private:
     CopyOperation activeCopy;
     juce::ThreadPool threadPool { 1 };
 
-    LoopStack undoLifo;
+    LoopLifo undoLifo;
     std::vector<std::unique_ptr<juce::AudioBuffer<float>>> undoBuffers {};
 
-    LoopStack redoLifo;
+    LoopLifo redoLifo;
     std::vector<std::unique_ptr<juce::AudioBuffer<float>>> redoBuffers {};
 
     size_t length { 0 };
