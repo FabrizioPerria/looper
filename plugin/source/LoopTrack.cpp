@@ -19,7 +19,7 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     blockSize = (int) maxBlockSize;
     channels = (int) numChannels;
     const uint requestedSamples = std::max ((uint) currentSampleRate * maxSeconds, 1u); // at least 1 block will be allocated
-    const uint alignedBufferSize = ((requestedSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
+    alignedBufferSize = ((requestedSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
 
     if (alignedBufferSize > (uint) audioBuffer->getNumSamples())
     {
@@ -27,10 +27,10 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
         tmpBuffer->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
     }
 
-    fifo.prepareToPlay ((int) alignedBufferSize);
     undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
 
     clear();
+
     setCrossFadeLength ((int) (0.03 * sampleRate)); // default 30 ms crossfade
 
     alreadyPrepared = true;
@@ -178,6 +178,7 @@ void LoopTrack::clear()
     tmpBuffer->clear();
     length = 0;
     provisionalLength = 0;
+    fifo.prepareToPlay ((int) alignedBufferSize);
 }
 
 void LoopTrack::undo()
