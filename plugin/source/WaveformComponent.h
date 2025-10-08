@@ -20,9 +20,12 @@ public:
     void timerCallback() override;
 
 private:
+    void getMinMaxForPixel (int pixelIndex, float& min, float& max);
     void paintFromCache (juce::Graphics& g, size_t readPos);
     void paintDirect (juce::Graphics& g, size_t readPos);
-
+    void drawCRTEffects (juce::Graphics& g, int readPixel, int width, int height);
+    juce::Colour getWaveformColour (int x, int readPixel);
+    void drawWaveformColumn (juce::Graphics& g, int x, float min, float max, int readPixel, int height);
     LoopTrack* loopTrack = nullptr;
     WaveformCache cache;
     juce::ThreadPool pool { 1 }; // Single background thread for updates
