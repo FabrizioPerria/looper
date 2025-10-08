@@ -44,6 +44,11 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    LooperEngine& getLooperEngine()
+    {
+        return looperEngine;
+    }
+
 private:
     LooperEngine looperEngine;
     //==============================================================================

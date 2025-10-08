@@ -140,6 +140,7 @@ private:
     double sampleRate = 0.0;
     int blockSize = 0;
     int channels = 0;
+    int alignedBufferSize = 0;
 
     LoopFifo fifo;
 

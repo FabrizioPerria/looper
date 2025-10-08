@@ -9,6 +9,7 @@ class UndoBuffer
 public:
     UndoBuffer()
     {
+        doneEvent.signal(); // no copy in progress at start
     }
     ~UndoBuffer()
     {
@@ -84,9 +85,7 @@ public:
         else
             length = (size_t) source->getNumSamples();
 
-        // printSummary (*source, start1, -1, " Before Copy");
         std::swap (undoBuffers[(size_t) start1], source);
-        // printSummary (*source, start1, -1, " After Copy");
 
         undoLifo.finishedWrite (size1, false);
 
@@ -107,11 +106,8 @@ public:
             int rStart1, rSize1, rStart2, rSize2;
             redoLifo.prepareToWrite (1, rStart1, rSize1, rStart2, rSize2);
 
-            // printSummary (*destination, uStart1, rStart1, " Before Undo");
-
             std::swap (redoBuffers[(size_t) rStart1], destination);
             std::swap (destination, undoBuffers[(size_t) uStart1]);
-            // printSummary (*destination, uStart1, rStart1, " After Undo");
 
             redoLifo.finishedWrite (rSize1, false);
             undoLifo.finishedRead (uSize1, false);
@@ -137,11 +133,8 @@ public:
             int uStart1, uSize1, uStart2, uSize2;
             undoLifo.prepareToWrite (1, uStart1, uSize1, uStart2, uSize2);
 
-            // printSummary (*destination, uStart1, rStart1, " Before Redo");
-
             std::swap (undoBuffers[(size_t) uStart1], destination);
             std::swap (destination, redoBuffers[(size_t) rStart1]);
-            // printSummary (*destination, uStart1, rStart1, " After Redo");
 
             undoLifo.finishedWrite (uSize1, false);
             redoLifo.finishedRead (rSize1, false);
@@ -205,20 +198,19 @@ public:
         activeCopy.source = source;
         activeCopy.destination = destination;
         activeCopy.length = length;
-        activeCopy.doneEvent.reset();
+
+        doneEvent.reset();
 
         threadPool.addJob (
             [this]()
             {
-                // Copy using the raw pointers (safe as long as buffers aren't deallocated)
                 for (int ch = 0; ch < activeCopy.source->getNumChannels(); ++ch)
                 {
                     juce::FloatVectorOperations::copy (activeCopy.destination->getWritePointer (ch),
                                                        activeCopy.source->getReadPointer (ch),
                                                        (int) activeCopy.length);
                 }
-
-                activeCopy.doneEvent.signal();
+                doneEvent.signal();
             });
     }
 
@@ -245,10 +237,10 @@ private:
         const juce::AudioBuffer<float>* source { nullptr };
         juce::AudioBuffer<float>* destination { nullptr };
         size_t length { 0 };
-        juce::WaitableEvent doneEvent;
     };
 
     CopyOperation activeCopy;
+    juce::WaitableEvent doneEvent { true };
     juce::ThreadPool threadPool { 1 };
 
     LoopLifo undoLifo;
@@ -262,12 +254,16 @@ private:
 
     void waitForPendingCopy() const
     {
-        if (! activeCopy.doneEvent.wait (100)) jassertfalse; // something has gone wrong with the copy operation
+        bool result = doneEvent.wait (100);
+        if (! result)
+        {
+            jassertfalse;
+        }
     }
 
     bool isCopyComplete() const
     {
-        return activeCopy.doneEvent.wait (0);
+        return doneEvent.wait (0);
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (UndoBuffer)
