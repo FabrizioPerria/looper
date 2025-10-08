@@ -20,8 +20,8 @@ public:
     void timerCallback() override;
 
 private:
-    void paintFromCache (juce::Graphics& g);
-    void paintDirect (juce::Graphics& g);
+    void paintFromCache (juce::Graphics& g, size_t readPos);
+    void paintDirect (juce::Graphics& g, size_t readPos);
 
     LoopTrack* loopTrack = nullptr;
     WaveformCache cache;

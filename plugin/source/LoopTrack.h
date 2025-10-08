@@ -46,6 +46,11 @@ public:
         return length;
     }
 
+    size_t getCurrentReadPosition() const
+    {
+        return fifo.getReadPos();
+    }
+
     int getLoopDurationSeconds() const
     {
         return (int) (length / sampleRate);

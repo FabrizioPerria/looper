@@ -66,56 +66,103 @@ void WaveformComponent::paint (juce::Graphics& g)
         return;
     }
 
+    auto readPos = loopTrack->getCurrentReadPosition();
     // Draw from cache if available
     if (! cache.isEmpty() && cache.getWidth() > 0)
     {
-        paintFromCache (g);
+        paintFromCache (g, readPos);
     }
     else
     {
         // Fallback: draw directly (will be replaced by cache soon)
-        paintDirect (g);
+        paintDirect (g, readPos);
     }
 }
 
-void WaveformComponent::paintFromCache (juce::Graphics& g)
+void WaveformComponent::paintFromCache (juce::Graphics& g, size_t readPos)
 {
     int width = cache.getWidth();
     int height = getHeight();
     float midY = height / 2.0f;
 
-    juce::Path waveformPath;
+    int length = (int) loopTrack->getLength();
+    int samplesPerPixel = std::max (1, length / width);
+    int readPixel = readPos / samplesPerPixel;
 
+    // Draw waveform with color based on playhead position
     for (int x = 0; x < width; ++x)
     {
         float min, max;
-        if (cache.getMinMax (x, min, max, 0)) // Channel 0
+        if (cache.getMinMax (x, min, max, 0))
         {
             float y1 = midY - (max * midY * 0.9f);
             float y2 = midY - (min * midY * 0.9f);
 
-            waveformPath.addLineSegment (juce::Line<float> ((float) x, y1, (float) x, y2), 1.0f);
+            // Color based on distance from playhead
+            juce::Colour waveColour;
+            int distance = std::abs (x - readPixel);
+
+            if (distance < 2)
+            {
+                // Bright red at playhead
+                waveColour = juce::Colour (255, 50, 50);
+            }
+            else if (distance < 10)
+            {
+                // Red glow fade
+                float fade = (10 - distance) / 10.0f;
+                waveColour = juce::Colour::fromFloatRGBA (0.5f + 0.5f * fade,   // R
+                                                          0.8f * (1.0f - fade), // G
+                                                          0.2f * (1.0f - fade), // B
+                                                          1.0f);
+            }
+            else
+            {
+                // Phosphor green
+                waveColour = juce::Colour (0, 200, 50);
+            }
+
+            g.setColour (waveColour);
+            g.drawLine ((float) x, y1, (float) x, y2, 1.5f);
         }
     }
 
-    g.setColour (juce::Colours::green);
-    g.fillPath (waveformPath);
+    // CRT scanlines
+    g.setColour (juce::Colours::black.withAlpha (0.15f));
+    for (int y = 0; y < height; y += 2)
+    {
+        g.drawHorizontalLine (y, 0.0f, (float) width);
+    }
 
-    g.setColour (juce::Colours::white.withAlpha (0.3f));
+    // Playhead vertical line with glow
+    for (int i = 0; i < 15; ++i)
+    {
+        float alpha = (15 - i) / 15.0f * 0.4f;
+        g.setColour (juce::Colour (255, 50, 50).withAlpha (alpha));
+        if (readPixel - i >= 0) g.drawVerticalLine (readPixel - i, 0.0f, (float) height);
+        if (readPixel + i < width) g.drawVerticalLine (readPixel + i, 0.0f, (float) height);
+    }
+
+    // Center line
+    g.setColour (juce::Colours::white.withAlpha (0.2f));
     g.drawHorizontalLine ((int) midY, 0.0f, (float) width);
+
+    // Vignette effect (darker edges like old CRT)
+    juce::ColourGradient
+        vignette (juce::Colours::transparentBlack, width / 2.0f, height / 2.0f, juce::Colours::black.withAlpha (0.3f), 0.0f, 0.0f, true);
+    g.setGradientFill (vignette);
+    g.fillRect (getLocalBounds());
 }
 
-void WaveformComponent::paintDirect (juce::Graphics& g)
+void WaveformComponent::paintDirect (juce::Graphics& g, size_t readPos)
 {
     const auto& buffer = loopTrack->getAudioBuffer();
     int length = (int) loopTrack->getLength();
     int width = getWidth();
     int height = getHeight();
     float midY = height / 2.0f;
-
     int samplesPerPixel = std::max (1, length / width);
-
-    juce::Path waveformPath;
+    int readPixel = readPos / samplesPerPixel;
 
     for (int x = 0; x < width; ++x)
     {
@@ -134,11 +181,43 @@ void WaveformComponent::paintDirect (juce::Graphics& g)
         float y1 = midY - (max * midY * 0.9f);
         float y2 = midY - (min * midY * 0.9f);
 
-        waveformPath.addLineSegment (juce::Line<float> ((float) x, y1, (float) x, y2), 1.0f);
+        // Same coloring logic as paintFromCache
+        juce::Colour waveColour;
+        int distance = std::abs (x - readPixel);
+
+        if (distance < 2)
+        {
+            waveColour = juce::Colour (255, 50, 50);
+        }
+        else if (distance < 10)
+        {
+            float fade = (10 - distance) / 10.0f;
+            waveColour = juce::Colour::fromFloatRGBA (0.5f + 0.5f * fade, 0.8f * (1.0f - fade), 0.2f * (1.0f - fade), 1.0f);
+        }
+        else
+        {
+            waveColour = juce::Colour (0, 200, 50).withAlpha (0.5f);
+        }
+
+        g.setColour (waveColour);
+        g.drawLine ((float) x, y1, (float) x, y2, 1.5f);
     }
 
-    g.setColour (juce::Colours::green.withAlpha (0.5f)); // Dimmed to show it's temporary
-    g.fillPath (waveformPath);
+    // Scanlines
+    g.setColour (juce::Colours::black.withAlpha (0.15f));
+    for (int y = 0; y < height; y += 2)
+    {
+        g.drawHorizontalLine (y, 0.0f, (float) width);
+    }
+
+    // Playhead glow
+    for (int i = 0; i < 15; ++i)
+    {
+        float alpha = (15 - i) / 15.0f * 0.4f;
+        g.setColour (juce::Colour (255, 50, 50).withAlpha (alpha));
+        if (readPixel - i >= 0) g.drawVerticalLine (readPixel - i, 0.0f, (float) height);
+        if (readPixel + i < width) g.drawVerticalLine (readPixel + i, 0.0f, (float) height);
+    }
 
     g.setColour (juce::Colours::white.withAlpha (0.3f));
     g.drawHorizontalLine ((int) midY, 0.0f, (float) width);
