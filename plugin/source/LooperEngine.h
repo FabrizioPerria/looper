@@ -22,11 +22,20 @@ public:
     void addTrack();
     void selectTrack (const int trackIndex);
     void removeTrack (const int trackIndex);
+
     LoopTrack* getActiveTrack();
+
     int getActiveTrackIndex() const
     {
         return activeTrackIndex;
     }
+
+    LoopTrack* getTrack (const int trackIndex)
+    {
+        if (trackIndex >= 0 && trackIndex < numTracks) return loopTracks[trackIndex].get();
+        return nullptr;
+    }
+
     int getNumTracks() const
     {
         return numTracks;

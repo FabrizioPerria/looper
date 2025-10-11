@@ -7,14 +7,8 @@
 class WaveformComponent : public juce::Component, public juce::Timer
 {
 public:
-    WaveformComponent();
+    WaveformComponent (LoopTrack* track);
     ~WaveformComponent() override;
-
-    void setLoopTrack (LoopTrack* track)
-    {
-        if (! track) return;
-        loopTrack = track;
-    }
 
     void paint (juce::Graphics& g) override;
     void timerCallback() override;
@@ -26,7 +20,7 @@ private:
     void drawCRTEffects (juce::Graphics& g, int readPixel, int width, int height);
     juce::Colour getWaveformColour (int x, int readPixel);
     void drawWaveformColumn (juce::Graphics& g, int x, float min, float max, int readPixel, int height);
-    LoopTrack* loopTrack = nullptr;
+    const LoopTrack* loopTrack;
     WaveformCache cache;
     juce::ThreadPool pool { 1 }; // Single background thread for updates
 

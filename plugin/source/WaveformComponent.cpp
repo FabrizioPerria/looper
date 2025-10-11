@@ -1,6 +1,6 @@
 #include "WaveformComponent.h"
 
-WaveformComponent::WaveformComponent()
+WaveformComponent::WaveformComponent (LoopTrack* track) : loopTrack (track)
 {
     startTimerHz (30);
 }
@@ -49,7 +49,26 @@ void WaveformComponent::timerCallback()
 
 void WaveformComponent::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colours::black);
+    g.fillAll (juce::Colours::green.withAlpha (0.4f));
+    auto isRecording = loopTrack->isCurrentlyRecording();
+    bool shouldOverdub = loopTrack->getLength() > 0;
+    auto isMuted = loopTrack->isMuted();
+
+    if (isRecording)
+    {
+        if (shouldOverdub)
+        {
+            g.fillAll (juce::Colours::yellow.withAlpha (0.4f));
+        }
+        else
+        {
+            g.fillAll (juce::Colours::red.withAlpha (0.4f));
+        }
+    }
+    else if (isMuted)
+    {
+        g.fillAll (juce::Colours::grey.withAlpha (0.4f));
+    }
 
     if (! loopTrack || ! loopTrack->isPrepared())
     {

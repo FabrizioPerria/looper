@@ -94,9 +94,7 @@ public:
 
     bool undo (std::unique_ptr<juce::AudioBuffer<float>>& destination)
     {
-        // fair to wait even if audio thread runs it. Realistically, only tests will hit the edge case where operations
-        // are so fast that the copy isn't done by the time we get here.
-        waitForPendingCopy();
+        if (! isCopyComplete()) return false;
 
         int uStart1, uSize1, uStart2, uSize2;
         undoLifo.prepareToRead (1, uStart1, uSize1, uStart2, uSize2);
@@ -119,9 +117,7 @@ public:
 
     bool redo (std::unique_ptr<juce::AudioBuffer<float>>& destination)
     {
-        // fair to wait even if audio thread runs it. Realistically, only tests will hit the edge case where operations
-        // are so fast that the copy isn't done by the time we get here.
-        waitForPendingCopy();
+        if (! isCopyComplete()) return false;
 
         // Get top of redo stack
         int rStart1, rSize1, rStart2, rSize2;
