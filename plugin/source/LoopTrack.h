@@ -142,13 +142,22 @@ public:
     bool isMuted() const
     {
         PERFETTO_FUNCTION();
-        return muted;
+        return trackVolume <= 0.001f;
     }
 
     void setMuted (const bool shouldBeMuted)
     {
         PERFETTO_FUNCTION();
-        muted = shouldBeMuted;
+        static float volumeBeforeMute = 1.0f;
+        if (shouldBeMuted)
+        {
+            if (trackVolume > 0.001f) volumeBeforeMute = trackVolume;
+            trackVolume = 0.0f;
+        }
+        else
+        {
+            trackVolume = volumeBeforeMute;
+        }
     }
 
     float getTrackVolume() const
@@ -188,9 +197,8 @@ private:
 
     bool shouldNormalizeOutput = true;
 
-    bool muted = false;
-
     float trackVolume = 1.0f;
+    float previousTrackVolume = 1.0f;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const uint numSamples, const uint ch);
     void updateLoopLength (const uint numSamples, const uint bufferSamples);
