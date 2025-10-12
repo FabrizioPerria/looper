@@ -191,7 +191,8 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
         bridgeInitialized[activeTrackIndex] = true;
     }
 
-    if (wasRecording && ! nowRecording)
+    bool isFinalizing = wasRecording && ! nowRecording;
+    if (isFinalizing)
     {
         bridge->signalWaveformChanged();
         bridge->resetRecordingCounter();
@@ -204,7 +205,8 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
 
     // Determine length to show
     size_t lengthToShow = activeTrack->getLength();
-    if (lengthToShow == 0 && nowRecording) lengthToShow = activeTrack->getCurrentWritePosition();
+    if (lengthToShow == 0 && nowRecording)
+        lengthToShow = std::min (activeTrack->getCurrentWritePosition() + 200, (size_t) activeTrack->getAudioBuffer().getNumSamples());
 
     // Update bridge
     bridge->updateFromAudioThread (&activeTrack->getAudioBuffer(),

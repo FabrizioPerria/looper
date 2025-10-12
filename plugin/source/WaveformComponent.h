@@ -1,7 +1,7 @@
 #pragma once
 
 #include "AudioToUIBridge.h"
-#include "LoopTrack.h"
+#include "IRenderer.h"
 #include "WaveformCache.h"
 #include <JuceHeader.h>
 
@@ -33,9 +33,6 @@ private:
     void getMinMaxForPixel (int pixelIndex, float& min, float& max);
     void paintFromCache (juce::Graphics& g, int readPos, int length, bool recording);
     void paintDirect (juce::Graphics& g, size_t readPos);
-    void drawCRTEffects (juce::Graphics& g, int readPixel, int width, int height);
-    juce::Colour getWaveformColour (int x, int readPixel, bool recording);
-    void drawWaveformColumn (juce::Graphics& g, int x, float min, float max, int readPixel, int height, bool recording);
 
     void handleAsyncUpdate() override
     {
@@ -65,6 +62,7 @@ private:
         }
     }
     WaveformCache cache;
+    std::unique_ptr<IRenderer> renderer;
 
     AudioToUIBridge* bridge = nullptr;
     juce::ThreadPool backgroundProcessor { 1 };
