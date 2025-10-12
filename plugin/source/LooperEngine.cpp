@@ -229,16 +229,16 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
             }
         }
 
-        // Use actual buffer size during recording, finalized length otherwise
-        size_t lengthToReport = activeTrack->getLength();
-        if (nowRecording && lengthToReport == 0)
+        // Determine what length to show in UI
+        size_t lengthToShow = activeTrack->getLength();
+        if (lengthToShow == 0 && nowRecording)
         {
-            // First recording - use buffer allocation size
-            lengthToReport = activeTrack->getAudioBuffer().getNumSamples();
+            // First recording - show up to current write position
+            lengthToShow = activeTrack->getCurrentWritePosition();
         }
 
         uiBridge->updateFromAudioThread (&activeTrack->getAudioBuffer(),
-                                         lengthToReport,
+                                         lengthToShow,
                                          activeTrack->getCurrentReadPosition(),
                                          nowRecording,
                                          transportState == TransportState::Playing,

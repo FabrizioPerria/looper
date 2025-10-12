@@ -56,6 +56,12 @@ public:
         return fifo.getReadPos();
     }
 
+    size_t getCurrentWritePosition() const
+    {
+        PERFETTO_FUNCTION();
+        return fifo.getWritePos();
+    }
+
     int getLoopDurationSeconds() const
     {
         PERFETTO_FUNCTION();
