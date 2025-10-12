@@ -1,10 +1,12 @@
 #include "WaveformComponent.h"
-#include "LinearRenderer.h"
+#include "renderers/CircularRenderer.h"
+#include "renderers/LinearRenderer.h"
 
 WaveformComponent::WaveformComponent()
 {
-    renderer = std::make_unique<LinearRenderer>();
-    startTimerHz (30);
+    renderer = std::make_unique<CircularRenderer>();
+    // renderer = std::make_unique<LinearRenderer>();
+    startTimerHz (60);
 }
 
 WaveformComponent::~WaveformComponent()
@@ -19,12 +21,10 @@ void WaveformComponent::timerCallback()
     PERFETTO_FUNCTION();
     if (! bridge) return;
 
-    // Lightweight position update - happens every frame
     size_t length, readPos;
     bool recording, playing;
     bridge->getPlaybackState (length, readPos, recording, playing);
 
-    // Only repaint if position changed significantly or state changed
     bool stateChanged = (recording != lastRecording || playing != lastPlaying);
     bool posChanged = (readPos != lastReadPos);
 
@@ -36,10 +36,8 @@ void WaveformComponent::timerCallback()
         repaint();
     }
 
-    // Check for waveform updates (less frequent, triggered by version change)
     if (bridge->getState().stateVersion.load (std::memory_order_relaxed) != lastProcessedVersion)
     {
-        // Trigger async cache update
         triggerAsyncUpdate();
     }
 }
@@ -67,39 +65,36 @@ void WaveformComponent::paint (juce::Graphics& g)
         return;
     }
 
-    // Draw from cache
     if (! cache.isEmpty() && cache.getWidth() > 0)
     {
-        paintFromCache (g, (int) readPos, (int) length, recording);
+        renderer->render (g, cache, (int) readPos, (int) length, getWidth(), getHeight(), recording);
     }
     else
     {
-        // Loading state
         g.setColour (juce::Colours::grey);
         g.drawText ("Loading waveform...", getLocalBounds(), juce::Justification::centred);
     }
 }
 
-void WaveformComponent::paintFromCache (juce::Graphics& g, int readPos, int length, bool recording)
+void WaveformComponent::handleAsyncUpdate()
 {
     PERFETTO_FUNCTION();
-    int width = cache.getWidth();
-    int height = getHeight();
+    if (! bridge) return;
 
-    if (length <= 0 || width <= 0) return;
+    AudioToUIBridge::WaveformSnapshot snapshot;
 
-    int samplesPerPixel = std::max (1, length / width);
-    int readPixel = std::min (readPos / samplesPerPixel, width - 1);
-
-    // Draw waveform from cache
-    for (int x = 0; x < width; ++x)
+    if (bridge->getWaveformSnapshot (snapshot))
     {
-        float min, max;
-        if (cache.getMinMax (x, min, max, 0))
-        {
-            renderer->drawWaveformColumn (g, x, min, max, readPixel, height, recording);
-        }
-    }
+        int targetWidth = getWidth();
+        if (targetWidth <= 0) return;
 
-    renderer->drawCRTEffects (g, readPixel, width, height);
+        lastProcessedVersion = snapshot.version;
+
+        backgroundProcessor.addJob (
+            [this, snapshot = std::move (snapshot), targetWidth]() mutable
+            {
+                cache.updateFromBuffer (snapshot.buffer, snapshot.length, targetWidth);
+                juce::MessageManager::callAsync ([this]() { repaint(); });
+            });
+    }
 }

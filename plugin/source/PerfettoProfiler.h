@@ -121,7 +121,7 @@ private:
     std::string name;
 };
 
-#define PROFILE 1
+#define PROFILE 0
 #if PROFILE
 #define PERFETTO_FUNCTION() PerfettoScope _perfetto_##__LINE__ (__PRETTY_FUNCTION__)
 #define PERFETTO_SCOPE(name) PerfettoScope _perfetto_##__LINE__ (name)
