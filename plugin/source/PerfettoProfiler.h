@@ -95,7 +95,7 @@ private:
 
     uint32_t getProcessId()
     {
-        return static_cast<uint32_t> (5);
+        return 42; // Dummy PID, as getting actual PID is platform-dependent and less relevant here
     }
 
     std::vector<TraceEvent> events;
@@ -121,5 +121,11 @@ private:
     std::string name;
 };
 
-#define PERFETTO_FUNCTION() PerfettoScope _perfetto_##__LINE__ (__FUNCTION__)
+#define PROFILE 1
+#if PROFILE
+#define PERFETTO_FUNCTION() PerfettoScope _perfetto_##__LINE__ (__PRETTY_FUNCTION__)
 #define PERFETTO_SCOPE(name) PerfettoScope _perfetto_##__LINE__ (name)
+#else
+#define PERFETTO_FUNCTION()
+#define PERFETTO_SCOPE(name)
+#endif
