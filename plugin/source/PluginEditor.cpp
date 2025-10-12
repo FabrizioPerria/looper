@@ -4,10 +4,11 @@
 
 //==============================================================================
 AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
-    : AudioProcessorEditor (&p), processorRef (p)
+    : AudioProcessorEditor (&p)
+    , processorRef (p)
+    , trackComponent (processorRef.getLooperEngine(), 0, processorRef.getLooperEngine().getUIBridgeByIndex (0))
 {
-    addAndMakeVisible (waveformDisplay);
-    waveformDisplay.setBridge (processorRef.getLooperEngine().getUIBridgeForTrack (processorRef.getLooperEngine().getActiveTrackIndex()));
+    addAndMakeVisible (trackComponent);
     setSize (800, 400); // Make it bigger to see
 }
 
@@ -22,5 +23,5 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
 
 void AudioPluginAudioProcessorEditor::resized()
 {
-    waveformDisplay.setBounds (getLocalBounds());
+    trackComponent.setBounds (getLocalBounds());
 }

@@ -53,11 +53,22 @@ public:
     void loadBackingTrackToActiveTrack (const juce::AudioBuffer<float>& backingTrack);
     void loadWaveFileToActiveTrack (const juce::File& audioFile);
 
-    AudioToUIBridge* getUIBridgeForTrack (int trackIndex)
+    AudioToUIBridge* getUIBridgeByIndex (int trackIndex)
     {
         if (trackIndex >= 0 && trackIndex < (int) uiBridges.size()) return uiBridges[trackIndex].get();
         return nullptr;
     }
+
+    LoopTrack* getTrackByIndex (int trackIndex)
+    {
+        if (trackIndex >= 0 && trackIndex < (int) loopTracks.size()) return loopTracks[trackIndex].get();
+        return nullptr;
+    }
+
+    void setTrackVolume (int trackIndex, float volume);
+    void setTrackMuted (int trackIndex, bool muted);
+    float getTrackVolume (int trackIndex) const;
+    bool isTrackMuted (int trackIndex) const;
 
 private:
     struct MidiKey

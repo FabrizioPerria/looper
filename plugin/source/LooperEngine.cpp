@@ -165,7 +165,7 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     handleMidiCommand (midiMessages);
 
     auto* activeTrack = getActiveTrack();
-    auto* bridge = getUIBridgeForTrack (activeTrackIndex);
+    auto* bridge = getUIBridgeByIndex (activeTrackIndex);
 
     if (! activeTrack || ! bridge) return;
 
@@ -260,4 +260,48 @@ void LooperEngine::loadWaveFileToActiveTrack (const juce::File& audioFile)
             loadBackingTrackToActiveTrack (backingTrack);
         }
     }
+}
+
+void LooperEngine::setTrackVolume (int trackIndex, float volume)
+{
+    PERFETTO_FUNCTION();
+    if (trackIndex < 0 || trackIndex >= numTracks) return;
+
+    auto& track = loopTracks[trackIndex];
+    if (track)
+    {
+        track->setTrackVolume (volume);
+    }
+}
+
+void LooperEngine::setTrackMuted (int trackIndex, bool muted)
+{
+    PERFETTO_FUNCTION();
+    if (trackIndex < 0 || trackIndex >= numTracks) return;
+
+    auto& track = loopTracks[trackIndex];
+    if (track)
+    {
+        track->setMuted (muted);
+    }
+}
+
+float LooperEngine::getTrackVolume (int trackIndex) const
+{
+    PERFETTO_FUNCTION();
+    if (trackIndex < 0 || trackIndex >= numTracks) return 1.0f;
+
+    auto& track = loopTracks[trackIndex];
+    if (track) return track->getTrackVolume();
+    return 1.0f;
+}
+
+bool LooperEngine::isTrackMuted (int trackIndex) const
+{
+    PERFETTO_FUNCTION();
+    if (trackIndex < 0 || trackIndex >= numTracks) return false;
+
+    auto& track = loopTracks[trackIndex];
+    if (track) return track->isMuted();
+    return false;
 }

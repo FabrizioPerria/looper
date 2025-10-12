@@ -1,6 +1,6 @@
 #pragma once
 #include "PluginProcessor.h"
-#include "WaveformComponent.h"
+#include "TrackComponent.h"
 #include <JuceHeader.h>
 
 //==============================================================================
@@ -16,7 +16,7 @@ public:
 
 private:
     AudioPluginAudioProcessor& processorRef;
-    WaveformComponent waveformDisplay;
+    TrackComponent trackComponent;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessorEditor)
 };
