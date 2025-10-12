@@ -14,7 +14,6 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
 #endif
       )
 {
-    looperEngine.setUIBridge (&uiBridge);
 }
 
 AudioPluginAudioProcessor::~AudioPluginAudioProcessor()

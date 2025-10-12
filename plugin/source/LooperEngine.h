@@ -24,14 +24,13 @@ public:
     void selectTrack (const int trackIndex);
     void removeTrack (const int trackIndex);
     LoopTrack* getActiveTrack();
+
     int getActiveTrackIndex() const
     {
-        PERFETTO_FUNCTION();
         return activeTrackIndex;
     }
     int getNumTracks() const
     {
-        PERFETTO_FUNCTION();
         return numTracks;
     }
 
@@ -41,7 +40,6 @@ public:
 
     TransportState getTransportState() const
     {
-        PERFETTO_FUNCTION();
         return transportState;
     }
 
@@ -53,45 +51,19 @@ public:
     void clear();
 
     void loadBackingTrackToActiveTrack (const juce::AudioBuffer<float>& backingTrack);
+    void loadWaveFileToActiveTrack (const juce::File& audioFile);
 
-    void loadWaveFileToActiveTrack (const juce::File& audioFile)
+    AudioToUIBridge* getUIBridgeForTrack (int trackIndex)
     {
-        PERFETTO_FUNCTION();
-        auto activeTrack = getActiveTrack();
-        if (activeTrack)
-        {
-            juce::AudioFormatManager formatManager;
-            formatManager.registerBasicFormats();
-            std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (audioFile));
-            if (reader)
-            {
-                juce::AudioBuffer<float> backingTrack ((int) reader->numChannels, (int) reader->lengthInSamples);
-                reader->read (&backingTrack, 0, (int) reader->lengthInSamples, 0, true, true);
-                loadBackingTrackToActiveTrack (backingTrack);
-            }
-        }
-    }
-
-    void setUIBridge (AudioToUIBridge* bridge)
-    {
-        uiBridge = bridge;
-        bridgeInitialized = false; // Force initial snapshot on next processBlock
-    }
-
-    AudioToUIBridge* getUIBridge()
-    {
-        return uiBridge;
+        if (trackIndex >= 0 && trackIndex < (int) uiBridges.size()) return uiBridges[trackIndex].get();
+        return nullptr;
     }
 
 private:
-    AudioToUIBridge* uiBridge = nullptr;
-    bool waveformDirty = false;
-    int recordingUpdateCounter = 0;
     struct MidiKey
     {
         int noteNumber;
         bool isNoteOn;
-
         bool operator== (const MidiKey& other) const
         {
             return noteNumber == other.noteNumber && isNoteOn == other.isNoteOn;
@@ -130,8 +102,9 @@ private:
     int numTracks;
     int activeTrackIndex { 0 };
 
-    bool bridgeInitialized = false;
-
     std::vector<std::unique_ptr<LoopTrack>> loopTracks;
+    std::vector<std::unique_ptr<AudioToUIBridge>> uiBridges;
+    std::vector<bool> bridgeInitialized;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LooperEngine)
 };

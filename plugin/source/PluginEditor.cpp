@@ -7,8 +7,7 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     : AudioProcessorEditor (&p), processorRef (p)
 {
     addAndMakeVisible (waveformDisplay);
-    waveformDisplay.setLoopTrack (processorRef.getLooperEngine().getActiveTrack());
-    waveformDisplay.setBridge (&processorRef.getUIBridge());
+    waveformDisplay.setBridge (processorRef.getLooperEngine().getUIBridgeForTrack (processorRef.getLooperEngine().getActiveTrackIndex()));
     setSize (800, 400); // Make it bigger to see
 }
 
