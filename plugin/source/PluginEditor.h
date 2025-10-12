@@ -16,7 +16,8 @@ public:
 
 private:
     AudioPluginAudioProcessor& processorRef;
-    TrackComponent trackComponent;
+    std::vector<std::unique_ptr<TrackComponent>> trackComponents;
+    std::unique_ptr<juce::LookAndFeel> lookAndFeel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessorEditor)
 };

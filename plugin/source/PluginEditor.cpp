@@ -1,27 +1,50 @@
 #include "PluginEditor.h"
+#include "LooperLookAndFeel.h"
 #include "PluginProcessor.h"
 #include <JuceHeader.h>
 
 //==============================================================================
 AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
-    : AudioProcessorEditor (&p)
-    , processorRef (p)
-    , trackComponent (processorRef.getLooperEngine(), 0, processorRef.getLooperEngine().getUIBridgeByIndex (0))
+    : AudioProcessorEditor (&p), processorRef (p)
 {
-    addAndMakeVisible (trackComponent);
-    setSize (800, 400); // Make it bigger to see
+    lookAndFeel = std::make_unique<LooperLookAndFeel>();
+    setLookAndFeel (lookAndFeel.get());
+
+    auto& engine = processorRef.getLooperEngine();
+
+    for (int i = 0; i < engine.getNumTracks(); ++i)
+    {
+        if (auto* bridge = engine.getUIBridgeByIndex (i))
+        {
+            std::unique_ptr<TrackComponent> trackComp = std::make_unique<TrackComponent> (engine, i, bridge);
+            trackComponents.push_back (std::move (trackComp));
+            addAndMakeVisible (*trackComponents.back());
+        }
+    }
+
+    setSize (900, 600); // Make it bigger to see
 }
 
 AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
 {
+    setLookAndFeel (nullptr);
 }
 
 //==============================================================================
 void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
 {
+    g.fillAll (LooperTheme::Colors::backgroundDark);
 }
 
 void AudioPluginAudioProcessorEditor::resized()
 {
-    trackComponent.setBounds (getLocalBounds());
+    auto bounds = getLocalBounds();
+    bounds.reduce (LooperTheme::Dimensions::padding, LooperTheme::Dimensions::padding);
+
+    // Stack tracks vertically
+    for (auto& track : trackComponents)
+    {
+        track->setBounds (bounds.removeFromTop (200));
+        bounds.removeFromTop (LooperTheme::Dimensions::spacing);
+    }
 }

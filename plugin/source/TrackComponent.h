@@ -1,6 +1,7 @@
 #pragma once
 #include "LooperEngine.h"
 #include "WaveformComponent.h"
+#include "themes/tokyonight.h"
 #include <JuceHeader.h>
 
 class TrackComponent : public juce::Component, public juce::Timer

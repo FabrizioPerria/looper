@@ -63,34 +63,90 @@ void TrackComponent::updateControlsFromEngine()
 
 void TrackComponent::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colours::darkgrey.darker (0.2f));
-    g.setColour (juce::Colours::black);
-    g.drawRect (getLocalBounds(), 1);
+    auto bounds = getLocalBounds().toFloat();
+
+    // Background
+    g.setColour (LooperTheme::Colors::backgroundLight);
+    g.fillRoundedRectangle (bounds, LooperTheme::Dimensions::cornerRadius);
+
+    // Subtle gradient overlay
+    juce::ColourGradient gradient (LooperTheme::Colors::backgroundLight.withAlpha (0.8f),
+                                   bounds.getX(),
+                                   bounds.getY(),
+                                   LooperTheme::Colors::backgroundDark.withAlpha (0.8f),
+                                   bounds.getX(),
+                                   bounds.getBottom(),
+                                   false);
+    g.setGradientFill (gradient);
+    g.fillRoundedRectangle (bounds, LooperTheme::Dimensions::cornerRadius);
+
+    // Border with subtle glow
+    g.setColour (LooperTheme::Colors::primary.withAlpha (0.1f));
+    g.drawRoundedRectangle (bounds.reduced (0.5f), LooperTheme::Dimensions::cornerRadius, 2.0f);
+
+    g.setColour (LooperTheme::Colors::border);
+    g.drawRoundedRectangle (bounds.reduced (1), LooperTheme::Dimensions::cornerRadius, LooperTheme::Dimensions::borderWidth);
 }
 
 void TrackComponent::resized()
 {
-    juce::FlexBox flexbox;
-    flexbox.flexDirection = juce::FlexBox::Direction::row;
-    flexbox.flexWrap = juce::FlexBox::Wrap::noWrap;
-    flexbox.alignItems = juce::FlexBox::AlignItems::center;
-    flexbox.justifyContent = juce::FlexBox::JustifyContent::flexStart;
+    using namespace LooperTheme;
 
-    flexbox.items.add (juce::FlexItem (trackLabel).withFlex (1.0f).withMinWidth (100.0f).withHeight (24.0f));
-    flexbox.items
-        .add (juce::FlexItem (undoButton).withMinWidth (60.0f).withHeight (24.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
-    flexbox.items
-        .add (juce::FlexItem (redoButton).withMinWidth (60.0f).withHeight (24.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
-    flexbox.items
-        .add (juce::FlexItem (clearButton).withMinWidth (60.0f).withHeight (24.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
-    flexbox.items
-        .add (juce::FlexItem (volumeSlider).withMinWidth (150.0f).withHeight (24.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
-    flexbox.items
-        .add (juce::FlexItem (muteButton).withMinWidth (60.0f).withHeight (24.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
-    flexbox.items.add (juce::FlexItem (waveformDisplay)
-                           .withFlex (1.0f)
-                           .withMinWidth (200.0f)
-                           .withHeight (100.0f)
-                           .withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
-    flexbox.performLayout (getLocalBounds().toFloat());
+    auto bounds = getLocalBounds();
+    bounds.reduce (Dimensions::padding, Dimensions::padding);
+
+    // Create main vertical flex container
+    juce::FlexBox mainFlex;
+    mainFlex.flexDirection = juce::FlexBox::Direction::column;
+    mainFlex.justifyContent = juce::FlexBox::JustifyContent::flexStart;
+
+    // Control bar flex container
+    juce::FlexBox controlsFlex;
+    controlsFlex.flexDirection = juce::FlexBox::Direction::row;
+    controlsFlex.alignItems = juce::FlexBox::AlignItems::center;
+    controlsFlex.justifyContent = juce::FlexBox::JustifyContent::flexStart;
+
+    controlsFlex.items.add (juce::FlexItem (trackLabel)
+                                .withMinWidth (100.0f)
+                                .withMinHeight (Dimensions::labelHeight)
+                                .withMargin (juce::FlexItem::Margin (0, Dimensions::spacing * 2, 0, 0)));
+
+    controlsFlex.items.add (juce::FlexItem (undoButton)
+                                .withMinWidth (70.0f)
+                                .withMinHeight (Dimensions::buttonHeight)
+                                .withMargin (juce::FlexItem::Margin (0, Dimensions::spacing, 0, 0)));
+
+    controlsFlex.items.add (juce::FlexItem (redoButton)
+                                .withMinWidth (70.0f)
+                                .withMinHeight (Dimensions::buttonHeight)
+                                .withMargin (juce::FlexItem::Margin (0, Dimensions::spacing, 0, 0)));
+
+    controlsFlex.items.add (juce::FlexItem (clearButton)
+                                .withMinWidth (70.0f)
+                                .withMinHeight (Dimensions::buttonHeight)
+                                .withMargin (juce::FlexItem::Margin (0, Dimensions::spacing * 3, 0, 0)));
+
+    controlsFlex.items.add (juce::FlexItem (volumeSlider)
+                                .withFlex (1.0f)
+                                .withMinWidth (150.0f)
+                                .withMinHeight (Dimensions::sliderHeight)
+                                .withMargin (juce::FlexItem::Margin (0, Dimensions::spacing, 0, 0)));
+
+    controlsFlex.items.add (juce::FlexItem (muteButton).withMinWidth (70.0f).withMinHeight (Dimensions::buttonHeight));
+
+    // Add controls to main flex
+    mainFlex.items.add (juce::FlexItem().withHeight (Dimensions::buttonHeight).withFlex (0));
+
+    // Waveform takes remaining space
+    mainFlex.items.add (juce::FlexItem (waveformDisplay)
+                            .withFlex (1.0f)
+                            .withMinHeight (100.0f)
+                            .withMargin (juce::FlexItem::Margin (Dimensions::spacing, 0, 0, 0)));
+
+    // Perform layout for controls first
+    auto controlBounds = bounds.removeFromTop (Dimensions::buttonHeight);
+    controlsFlex.performLayout (controlBounds.toFloat());
+
+    // Perform layout for main container
+    mainFlex.performLayout (bounds.toFloat());
 }
