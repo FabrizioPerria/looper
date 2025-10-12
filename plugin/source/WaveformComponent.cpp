@@ -8,57 +8,56 @@ WaveformComponent::WaveformComponent()
 WaveformComponent::~WaveformComponent()
 {
     stopTimer();
+    cancelPendingUpdate();
+    backgroundProcessor.removeAllJobs (true, 5000);
 }
 
 void WaveformComponent::timerCallback()
 {
-    if (! loopTrack || ! loopTrack->isPrepared())
+    PERFETTO_FUNCTION();
+    if (! bridge) return;
+
+    // Lightweight position update - happens every frame
+    size_t length, readPos;
+    bool recording, playing;
+    bridge->getPlaybackState (length, readPos, recording, playing);
+
+    // Only repaint if position changed significantly or state changed
+    bool stateChanged = (recording != lastRecording || playing != lastPlaying);
+    bool posChanged = (readPos != lastReadPos);
+
+    if (stateChanged || posChanged)
     {
+        lastReadPos = readPos;
+        lastRecording = recording;
+        lastPlaying = playing;
         repaint();
-        return;
     }
 
-    int length = loopTrack->getLength();
-    int width = getWidth();
-
-    if (length == 0 || width == 0)
+    // Check for waveform updates (less frequent, triggered by version change)
+    if (bridge->getState().stateVersion.load (std::memory_order_relaxed) != lastProcessedVersion)
     {
-        repaint();
-        return;
+        // Trigger async cache update
+        triggerAsyncUpdate();
     }
-
-    // Copy the buffer to avoid threading issues
-    const auto& srcBuffer = loopTrack->getAudioBuffer();
-    juce::AudioBuffer<float> bufferCopy (srcBuffer.getNumChannels(), length);
-
-    for (int ch = 0; ch < srcBuffer.getNumChannels(); ++ch)
-    {
-        bufferCopy.copyFrom (ch, 0, srcBuffer, ch, 0, length);
-    }
-
-    // Update cache on background thread pool
-    pool.addJob (
-        [this, bufferCopy = std::move (bufferCopy), length, width]() mutable
-        {
-            cache.updateFromBuffer (bufferCopy, length, width);
-
-            // Trigger repaint on message thread
-            juce::MessageManager::callAsync ([this]() { repaint(); });
-        });
 }
 
 void WaveformComponent::paint (juce::Graphics& g)
 {
+    PERFETTO_FUNCTION();
     g.fillAll (juce::Colours::black);
 
-    if (! loopTrack || ! loopTrack->isPrepared())
+    if (! bridge)
     {
         g.setColour (juce::Colours::white);
-        g.drawText ("No audio", getLocalBounds(), juce::Justification::centred);
+        g.drawText ("No audio bridge", getLocalBounds(), juce::Justification::centred);
         return;
     }
 
-    int length = (int) loopTrack->getLength();
+    size_t length, readPos;
+    bool recording, playing;
+    bridge->getPlaybackState (length, readPos, recording, playing);
+
     if (length == 0)
     {
         g.setColour (juce::Colours::white);
@@ -66,26 +65,29 @@ void WaveformComponent::paint (juce::Graphics& g)
         return;
     }
 
-    auto readPos = loopTrack->getCurrentReadPosition();
-    // Draw from cache if available
+    // Draw from cache
     if (! cache.isEmpty() && cache.getWidth() > 0)
     {
-        paintFromCache (g, readPos);
+        paintFromCache (g, (int) readPos, (int) length, recording);
     }
     else
     {
-        // Fallback: draw directly (will be replaced by cache soon)
-        paintDirect (g, readPos);
+        // Loading state
+        g.setColour (juce::Colours::grey);
+        g.drawText ("Loading waveform...", getLocalBounds(), juce::Justification::centred);
     }
 }
 
-void WaveformComponent::paintFromCache (juce::Graphics& g, size_t readPos)
+void WaveformComponent::paintFromCache (juce::Graphics& g, int readPos, int length, bool recording)
 {
+    PERFETTO_FUNCTION();
     int width = cache.getWidth();
     int height = getHeight();
-    int length = (int) loopTrack->getLength();
+
+    if (length <= 0 || width <= 0) return;
+
     int samplesPerPixel = std::max (1, length / width);
-    int readPixel = readPos / samplesPerPixel;
+    int readPixel = std::min (readPos / samplesPerPixel, width - 1);
 
     // Draw waveform from cache
     for (int x = 0; x < width; ++x)
@@ -93,46 +95,28 @@ void WaveformComponent::paintFromCache (juce::Graphics& g, size_t readPos)
         float min, max;
         if (cache.getMinMax (x, min, max, 0))
         {
-            drawWaveformColumn (g, x, min, max, readPixel, height);
+            drawWaveformColumn (g, x, min, max, readPixel, height, recording);
         }
     }
 
     drawCRTEffects (g, readPixel, width, height);
 }
 
-void WaveformComponent::paintDirect (juce::Graphics& g, size_t readPos)
+void WaveformComponent::drawWaveformColumn (juce::Graphics& g, int x, float min, float max, int readPixel, int height, bool recording)
 {
-    const auto& buffer = loopTrack->getAudioBuffer();
-    int length = (int) loopTrack->getLength();
-    int width = getWidth();
-    int height = getHeight();
-    int samplesPerPixel = std::max (1, length / width);
-    int readPixel = readPos / samplesPerPixel;
-
-    for (int x = 0; x < width; ++x)
-    {
-        int startSample = x * samplesPerPixel;
-        int endSample = std::min (startSample + samplesPerPixel, length);
-        auto range = buffer.findMinMax (0, startSample, endSample - startSample);
-        drawWaveformColumn (g, x, range.getStart(), range.getEnd(), readPixel, height);
-    }
-
-    drawCRTEffects (g, readPixel, width, height);
-}
-
-void WaveformComponent::drawWaveformColumn (juce::Graphics& g, int x, float min, float max, int readPixel, int height)
-{
+    PERFETTO_FUNCTION();
     float midY = height / 2.0f;
     float y1 = midY - (max * midY * 0.9f);
     float y2 = midY - (min * midY * 0.9f);
 
-    juce::Colour waveColour = getWaveformColour (x, readPixel);
+    juce::Colour waveColour = getWaveformColour (x, readPixel, recording);
     g.setColour (waveColour);
     g.drawLine ((float) x, y1, (float) x, y2, 1.5f);
 }
 
-juce::Colour WaveformComponent::getWaveformColour (int x, int readPixel)
+juce::Colour WaveformComponent::getWaveformColour (int x, int readPixel, bool recording)
 {
+    PERFETTO_FUNCTION();
     int distance = std::abs (x - readPixel);
 
     if (distance < 2)
@@ -158,6 +142,7 @@ juce::Colour WaveformComponent::getWaveformColour (int x, int readPixel)
 
 void WaveformComponent::drawCRTEffects (juce::Graphics& g, int readPixel, int width, int height)
 {
+    PERFETTO_FUNCTION();
     float midY = height / 2.0f;
 
     // CRT scanlines

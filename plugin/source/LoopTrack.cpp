@@ -1,4 +1,5 @@
 #include "LoopTrack.h"
+#include "PerfettoProfiler.h"
 #include "juce_audio_basics/juce_audio_basics.h"
 #include <algorithm>
 #include <cassert>
@@ -13,6 +14,7 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
                                const uint maxSeconds,
                                const size_t maxUndoLayers)
 {
+    PERFETTO_FUNCTION();
     if (isPrepared() || currentSampleRate <= 0.0 || ! maxBlockSize || ! numChannels || ! maxSeconds) return;
 
     sampleRate = currentSampleRate;
@@ -38,6 +40,7 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
 
 void LoopTrack::releaseResources()
 {
+    PERFETTO_FUNCTION();
     if (! isPrepared()) return;
 
     undoBuffer.releaseResources();
@@ -57,6 +60,7 @@ void LoopTrack::releaseResources()
 
 void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint numSamples)
 {
+    PERFETTO_FUNCTION();
     if (shouldNotRecordInputBuffer (input, numSamples)) return;
 
     if (! isRecording)
@@ -98,6 +102,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
 
 void LoopTrack::saveToUndoBuffer()
 {
+    PERFETTO_FUNCTION();
     if (! isPrepared() || ! shouldOverdub()) return;
 
     undoBuffer.finalizeCopyAndPush (tmpBuffer, length);
@@ -120,6 +125,7 @@ void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSample
 
 void LoopTrack::finalizeLayer()
 {
+    PERFETTO_FUNCTION();
     const size_t currentLength = std::max ({ (int) length, (int) provisionalLength, 1 });
     if (length == 0)
     {
@@ -146,11 +152,19 @@ void LoopTrack::finalizeLayer()
         audioBuffer->applyGainRamp (length - fadeSamples, fadeSamples, 1.0f, 0.0f); // fade out
     }
 
-    undoBuffer.startAsyncCopy (audioBuffer.get(), tmpBuffer.get(), length);
+    // sync full loop copy at end of recording
+    // max 5mins at 48kHz
+    // - 5 × 60 × 48000 × 2 channels × 4 bytes = 110MB approx
+    // Assuming 2GB/s RAM speed
+    // Copy time: 110 MB / 2 GB/s = 55ms
+    // Audio callback @ 512 samples:
+    // 512 / 48000 = 10.7ms max callback time
+    copyAudioToTmpBuffer();
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint numSamples)
 {
+    PERFETTO_FUNCTION();
     if (shouldNotPlayback (numSamples)) return;
 
     int readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap;
@@ -173,6 +187,7 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
 
 void LoopTrack::clear()
 {
+    PERFETTO_FUNCTION();
     audioBuffer->clear();
     undoBuffer.clear();
     tmpBuffer->clear();
@@ -183,6 +198,7 @@ void LoopTrack::clear()
 
 void LoopTrack::undo()
 {
+    PERFETTO_FUNCTION();
     if (! shouldOverdub() || ! isPrepared()) return;
 
     if (undoBuffer.undo (audioBuffer))
@@ -193,6 +209,7 @@ void LoopTrack::undo()
 
 void LoopTrack::redo()
 {
+    PERFETTO_FUNCTION();
     if (! shouldOverdub() || ! isPrepared()) return;
 
     if (undoBuffer.redo (audioBuffer))
@@ -203,6 +220,7 @@ void LoopTrack::redo()
 
 void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
 {
+    PERFETTO_FUNCTION();
     if (! isPrepared() || backingTrack.getNumChannels() != audioBuffer->getNumChannels() || backingTrack.getNumSamples() == 0) return;
 
     auto prevSampleRate = sampleRate;

@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "PerfettoProfiler.h"
 #include "PluginEditor.h"
 #include <JuceHeader.h>
 
@@ -13,10 +14,12 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
 #endif
       )
 {
+    looperEngine.setUIBridge (&uiBridge);
 }
 
 AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 {
+    PerfettoProfiler::getInstance().writeTraceFile (juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("trace.json"));
 }
 
 //==============================================================================
@@ -111,8 +114,7 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 
     // This checks if the input layout matches the output layout
 #if ! JucePlugin_IsSynth
-    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
-        return false;
+    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet()) return false;
 #endif
 
     return true;
@@ -121,6 +123,7 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 
 void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    PERFETTO_FUNCTION();
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
@@ -135,6 +138,12 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         buffer.clear (i, 0, buffer.getNumSamples());
 
     looperEngine.processBlock (buffer, midiMessages);
+    // static int blockCounter = 0;
+    // if (++blockCounter > (int) (getSampleRate() * 5.0 / buffer.getNumSamples()))
+    // {
+    //     blockCounter = 0;
+    //     PerfettoProfiler::getInstance().writeTraceFile (juce::File ("/tmp/trace.json"));
+    // }
 
     midiMessages.clear();
 }

@@ -13,6 +13,7 @@ LooperEngine::~LooperEngine()
 
 void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int newNumTracks, int newNumChannels)
 {
+    PERFETTO_FUNCTION();
     if (newSampleRate <= 0.0 || newMaxBlockSize <= 0 || newNumChannels <= 0 || newNumTracks <= 0)
     {
         return;
@@ -32,6 +33,7 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
 
 void LooperEngine::releaseResources()
 {
+    PERFETTO_FUNCTION();
     for (auto& track : loopTracks)
     {
         track->releaseResources();
@@ -47,6 +49,7 @@ void LooperEngine::releaseResources()
 
 void LooperEngine::selectTrack (const int trackIndex)
 {
+    PERFETTO_FUNCTION();
     if (trackIndex >= 0 && trackIndex < numTracks)
     {
         activeTrackIndex = trackIndex;
@@ -55,16 +58,19 @@ void LooperEngine::selectTrack (const int trackIndex)
 
 void LooperEngine::startRecording()
 {
+    PERFETTO_FUNCTION();
     transportState = TransportState::Recording;
 }
 
 void LooperEngine::startPlaying()
 {
+    PERFETTO_FUNCTION();
     transportState = TransportState::Playing;
 }
 
 void LooperEngine::stop()
 {
+    PERFETTO_FUNCTION();
     if (isRecording())
     {
         loopTracks[activeTrackIndex]->finalizeLayer();
@@ -76,6 +82,7 @@ void LooperEngine::stop()
 
 void LooperEngine::addTrack()
 {
+    PERFETTO_FUNCTION();
     auto track = std::make_unique<LoopTrack>();
     track->prepareToPlay (sampleRate, maxBlockSize, numChannels);
     loopTracks.push_back (std::move (track));
@@ -85,6 +92,7 @@ void LooperEngine::addTrack()
 
 void LooperEngine::removeTrack (const int trackIndex)
 {
+    PERFETTO_FUNCTION();
     if (activeTrackIndex == trackIndex)
     {
         return;
@@ -102,22 +110,29 @@ void LooperEngine::removeTrack (const int trackIndex)
 
 void LooperEngine::undo()
 {
+    PERFETTO_FUNCTION();
     loopTracks[activeTrackIndex]->undo();
+    waveformDirty = true; // Mark dirty when undoing
 }
 
 void LooperEngine::redo()
 {
+    PERFETTO_FUNCTION();
     loopTracks[activeTrackIndex]->redo();
+    waveformDirty = true; // Mark dirty when redoing
 }
 
 void LooperEngine::clear()
 {
+    PERFETTO_FUNCTION();
     loopTracks[activeTrackIndex]->clear();
     transportState = TransportState::Stopped;
+    waveformDirty = true; // Mark dirty when clearing
 }
 
 void LooperEngine::setupMidiCommands()
 {
+    PERFETTO_FUNCTION();
     const bool NOTE_ON = true;
     const bool NOTE_OFF = false;
     midiCommandMap[{ 60, NOTE_ON }] = [] (LooperEngine& engine) { engine.startRecording(); }; // C3
@@ -141,6 +156,7 @@ void LooperEngine::setupMidiCommands()
 
 void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
 {
+    PERFETTO_FUNCTION();
     if (midiMessages.getNumEvents() > 0)
     {
         juce::MidiMessage m;
@@ -158,6 +174,7 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
 
 void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    PERFETTO_FUNCTION();
     handleMidiCommand (midiMessages);
 
     auto activeTrack = getActiveTrack();
@@ -166,10 +183,12 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
         return;
     }
 
+    bool wasRecording = activeTrack->isCurrentlyRecording();
     switch (transportState)
     {
         case TransportState::Recording:
             activeTrack->processRecord (buffer, buffer.getNumSamples());
+            waveformDirty = true; // Mark dirty when recording
         case TransportState::Playing:
             activeTrack->processPlayback (const_cast<juce::AudioBuffer<float>&> (buffer), buffer.getNumSamples());
             break;
@@ -179,10 +198,59 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
         default:
             break;
     }
+
+    if (uiBridge && activeTrack)
+    {
+        bool nowRecording = activeTrack->isCurrentlyRecording();
+
+        // On first call with bridge connected, always send initial snapshot
+        if (! bridgeInitialized && activeTrack->getLength() > 0)
+        {
+            waveformDirty = true;
+            bridgeInitialized = true;
+        }
+
+        // Detect finalize event
+        if (wasRecording && ! nowRecording)
+        {
+            waveformDirty = true;
+            recordingUpdateCounter = 0;
+        }
+
+        // Update waveform periodically while recording (every ~100ms)
+        if (nowRecording)
+        {
+            recordingUpdateCounter++;
+            int framesPerUpdate = (int) (sampleRate * 0.1 / buffer.getNumSamples());
+            if (recordingUpdateCounter >= framesPerUpdate)
+            {
+                waveformDirty = true;
+                recordingUpdateCounter = 0;
+            }
+        }
+
+        // Determine what length to show in UI
+        size_t lengthToShow = activeTrack->getLength();
+        if (lengthToShow == 0 && nowRecording)
+        {
+            // First recording - show up to current write position
+            lengthToShow = activeTrack->getCurrentWritePosition();
+        }
+
+        uiBridge->updateFromAudioThread (&activeTrack->getAudioBuffer(),
+                                         lengthToShow,
+                                         activeTrack->getCurrentReadPosition(),
+                                         nowRecording,
+                                         transportState == TransportState::Playing,
+                                         waveformDirty);
+
+        waveformDirty = false;
+    }
 }
 
 LoopTrack* LooperEngine::getActiveTrack()
 {
+    PERFETTO_FUNCTION();
     if (loopTracks.empty() || numTracks == 0)
     {
         return nullptr;
@@ -196,6 +264,7 @@ LoopTrack* LooperEngine::getActiveTrack()
 
 void LooperEngine::setOverdubGainsForTrack (const int trackIndex, const double oldGain, const double newGain)
 {
+    PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks)
     {
         return;
@@ -209,10 +278,12 @@ void LooperEngine::setOverdubGainsForTrack (const int trackIndex, const double o
 
 void LooperEngine::loadBackingTrackToActiveTrack (const juce::AudioBuffer<float>& backingTrack)
 {
+    PERFETTO_FUNCTION();
     auto activeTrack = getActiveTrack();
     if (activeTrack)
     {
         activeTrack->loadBackingTrack (backingTrack);
         startPlaying();
     }
+    waveformDirty = true; // Mark dirty when loading backing track
 }

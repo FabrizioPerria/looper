@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LoopLifo.h"
+#include "PerfettoProfiler.h"
 #include <JuceHeader.h>
 #include <vector>
 
@@ -9,7 +10,6 @@ class UndoBuffer
 public:
     UndoBuffer()
     {
-        doneEvent.signal(); // no copy in progress at start
     }
     ~UndoBuffer()
     {
@@ -18,6 +18,7 @@ public:
 
     void prepareToPlay (int numLayers, int numChannels, int bufferSamples)
     {
+        PERFETTO_FUNCTION();
         undoLifo.prepareToPlay (numLayers);
         redoLifo.prepareToPlay (numLayers);
 
@@ -72,6 +73,7 @@ public:
 
     void pushLayer (std::unique_ptr<juce::AudioBuffer<float>>& source, size_t loopLength)
     {
+        PERFETTO_FUNCTION();
         for (int ch = 0; ch < source->getNumChannels(); ++ch)
         {
             juce::FloatVectorOperations::copy (undoStaging->getWritePointer (ch), source->getReadPointer (ch), (int) length);
@@ -94,10 +96,7 @@ public:
 
     bool undo (std::unique_ptr<juce::AudioBuffer<float>>& destination)
     {
-        // fair to wait even if audio thread runs it. Realistically, only tests will hit the edge case where operations
-        // are so fast that the copy isn't done by the time we get here.
-        waitForPendingCopy();
-
+        PERFETTO_FUNCTION();
         int uStart1, uSize1, uStart2, uSize2;
         undoLifo.prepareToRead (1, uStart1, uSize1, uStart2, uSize2);
 
@@ -119,10 +118,7 @@ public:
 
     bool redo (std::unique_ptr<juce::AudioBuffer<float>>& destination)
     {
-        // fair to wait even if audio thread runs it. Realistically, only tests will hit the edge case where operations
-        // are so fast that the copy isn't done by the time we get here.
-        waitForPendingCopy();
-
+        PERFETTO_FUNCTION();
         // Get top of redo stack
         int rStart1, rSize1, rStart2, rSize2;
         redoLifo.prepareToRead (1, rStart1, rSize1, rStart2, rSize2);
@@ -146,24 +142,29 @@ public:
 
     const uint getNumSamples() const
     {
+        PERFETTO_FUNCTION();
         return undoBuffers.empty() ? 0 : (uint) undoBuffers[0]->getNumSamples();
     }
     const int getNumChannels() const
     {
+        PERFETTO_FUNCTION();
         return undoBuffers.empty() ? 0 : undoBuffers[0]->getNumChannels();
     }
     const size_t getNumLayers() const
     {
+        PERFETTO_FUNCTION();
         return undoBuffers.size();
     }
 
     const std::vector<std::unique_ptr<juce::AudioBuffer<float>>>& getBuffers() const
     {
+        PERFETTO_FUNCTION();
         return undoBuffers;
     }
 
     void clear()
     {
+        PERFETTO_FUNCTION();
         undoLifo.clear();
         redoLifo.clear();
         for (auto& buf : undoBuffers)
@@ -176,7 +177,7 @@ public:
 
     void releaseResources()
     {
-        waitForPendingCopy();
+        PERFETTO_FUNCTION();
         undoLifo.clear();
         redoLifo.clear();
         for (auto& buf : undoBuffers)
@@ -188,39 +189,9 @@ public:
         redoBuffers.clear();
     }
 
-    // UndoBuffer.cpp
-    void startAsyncCopy (const juce::AudioBuffer<float>* source, juce::AudioBuffer<float>* destination, size_t length)
-    {
-        // fair to wait even if audio thread runs it. Realistically, only tests will hit the edge case where operations
-        // are so fast that the copy isn't done by the time we get here.
-        waitForPendingCopy();
-
-        activeCopy.source = source;
-        activeCopy.destination = destination;
-        activeCopy.length = length;
-
-        doneEvent.reset();
-
-        threadPool.addJob (
-            [this]()
-            {
-                for (int ch = 0; ch < activeCopy.source->getNumChannels(); ++ch)
-                {
-                    juce::FloatVectorOperations::copy (activeCopy.destination->getWritePointer (ch),
-                                                       activeCopy.source->getReadPointer (ch),
-                                                       (int) activeCopy.length);
-                }
-                doneEvent.signal();
-            });
-    }
-
     void finalizeCopyAndPush (std::unique_ptr<juce::AudioBuffer<float>>& tmpBuffer, size_t loopLength)
     {
-        // fair to wait even if audio thread runs it. Realistically, only tests will hit the edge case where operations
-        // are so fast that the copy isn't done by the time we get here.
-        waitForPendingCopy();
-
-        // Now safe to swap - background thread is done with tmpBuffer
+        PERFETTO_FUNCTION();
         int start1, size1, start2, size2;
         undoLifo.prepareToWrite (1, start1, size1, start2, size2);
 
@@ -232,17 +203,6 @@ public:
     }
 
 private:
-    struct CopyOperation
-    {
-        const juce::AudioBuffer<float>* source { nullptr };
-        juce::AudioBuffer<float>* destination { nullptr };
-        size_t length { 0 };
-    };
-
-    CopyOperation activeCopy;
-    juce::WaitableEvent doneEvent { true };
-    juce::ThreadPool threadPool { 1 };
-
     LoopLifo undoLifo;
     std::vector<std::unique_ptr<juce::AudioBuffer<float>>> undoBuffers {};
 
@@ -251,20 +211,6 @@ private:
 
     size_t length { 0 };
     std::unique_ptr<juce::AudioBuffer<float>> undoStaging = std::make_unique<juce::AudioBuffer<float>>();
-
-    void waitForPendingCopy() const
-    {
-        bool result = doneEvent.wait (100);
-        if (! result)
-        {
-            jassertfalse;
-        }
-    }
-
-    bool isCopyComplete() const
-    {
-        return doneEvent.wait (0);
-    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (UndoBuffer)
 };

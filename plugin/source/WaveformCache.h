@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PerfettoProfiler.h"
 #include <JuceHeader.h>
 
 class WaveformCache
@@ -10,6 +11,7 @@ public:
 
     void updateFromBuffer (const juce::AudioBuffer<float>& source, int sourceLength, int targetWidth)
     {
+        PERFETTO_FUNCTION();
         if (targetWidth <= 0 || sourceLength <= 0) return;
 
         int samplesPerPixel = sourceLength / targetWidth;
@@ -46,6 +48,7 @@ public:
 
     bool getMinMax (int pixelIndex, float& min, float& max, int channel) const
     {
+        PERFETTO_FUNCTION();
         juce::ScopedLock sl (lock);
 
         if (channel < 0 || channel >= numChannels) return false;
@@ -60,14 +63,17 @@ public:
 
     int getWidth() const
     {
+        PERFETTO_FUNCTION();
         return width.load();
     }
     int getNumChannels() const
     {
+        PERFETTO_FUNCTION();
         return numChannels.load();
     }
     bool isEmpty() const
     {
+        PERFETTO_FUNCTION();
         return width.load() == 0;
     }
 
@@ -79,6 +85,7 @@ private:
 
     void downsample (std::vector<std::pair<float, float>>& destination, const float* source, int sourceLength, int targetWidth)
     {
+        PERFETTO_FUNCTION();
         destination.resize (targetWidth);
         int samplesPerPixel = sourceLength / targetWidth;
         if (samplesPerPixel < 1) return;

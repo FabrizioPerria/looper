@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LoopFifo.h"
+#include "PerfettoProfiler.h"
 #include "UndoBuffer.h"
 #include <JuceHeader.h>
 
@@ -33,46 +34,61 @@ public:
 
     const juce::AudioBuffer<float>& getAudioBuffer() const
     {
+        PERFETTO_FUNCTION();
         return *audioBuffer;
     }
 
     double getSampleRate() const
     {
+        PERFETTO_FUNCTION();
         return sampleRate;
     }
 
     size_t getLength() const
     {
+        PERFETTO_FUNCTION();
         return length;
     }
 
     size_t getCurrentReadPosition() const
     {
+        PERFETTO_FUNCTION();
         return fifo.getReadPos();
+    }
+
+    size_t getCurrentWritePosition() const
+    {
+        PERFETTO_FUNCTION();
+        return fifo.getWritePos();
     }
 
     int getLoopDurationSeconds() const
     {
+        PERFETTO_FUNCTION();
         return (int) (length / sampleRate);
     }
 
     void setLength (const size_t newLength)
     {
+        PERFETTO_FUNCTION();
         length = newLength;
     }
 
     void setCrossFadeLength (const size_t newLength)
     {
+        PERFETTO_FUNCTION();
         crossFadeLength = newLength;
     }
 
     bool isPrepared() const
     {
+        PERFETTO_FUNCTION();
         return alreadyPrepared;
     }
 
     void setOverdubGains (const float oldGain, const float newGain)
     {
+        PERFETTO_FUNCTION();
         overdubNewGain = std::clamp (newGain, 0.0f, 2.0f);
         overdubOldGain = std::clamp (oldGain, 0.0f, 2.0f);
         shouldNormalizeOutput = false;
@@ -80,6 +96,7 @@ public:
 
     void enableOutputNormalization()
     {
+        PERFETTO_FUNCTION();
         overdubNewGain = 1.0f;
         overdubOldGain = 1.0f;
         shouldNormalizeOutput = true;
@@ -87,16 +104,19 @@ public:
 
     double getOverdubNewGain() const
     {
+        PERFETTO_FUNCTION();
         return overdubNewGain;
     }
 
     double getOverdubOldGain() const
     {
+        PERFETTO_FUNCTION();
         return overdubOldGain;
     }
 
     const UndoBuffer& getUndoBuffer() const
     {
+        PERFETTO_FUNCTION();
         return undoBuffer;
     }
 
@@ -104,35 +124,42 @@ public:
 
     void allowWrapAround()
     {
+        PERFETTO_FUNCTION();
         fifo.setWrapAround (true);
     }
     void preventWrapAround()
     {
+        PERFETTO_FUNCTION();
         fifo.setWrapAround (false);
     }
 
     bool isCurrentlyRecording() const
     {
+        PERFETTO_FUNCTION();
         return isRecording;
     }
 
     bool isMuted() const
     {
+        PERFETTO_FUNCTION();
         return muted;
     }
 
     void setMuted (const bool shouldBeMuted)
     {
+        PERFETTO_FUNCTION();
         muted = shouldBeMuted;
     }
 
     float getTrackVolume() const
     {
+        PERFETTO_FUNCTION();
         return trackVolume;
     }
 
     void setTrackVolume (const float newVolume)
     {
+        PERFETTO_FUNCTION();
         trackVolume = std::clamp (newVolume, 0.0f, 1.0f);
     }
 
@@ -176,22 +203,26 @@ private:
 
     bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const uint numSamples) const
     {
+        PERFETTO_FUNCTION();
         return numSamples == 0 || (uint) input.getNumSamples() < numSamples || ! isPrepared()
                || input.getNumChannels() != audioBuffer->getNumChannels();
     }
 
     bool shouldNotPlayback (const uint numSamples) const
     {
+        PERFETTO_FUNCTION();
         return ! isPrepared() || length == 0 || numSamples == 0;
     }
 
     bool shouldOverdub() const
     {
+        PERFETTO_FUNCTION();
         return length > 0;
     }
 
     void copyAudioToTmpBuffer()
     {
+        PERFETTO_FUNCTION();
         // Copy current audioBuffer state to tmpBuffer
         // This prepares tmpBuffer to be pushed to undo stack on next overdub
         for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
@@ -200,7 +231,7 @@ private:
         }
     }
 
-    static const uint MAX_SECONDS_HARD_LIMIT = 3600; // 1 hour max buffer size
+    static const uint MAX_SECONDS_HARD_LIMIT = 300; // 5mins
     static const uint MAX_UNDO_LAYERS = 5;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopTrack)

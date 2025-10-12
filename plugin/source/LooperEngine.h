@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AudioToUIBridge.h"
 #include "LoopTrack.h"
 #include <JuceHeader.h>
 
@@ -25,10 +26,12 @@ public:
     LoopTrack* getActiveTrack();
     int getActiveTrackIndex() const
     {
+        PERFETTO_FUNCTION();
         return activeTrackIndex;
     }
     int getNumTracks() const
     {
+        PERFETTO_FUNCTION();
         return numTracks;
     }
 
@@ -38,6 +41,7 @@ public:
 
     TransportState getTransportState() const
     {
+        PERFETTO_FUNCTION();
         return transportState;
     }
 
@@ -52,6 +56,7 @@ public:
 
     void loadWaveFileToActiveTrack (const juce::File& audioFile)
     {
+        PERFETTO_FUNCTION();
         auto activeTrack = getActiveTrack();
         if (activeTrack)
         {
@@ -67,7 +72,21 @@ public:
         }
     }
 
+    void setUIBridge (AudioToUIBridge* bridge)
+    {
+        uiBridge = bridge;
+        bridgeInitialized = false; // Force initial snapshot on next processBlock
+    }
+
+    AudioToUIBridge* getUIBridge()
+    {
+        return uiBridge;
+    }
+
 private:
+    AudioToUIBridge* uiBridge = nullptr;
+    bool waveformDirty = false;
+    int recordingUpdateCounter = 0;
     struct MidiKey
     {
         int noteNumber;
@@ -110,6 +129,8 @@ private:
     int numChannels;
     int numTracks;
     int activeTrackIndex { 0 };
+
+    bool bridgeInitialized = false;
 
     std::vector<std::unique_ptr<LoopTrack>> loopTracks;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LooperEngine)

@@ -1916,4 +1916,47 @@ TEST (LoopTrackVolume, VolumeAdjustment)
     for (int i = 0; i < maxBlock; ++i)
         EXPECT_FLOAT_EQ (ptr[i], 0.5f); // Original level restored
 }
+
+TEST (Perf, measureCopyTimeForAudioBuffer)
+{
+    const int numChannels = 2;
+    const int numSamples = 48000 * 10; // 10 seconds at 48kHz
+    juce::AudioBuffer<float> sourceBuffer (numChannels, numSamples);
+    juce::AudioBuffer<float> destBuffer (numChannels, numSamples);
+
+    // Fill source buffer with test data
+    for (int ch = 0; ch < numChannels; ++ch)
+        for (int i = 0; i < numSamples; ++i)
+            sourceBuffer.setSample (ch, i, static_cast<float> (i % 100) / 100.0f);
+
+    // let's copy 20 times and take the average
+
+    auto durationAvg = 0.0;
+    for (int iter = 0; iter < 20; ++iter)
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+        destBuffer.makeCopyOf (sourceBuffer);
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono ::duration<double, std::milli> copyDuration = end - start;
+        durationAvg += copyDuration.count();
+    }
+    durationAvg /= 20.0;
+    std::cout << "Average AudioBuffer copy time for " << numChannels << " channels and " << numSamples << " samples: " << durationAvg
+              << " ms" << std::endl;
+    std::cout << "Average AudioBuffer copy speed: " << (numChannels * numSamples * sizeof (float)) / (durationAvg * 1e6) << " GB/s"
+              << std::endl;
+
+    auto start = std::chrono::high_resolution_clock::now();
+    destBuffer.makeCopyOf (sourceBuffer);
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> copyDuration = end - start;
+
+    std::cout << "AudioBuffer copy time for " << numChannels << " channels and " << numSamples << " samples: " << copyDuration.count()
+              << " ms" << std::endl;
+
+    // Verify that the copy was successful
+    for (int ch = 0; ch < numChannels; ++ch)
+        for (int i = 0; i < numSamples; ++i)
+            EXPECT_FLOAT_EQ (destBuffer.getSample (ch, i), sourceBuffer.getSample (ch, i));
+}
 } // namespace audio_plugin_test
