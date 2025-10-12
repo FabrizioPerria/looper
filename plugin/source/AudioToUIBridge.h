@@ -46,13 +46,31 @@ public:
         }
     }
 
+    void signalWaveformChanged()
+    {
+        pendingUpdate.store (true, std::memory_order_release);
+    }
+
+    bool shouldUpdateWhileRecording (int samplesPerBlock, double sampleRate)
+    {
+        recordingFrameCounter++;
+        int framesPerUpdate = (int) (sampleRate * 0.1 / samplesPerBlock); // 100ms
+
+        if (recordingFrameCounter >= framesPerUpdate)
+        {
+            recordingFrameCounter = 0;
+            return true;
+        }
+        return false;
+    }
+
+    void resetRecordingCounter()
+    {
+        recordingFrameCounter = 0;
+    }
+
     // Called from AUDIO THREAD - must be lock-free and fast
-    void updateFromAudioThread (const juce::AudioBuffer<float>* audioBuffer,
-                                size_t length,
-                                size_t readPos,
-                                bool recording,
-                                bool playing,
-                                bool waveformChanged)
+    void updateFromAudioThread (const juce::AudioBuffer<float>* audioBuffer, size_t length, size_t readPos, bool recording, bool playing)
     {
         // Update lightweight state (always)
         state.loopLength.store (length, std::memory_order_relaxed);
@@ -61,7 +79,7 @@ public:
         state.isPlaying.store (playing, std::memory_order_relaxed);
 
         // Only update waveform snapshot when it actually changes
-        if (waveformChanged && audioBuffer && length > 0)
+        if (pendingUpdate.exchange (false, std::memory_order_acq_rel))
         {
             int newVersion = state.stateVersion.load (std::memory_order_relaxed) + 1;
 
@@ -132,6 +150,8 @@ public:
 
 private:
     AudioState state;
+    std::atomic<bool> pendingUpdate { false };
+    int recordingFrameCounter = 0;
 
     // Triple buffer indices
     std::atomic<int> writeIndex { 0 }; // Audio thread writes here

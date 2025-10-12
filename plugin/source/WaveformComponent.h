@@ -11,13 +11,6 @@ public:
     WaveformComponent();
     ~WaveformComponent() override;
 
-    void setLoopTrack (LoopTrack* track)
-    {
-        PERFETTO_FUNCTION();
-        if (! track) return;
-        loopTrack = track;
-    }
-
     void paint (juce::Graphics& g) override;
     void timerCallback() override;
 
@@ -71,7 +64,6 @@ private:
                 });
         }
     }
-    LoopTrack* loopTrack = nullptr;
     WaveformCache cache;
 
     AudioToUIBridge* bridge = nullptr;
