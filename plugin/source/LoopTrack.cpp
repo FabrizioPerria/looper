@@ -171,7 +171,7 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
     fifo.prepareToRead ((int) numSamples, readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap);
     const int actualRead = samplesBeforeWrap + samplesAfterWrap;
 
-    for (int ch = 0; ch < output.getNumChannels() && ! isMuted(); ++ch)
+    for (int ch = 0; ch < output.getNumChannels(); ++ch)
     {
         float* outPtr = output.getWritePointer (ch);
         const float* loopPtr = audioBuffer->getReadPointer (ch);
@@ -180,7 +180,16 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
         if (samplesAfterWrap > 0)
             juce::FloatVectorOperations::add (outPtr + samplesBeforeWrap, loopPtr + readPosAfterWrap, samplesAfterWrap);
     }
-    output.applyGain (trackVolume);
+
+    if (std::abs (trackVolume - previousTrackVolume) > 0.001f)
+    {
+        output.applyGainRamp (0, (int) numSamples, previousTrackVolume, trackVolume);
+        previousTrackVolume = trackVolume;
+    }
+    else
+    {
+        output.applyGain (trackVolume);
+    }
 
     fifo.finishedRead (actualRead, shouldOverdub());
 }
