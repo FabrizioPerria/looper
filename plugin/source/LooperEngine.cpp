@@ -286,6 +286,24 @@ void LooperEngine::setTrackMuted (int trackIndex, bool muted)
     }
 }
 
+void LooperEngine::setTrackSoloed (int trackIndex, bool soloed)
+{
+    PERFETTO_FUNCTION();
+    if (trackIndex < 0 || trackIndex >= numTracks) return;
+
+    for (int i = 0; i < numTracks; ++i)
+    {
+        auto& track = loopTracks[i];
+        if (track)
+        {
+            if (i == trackIndex)
+                track->setMuted (false);
+            else
+                track->setMuted (soloed);
+        }
+    }
+}
+
 float LooperEngine::getTrackVolume (int trackIndex) const
 {
     PERFETTO_FUNCTION();

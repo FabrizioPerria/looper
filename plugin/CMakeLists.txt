@@ -44,7 +44,7 @@ target_sources(
   ${PROJECT_NAME}
   PRIVATE source/PluginEditor.cpp source/PluginProcessor.cpp
           source/LoopTrack.cpp source/LooperEngine.cpp
-          source/WaveformComponent.cpp source/TrackComponent.cpp)
+          source/WaveformComponent.cpp)
 
 target_include_directories(${PROJECT_NAME}
                            PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/source)

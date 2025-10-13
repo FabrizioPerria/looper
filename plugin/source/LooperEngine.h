@@ -67,6 +67,7 @@ public:
 
     void setTrackVolume (int trackIndex, float volume);
     void setTrackMuted (int trackIndex, bool muted);
+    void setTrackSoloed (int trackIndex, bool soloed);
     float getTrackVolume (int trackIndex) const;
     bool isTrackMuted (int trackIndex) const;
 
