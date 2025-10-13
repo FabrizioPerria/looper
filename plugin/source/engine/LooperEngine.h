@@ -24,6 +24,15 @@ public:
     void selectTrack (const int trackIndex);
     void removeTrack (const int trackIndex);
     LoopTrack* getActiveTrack();
+    void selectNextTrack()
+    {
+        selectTrack ((activeTrackIndex + 1) % numTracks);
+    }
+
+    void selectPreviousTrack()
+    {
+        selectTrack ((activeTrackIndex - 1 + numTracks) % numTracks);
+    }
 
     int getActiveTrackIndex() const
     {
@@ -70,6 +79,7 @@ public:
     void setTrackSoloed (int trackIndex, bool soloed);
     float getTrackVolume (int trackIndex) const;
     bool isTrackMuted (int trackIndex) const;
+    void handleMidiCommand (const juce::MidiBuffer& midiMessages);
 
 private:
     struct MidiKey
@@ -105,7 +115,6 @@ private:
 
     std::unordered_map<MidiKey, std::function<void (LooperEngine&)>, MidiKeyHash> midiCommandMap;
     void setupMidiCommands();
-    void handleMidiCommand (const juce::MidiBuffer& midiMessages);
 
     TransportState transportState;
     double sampleRate;

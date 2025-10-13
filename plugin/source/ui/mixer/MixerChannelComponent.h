@@ -1,6 +1,7 @@
 #pragma once
 #include "LooperTheme.h"
 #include "engine/LooperEngine.h"
+#include "engine/midiMappings.h"
 #include "ui/components/WaveformComponent.h"
 #include <JuceHeader.h>
 
@@ -20,15 +21,15 @@ public:
         addAndMakeVisible (waveformDisplay);
 
         undoButton.setButtonText ("U");
-        undoButton.onClick = [this]() { looperEngine.undo(); };
+        undoButton.onClick = [this]() { sendMidiMessageToEngine (UNDO_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (undoButton);
 
         redoButton.setButtonText ("R");
-        redoButton.onClick = [this]() { looperEngine.redo(); };
+        redoButton.onClick = [this]() { sendMidiMessageToEngine (REDO_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (redoButton);
 
         clearButton.setButtonText ("C");
-        clearButton.onClick = [this]() { looperEngine.clear(); };
+        clearButton.onClick = [this]() { sendMidiMessageToEngine (CLEAR_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (clearButton);
 
         volumeFader.setSliderStyle (juce::Slider::LinearVertical);
@@ -41,13 +42,13 @@ public:
         // Mute button
         muteButton.setButtonText ("M");
         muteButton.setClickingTogglesState (true);
-        muteButton.onClick = [this]() { looperEngine.setTrackMuted (trackIndex, muteButton.getToggleState()); };
+        muteButton.onClick = [this]() { sendMidiMessageToEngine (MUTE_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (muteButton);
 
         // Solo button
         soloButton.setButtonText ("S");
         soloButton.setClickingTogglesState (true);
-        soloButton.onClick = [this]() { looperEngine.setTrackSoloed (trackIndex, soloButton.getToggleState()); };
+        soloButton.onClick = [this]() { sendMidiMessageToEngine (SOLO_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (soloButton);
 
         updateControlsFromEngine();
@@ -144,6 +145,15 @@ private:
     juce::TextButton soloButton;
 
     LooperEngine& looperEngine;
+
+    void sendMidiMessageToEngine (const int noteNumber, const bool isNoteOn)
+    {
+        juce::MidiBuffer midiBuffer;
+        juce::MidiMessage msg = isNoteOn ? juce::MidiMessage::noteOn (1, noteNumber, (juce::uint8) 100)
+                                         : juce::MidiMessage::noteOff (1, noteNumber);
+        midiBuffer.addEvent (msg, 0);
+        looperEngine.handleMidiCommand (midiBuffer);
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MixerChannelComponent)
 };

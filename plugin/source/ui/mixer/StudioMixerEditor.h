@@ -3,7 +3,7 @@
 #include "MixerChannelComponent.h"
 #include <JuceHeader.h>
 
-class StudioMixerEditor : public juce::Component
+class StudioMixerEditor : public juce::Component, public juce::Timer
 {
 public:
     StudioMixerEditor (LooperEngine& engine) : looperEngine (engine)
@@ -18,28 +18,12 @@ public:
         // Transport buttons
         recordButton.setButtonText ("REC");
         recordButton.setClickingTogglesState (true);
-        recordButton.onClick = [this]()
-        {
-            if (recordButton.getToggleState())
-                looperEngine.startRecording();
-            else
-                looperEngine.stop();
-        };
+        recordButton.onClick = [this]() { sendMidiMessageToEngine (RECORD_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (recordButton);
-
-        stopButton.setButtonText ("STOP");
-        stopButton.onClick = [this]() { looperEngine.stop(); };
-        addAndMakeVisible (stopButton);
 
         playButton.setButtonText ("PLAY");
         playButton.setClickingTogglesState (true);
-        playButton.onClick = [this]()
-        {
-            if (playButton.getToggleState())
-                looperEngine.startPlaying();
-            else
-                looperEngine.stop();
-        };
+        playButton.onClick = [this]() { sendMidiMessageToEngine (TOGGLE_PLAY_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (playButton);
 
         // Master section
@@ -54,6 +38,13 @@ public:
         masterFader.setRange (0.0, 1.0, 0.01);
         masterFader.setValue (0.8);
         addAndMakeVisible (masterFader);
+
+        startTimerHz (10);
+    }
+
+    ~StudioMixerEditor() override
+    {
+        stopTimer();
     }
 
     void paint (juce::Graphics& g) override
@@ -94,8 +85,6 @@ public:
 
         transportFlex.items
             .add (juce::FlexItem (recordButton).withWidth (70.0f).withHeight (34.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 0)));
-        transportFlex.items
-            .add (juce::FlexItem (stopButton).withWidth (70.0f).withHeight (34.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
         transportFlex.items
             .add (juce::FlexItem (playButton).withWidth (70.0f).withHeight (34.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 4)));
 
@@ -143,11 +132,26 @@ private:
     juce::OwnedArray<MixerChannelComponent> channels;
 
     juce::TextButton recordButton;
-    juce::TextButton stopButton;
     juce::TextButton playButton;
 
     juce::Label masterLabel;
     juce::Slider masterFader;
 
+    void sendMidiMessageToEngine (const int noteNumber, const bool isNoteOn)
+    {
+        juce::MidiBuffer midiBuffer;
+        juce::MidiMessage msg = isNoteOn ? juce::MidiMessage::noteOn (1, noteNumber, (juce::uint8) 100)
+                                         : juce::MidiMessage::noteOff (1, noteNumber);
+        midiBuffer.addEvent (msg, 0);
+        looperEngine.handleMidiCommand (midiBuffer);
+    }
+
+    void timerCallback() override
+    {
+        // Update transport button states based on engine state
+        auto state = looperEngine.getTransportState();
+        recordButton.setToggleState (state == TransportState::Recording, juce::dontSendNotification);
+        playButton.setToggleState (state != TransportState::Stopped, juce::dontSendNotification);
+    }
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StudioMixerEditor)
 };

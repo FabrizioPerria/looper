@@ -1,4 +1,5 @@
 #include "LooperEngine.h"
+#include "engine/midiMappings.h"
 
 LooperEngine::LooperEngine() : transportState (TransportState::Stopped), sampleRate (0.0), maxBlockSize (0), numChannels (0), numTracks (0)
 {
@@ -126,23 +127,40 @@ void LooperEngine::stop()
 void LooperEngine::setupMidiCommands()
 {
     PERFETTO_FUNCTION();
-    const bool NOTE_ON = true;
-    const bool NOTE_OFF = false;
 
-    midiCommandMap[{ 60, NOTE_ON }] = [] (LooperEngine& engine) { engine.startRecording(); };
-    midiCommandMap[{ 62, NOTE_ON }] = [] (LooperEngine& engine)
+    midiCommandMap[{ RECORD_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine)
+    {
+        if (engine.getTransportState() != TransportState::Recording)
+            engine.startRecording();
+        else
+            engine.stop();
+    };
+    midiCommandMap[{ TOGGLE_PLAY_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine)
     {
         if (engine.getTransportState() == TransportState::Stopped)
             engine.startPlaying();
         else
             engine.stop();
     };
-    midiCommandMap[{ 72, NOTE_ON }] = [] (LooperEngine& engine) { engine.undo(); };
-    midiCommandMap[{ 74, NOTE_ON }] = [] (LooperEngine& engine) { engine.redo(); };
-    midiCommandMap[{ 84, NOTE_OFF }] = [] (LooperEngine& engine) { engine.clear(); };
+    midiCommandMap[{ UNDO_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine) { engine.undo(); };
+    midiCommandMap[{ REDO_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine) { engine.redo(); };
+    midiCommandMap[{ CLEAR_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine) { engine.clear(); };
+    midiCommandMap[{ NEXT_TRACK_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine) { engine.selectNextTrack(); };
+    midiCommandMap[{ PREV_TRACK_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine) { engine.selectPreviousTrack(); };
+    midiCommandMap[{ SOLO_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine)
+    {
+        auto* track = engine.getActiveTrack();
+        if (track) engine.setTrackSoloed (engine.getActiveTrackIndex(), ! track->isSoloed());
+    };
+    midiCommandMap[{ MUTE_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine)
+    {
+        auto* track = engine.getActiveTrack();
+        if (track) engine.setTrackMuted (engine.getActiveTrackIndex(), ! track->isMuted());
+    };
 
     juce::File defaultFile = juce::File::getSpecialLocation (juce::File::userDesktopDirectory).getChildFile ("backing.wav");
-    midiCommandMap[{ 86, NOTE_ON }] = [defaultFile] (LooperEngine& engine) { engine.loadWaveFileToActiveTrack (defaultFile); };
+    midiCommandMap[{ LOAD_BUTTON_MIDI_NOTE, NOTE_ON }] = [defaultFile] (LooperEngine& engine)
+    { engine.loadWaveFileToActiveTrack (defaultFile); };
 }
 
 void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
@@ -175,6 +193,7 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     {
         case TransportState::Recording:
             activeTrack->processRecord (buffer, buffer.getNumSamples());
+            // Note: do not break here, we want to also play back while recording
         case TransportState::Playing:
             activeTrack->processPlayback (const_cast<juce::AudioBuffer<float>&> (buffer), buffer.getNumSamples());
             break;
@@ -297,7 +316,10 @@ void LooperEngine::setTrackSoloed (int trackIndex, bool soloed)
         if (track)
         {
             if (i == trackIndex)
+            {
                 track->setMuted (false);
+                track->setSoloed (soloed);
+            }
             else
                 track->setMuted (soloed);
         }
