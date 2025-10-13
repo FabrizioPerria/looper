@@ -102,7 +102,7 @@ public:
         // Add all channels - let them stretch vertically
         for (auto* channel : channels)
         {
-            mainFlex.items.add (juce::FlexItem (*channel).withWidth (140.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
+            mainFlex.items.add (juce::FlexItem (*channel).withWidth (180.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
         }
 
         mainFlex.items.add (juce::FlexItem().withWidth (8.0f));

@@ -119,16 +119,18 @@ public:
         buttonFlex.items.add (juce::FlexItem (undoButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 2, 0, 0)));
         buttonFlex.items.add (juce::FlexItem (redoButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 2, 0, 2)));
         buttonFlex.items.add (juce::FlexItem (clearButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 0, 0, 2)));
-
         mainFlex.items.add (juce::FlexItem (buttonFlex).withHeight (20.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
 
         mainFlex.items.add (juce::FlexItem (volumeFader).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 8, 0)));
 
-        mainFlex.items.add (juce::FlexItem (muteButton).withHeight (22.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
+        juce::FlexBox button2Flex;
+        button2Flex.flexDirection = juce::FlexBox::Direction::row;
+        button2Flex.justifyContent = juce::FlexBox::JustifyContent::spaceBetween;
+        button2Flex.items.add (juce::FlexItem (muteButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 2, 0, 0)));
+        button2Flex.items.add (juce::FlexItem (soloButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 0, 0, 2)));
+        mainFlex.items.add (juce::FlexItem (button2Flex).withHeight (20.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
 
-        mainFlex.items.add (juce::FlexItem (soloButton).withHeight (22.0f).withMargin (juce::FlexItem::Margin (0, 0, 8, 0)));
-
-        mainFlex.items.add (juce::FlexItem (waveformDisplay).withHeight (60.0f));
+        mainFlex.items.add (juce::FlexItem (waveformDisplay).withHeight (70.0f));
 
         mainFlex.performLayout (bounds);
     }
