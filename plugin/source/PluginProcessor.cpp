@@ -1,6 +1,6 @@
 #include "PluginProcessor.h"
-#include "PerfettoProfiler.h"
 #include "PluginEditor.h"
+#include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 
 //==============================================================================
@@ -89,7 +89,7 @@ void AudioPluginAudioProcessor::changeProgramName (int index, const juce::String
 //==============================================================================
 void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    looperEngine.prepareToPlay (sampleRate, samplesPerBlock, 1, getTotalNumInputChannels());
+    looperEngine.prepareToPlay (sampleRate, samplesPerBlock, 4, getTotalNumInputChannels());
 }
 
 void AudioPluginAudioProcessor::releaseResources()

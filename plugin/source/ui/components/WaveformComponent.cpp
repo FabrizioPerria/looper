@@ -1,11 +1,11 @@
 #include "WaveformComponent.h"
-#include "renderers/CircularRenderer.h"
-#include "renderers/LinearRenderer.h"
+#include "ui/renderers/CircularRenderer.h"
+#include "ui/renderers/LinearRenderer.h"
 
 WaveformComponent::WaveformComponent()
 {
-    renderer = std::make_unique<CircularRenderer>();
-    // renderer = std::make_unique<LinearRenderer>();
+    // renderer = std::make_unique<CircularRenderer>();
+    renderer = std::make_unique<LinearRenderer>();
     startTimerHz (60);
 }
 

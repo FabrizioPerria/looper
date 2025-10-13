@@ -1,6 +1,6 @@
 #include "LoopTrack.h"
-#include "PerfettoProfiler.h"
 #include "juce_audio_basics/juce_audio_basics.h"
+#include "profiler/PerfettoProfiler.h"
 #include <algorithm>
 #include <cassert>
 

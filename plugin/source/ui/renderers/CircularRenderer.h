@@ -1,8 +1,8 @@
 #pragma once
 
-#include "IRenderer.h"
-#include "PerfettoProfiler.h"
-#include "WaveformCache.h"
+#include "profiler/PerfettoProfiler.h"
+#include "ui/components/WaveformCache.h"
+#include "ui/renderers/IRenderer.h"
 #include <JuceHeader.h>
 
 class CircularRenderer : public IRenderer

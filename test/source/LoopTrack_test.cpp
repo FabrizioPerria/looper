@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "LoopTrack.h"
+#include "engine/LoopTrack.h"
 
 namespace audio_plugin_test
 {

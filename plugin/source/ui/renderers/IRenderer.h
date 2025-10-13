@@ -1,6 +1,6 @@
 #pragma once
 
-#include "WaveformCache.h"
+#include "ui/components/WaveformCache.h"
 #include <JuceHeader.h>
 
 class IRenderer
