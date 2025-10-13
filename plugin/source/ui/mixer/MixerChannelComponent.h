@@ -1,7 +1,7 @@
 #pragma once
-#include "LooperEngine.h"
 #include "LooperTheme.h"
-#include "WaveformComponent.h"
+#include "engine/LooperEngine.h"
+#include "ui/components/WaveformComponent.h"
 #include <JuceHeader.h>
 
 class MixerChannelComponent : public juce::Component, private juce::Timer
@@ -34,6 +34,7 @@ public:
         volumeFader.setSliderStyle (juce::Slider::LinearVertical);
         volumeFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
         volumeFader.setRange (0.0, 1.0, 0.01);
+        volumeFader.setValue (0.75);
         volumeFader.onValueChange = [this]() { looperEngine.setTrackVolume (trackIndex, (float) volumeFader.getValue()); };
         addAndMakeVisible (volumeFader);
 
@@ -114,24 +115,21 @@ public:
         juce::FlexBox buttonFlex;
         buttonFlex.flexDirection = juce::FlexBox::Direction::row;
         buttonFlex.justifyContent = juce::FlexBox::JustifyContent::spaceBetween;
-
         buttonFlex.items.add (juce::FlexItem (undoButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 2, 0, 0)));
-        buttonFlex.items.add (juce::FlexItem (redoButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 0, 0, 2)));
+        buttonFlex.items.add (juce::FlexItem (redoButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 2, 0, 2)));
+        buttonFlex.items.add (juce::FlexItem (clearButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 0, 0, 2)));
 
-        mainFlex.items.add (juce::FlexItem().withHeight (20.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
+        mainFlex.items.add (juce::FlexItem (buttonFlex).withHeight (20.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
 
         mainFlex.items.add (juce::FlexItem (volumeFader).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 8, 0)));
-        mainFlex.items.add (juce::FlexItem (muteButton).withHeight (22.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
-        mainFlex.items.add (juce::FlexItem (soloButton).withHeight (22.0f));
 
-        mainFlex.items.add (juce::FlexItem (waveformDisplay).withHeight (60.0f).withMargin (juce::FlexItem::Margin (0, 0, 8, 0)));
+        mainFlex.items.add (juce::FlexItem (muteButton).withHeight (22.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
+
+        mainFlex.items.add (juce::FlexItem (soloButton).withHeight (22.0f).withMargin (juce::FlexItem::Margin (0, 0, 8, 0)));
+
+        mainFlex.items.add (juce::FlexItem (waveformDisplay).withHeight (60.0f));
 
         mainFlex.performLayout (bounds);
-
-        // Manually layout button row
-        auto buttonBounds = trackLabel.getBounds().translated (0, 20 + 4 + 60 + 8);
-        buttonBounds.setHeight (20);
-        buttonFlex.performLayout (buttonBounds.toFloat());
     }
 
 private:

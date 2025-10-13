@@ -1,6 +1,6 @@
 #include "PluginProcessor.h"
-#include "PerfettoProfiler.h"
 #include "PluginEditor.h"
+#include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 
 //==============================================================================

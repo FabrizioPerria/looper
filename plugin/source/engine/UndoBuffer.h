@@ -1,7 +1,7 @@
 #pragma once
 
 #include "LoopLifo.h"
-#include "PerfettoProfiler.h"
+#include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 #include <vector>
 

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "LoopFifo.h"
-#include "PerfettoProfiler.h"
 #include "UndoBuffer.h"
+#include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 
 class LoopTrack

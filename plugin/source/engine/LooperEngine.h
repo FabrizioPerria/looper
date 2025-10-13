@@ -1,7 +1,7 @@
 #pragma once
 
-#include "AudioToUIBridge.h"
-#include "LoopTrack.h"
+#include "audio/AudioToUIBridge.h"
+#include "engine/LoopTrack.h"
 #include <JuceHeader.h>
 
 enum class TransportState

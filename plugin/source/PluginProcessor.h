@@ -1,6 +1,6 @@
 #pragma once
 
-#include "LooperEngine.h"
+#include "engine/LooperEngine.h"
 #include <JuceHeader.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 

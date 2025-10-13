@@ -1,8 +1,8 @@
 #pragma once
 
-#include "AudioToUIBridge.h"
-#include "WaveformCache.h"
-#include "renderers/IRenderer.h"
+#include "audio/AudioToUIBridge.h"
+#include "ui/components/WaveformCache.h"
+#include "ui/renderers/IRenderer.h"
 #include <JuceHeader.h>
 
 class WaveformComponent : public juce::Component, public juce::Timer, public juce::AsyncUpdater

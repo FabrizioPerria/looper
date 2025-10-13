@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "LooperEngine.h"
+#include "engine/LooperEngine.h"
 
 class LooperEngineTest : public ::testing::Test
 {

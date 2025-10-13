@@ -1,6 +1,6 @@
 #pragma once
 #include "PluginProcessor.h"
-#include "themes/mixer/StudioMixerEditor.h"
+#include "ui/mixer/StudioMixerEditor.h"
 #include <JuceHeader.h>
 
 //==============================================================================

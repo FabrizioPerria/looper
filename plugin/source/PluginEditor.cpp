@@ -1,6 +1,6 @@
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
-#include "themes/mixer/StudioMixerLookAndFeel.h"
+#include "ui/mixer/StudioMixerLookAndFeel.h"
 #include <JuceHeader.h>
 
 //==============================================================================

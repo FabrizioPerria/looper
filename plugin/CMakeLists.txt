@@ -43,8 +43,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES JUCE_BINARY_DATA_FOLDER
 target_sources(
   ${PROJECT_NAME}
   PRIVATE source/PluginEditor.cpp source/PluginProcessor.cpp
-          source/LoopTrack.cpp source/LooperEngine.cpp
-          source/WaveformComponent.cpp)
+          source/engine/LoopTrack.cpp source/engine/LooperEngine.cpp
+          source/ui/components/WaveformComponent.cpp)
 
 target_include_directories(${PROJECT_NAME}
                            PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/source)
