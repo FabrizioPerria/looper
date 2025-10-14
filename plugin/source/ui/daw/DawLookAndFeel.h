@@ -2,10 +2,10 @@
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
-class StudioMixerLookAndFeel : public juce::LookAndFeel_V4
+class DawLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    StudioMixerLookAndFeel()
+    DawLookAndFeel()
     {
         setColour (juce::ResizableWindow::backgroundColourId, LooperTheme::Colors::backgroundDark);
     }

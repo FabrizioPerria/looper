@@ -1,17 +1,17 @@
 #pragma once
-#include "MixerChannelComponent.h"
+#include "DawTrackComponent.h"
 #include "engine/midiMappings.h"
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
-class StudioMixerEditor : public juce::Component, public juce::Timer
+class DawEditor : public juce::Component, public juce::Timer
 {
 public:
-    StudioMixerEditor (LooperEngine& engine) : looperEngine (engine)
+    DawEditor (LooperEngine& engine) : looperEngine (engine)
     {
         for (int i = 1; i <= engine.getNumTracks(); ++i)
         {
-            auto* channel = new MixerChannelComponent (engine, i - 1, engine.getUIBridgeByIndex (i - 1));
+            auto* channel = new DawTrackComponent (engine, i - 1, engine.getUIBridgeByIndex (i - 1));
             channels.add (channel);
             addAndMakeVisible (channel);
         }
@@ -51,7 +51,7 @@ public:
         startTimerHz (10);
     }
 
-    ~StudioMixerEditor() override
+    ~DawEditor() override
     {
         stopTimer();
     }
@@ -88,7 +88,7 @@ public:
         auto transportBounds = topBar.withSizeKeepingCentre (230, 34);
 
         juce::FlexBox transportFlex;
-        transportFlex.flexDirection = juce::FlexBox::Direction::row;
+        transportFlex.flexDirection = juce::FlexBox::Direction::column;
         transportFlex.justifyContent = juce::FlexBox::JustifyContent::center;
         transportFlex.alignItems = juce::FlexBox::AlignItems::center;
 
@@ -106,9 +106,9 @@ public:
         bounds.removeFromTop (8);
         bounds.reduce (8, 0);
 
-        // Main horizontal flex for channels + master
+        // Main vertical flex for channels + master
         juce::FlexBox mainFlex;
-        mainFlex.flexDirection = juce::FlexBox::Direction::row;
+        mainFlex.flexDirection = juce::FlexBox::Direction::column;
         mainFlex.justifyContent = juce::FlexBox::JustifyContent::flexStart;
         mainFlex.alignItems = juce::FlexBox::AlignItems::stretch;
 
@@ -142,7 +142,7 @@ public:
 
 private:
     LooperEngine& looperEngine;
-    juce::OwnedArray<MixerChannelComponent> channels;
+    juce::OwnedArray<DawTrackComponent> channels;
 
     juce::TextButton recordButton;
     juce::TextButton playButton;
@@ -168,5 +168,5 @@ private:
         recordButton.setToggleState (state == TransportState::Recording, juce::dontSendNotification);
         playButton.setToggleState (state != TransportState::Stopped, juce::dontSendNotification);
     }
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StudioMixerEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DawEditor)
 };

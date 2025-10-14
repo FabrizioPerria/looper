@@ -5,10 +5,10 @@
 #include "ui/components/WaveformComponent.h"
 #include <JuceHeader.h>
 
-class MixerChannelComponent : public juce::Component, private juce::Timer
+class DawTrackComponent : public juce::Component, private juce::Timer
 {
 public:
-    MixerChannelComponent (LooperEngine& engine, int trackIdx, AudioToUIBridge* bridge) : trackIndex (trackIdx), looperEngine (engine)
+    DawTrackComponent (LooperEngine& engine, int trackIdx, AudioToUIBridge* bridge) : trackIndex (trackIdx), looperEngine (engine)
     {
         // Track label
         trackLabel.setText ("T" + juce::String (trackIdx), juce::dontSendNotification);
@@ -55,7 +55,7 @@ public:
         startTimerHz (10);
     }
 
-    ~MixerChannelComponent() override
+    ~DawTrackComponent() override
     {
         stopTimer();
     }
@@ -105,7 +105,7 @@ public:
     void resized() override
     {
         juce::FlexBox mainFlex;
-        mainFlex.flexDirection = juce::FlexBox::Direction::column;
+        mainFlex.flexDirection = juce::FlexBox::Direction::row;
         mainFlex.justifyContent = juce::FlexBox::JustifyContent::flexStart;
         mainFlex.alignItems = juce::FlexBox::AlignItems::stretch;
 
@@ -114,7 +114,7 @@ public:
         mainFlex.items.add (juce::FlexItem (trackLabel).withHeight (20.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
 
         juce::FlexBox buttonFlex;
-        buttonFlex.flexDirection = juce::FlexBox::Direction::row;
+        buttonFlex.flexDirection = juce::FlexBox::Direction::column;
         buttonFlex.justifyContent = juce::FlexBox::JustifyContent::spaceBetween;
         buttonFlex.items.add (juce::FlexItem (undoButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 2, 0, 0)));
         buttonFlex.items.add (juce::FlexItem (redoButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 2, 0, 2)));
@@ -124,7 +124,7 @@ public:
         mainFlex.items.add (juce::FlexItem (volumeFader).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 8, 0)));
 
         juce::FlexBox button2Flex;
-        button2Flex.flexDirection = juce::FlexBox::Direction::row;
+        button2Flex.flexDirection = juce::FlexBox::Direction::column;
         button2Flex.justifyContent = juce::FlexBox::JustifyContent::spaceBetween;
         button2Flex.items.add (juce::FlexItem (muteButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 2, 0, 0)));
         button2Flex.items.add (juce::FlexItem (soloButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 0, 0, 2)));
@@ -159,5 +159,5 @@ private:
         looperEngine.handleMidiCommand (midiBuffer);
     }
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MixerChannelComponent)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DawTrackComponent)
 };

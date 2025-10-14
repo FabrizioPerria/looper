@@ -1,19 +1,15 @@
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
-#include "ui/mixer/StudioMixerLookAndFeel.h"
 #include <JuceHeader.h>
 
 //==============================================================================
 AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
-    mixerEditor = std::make_unique<StudioMixerEditor> (processorRef.getLooperEngine());
-    lookAndFeel = std::make_unique<StudioMixerLookAndFeel>();
-    setLookAndFeel (lookAndFeel.get());
+    theme = ThemeFactory::createTheme ("Daw", processorRef.getLooperEngine());
+    setLookAndFeel (theme->lookAndFeel.get());
 
-    auto& engine = processorRef.getLooperEngine();
-
-    addAndMakeVisible (*mixerEditor);
+    addAndMakeVisible (theme->editorComponent.get());
 
     setSize (900, 600); // Make it bigger to see
 }
@@ -31,5 +27,5 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
 
 void AudioPluginAudioProcessorEditor::resized()
 {
-    mixerEditor->setBounds (getLocalBounds());
+    theme->editorComponent->setBounds (getLocalBounds());
 }

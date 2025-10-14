@@ -1,6 +1,6 @@
 #pragma once
 #include "PluginProcessor.h"
-#include "ui/mixer/StudioMixerEditor.h"
+#include "ui/ThemeFactory.h"
 #include <JuceHeader.h>
 
 //==============================================================================
@@ -16,8 +16,7 @@ public:
 
 private:
     AudioPluginAudioProcessor& processorRef;
-    std::unique_ptr<StudioMixerEditor> mixerEditor;
-    std::unique_ptr<juce::LookAndFeel> lookAndFeel;
+    std::unique_ptr<Theme> theme;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessorEditor)
 };
