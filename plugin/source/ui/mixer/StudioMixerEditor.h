@@ -1,6 +1,7 @@
 #pragma once
 #include "LooperTheme.h"
 #include "MixerChannelComponent.h"
+#include "engine/midiMappings.h"
 #include <JuceHeader.h>
 
 class StudioMixerEditor : public juce::Component, public juce::Timer
@@ -25,6 +26,14 @@ public:
         playButton.setClickingTogglesState (true);
         playButton.onClick = [this]() { sendMidiMessageToEngine (TOGGLE_PLAY_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (playButton);
+
+        prevButton.setButtonText ("PREV");
+        prevButton.onClick = [this]() { sendMidiMessageToEngine (PREV_TRACK_MIDI_NOTE, NOTE_ON); };
+        addAndMakeVisible (prevButton);
+
+        nextButton.setButtonText ("NEXT");
+        nextButton.onClick = [this]() { sendMidiMessageToEngine (NEXT_TRACK_MIDI_NOTE, NOTE_ON); };
+        addAndMakeVisible (nextButton);
 
         // Master section
         masterLabel.setText ("MASTER", juce::dontSendNotification);
@@ -86,7 +95,11 @@ public:
         transportFlex.items
             .add (juce::FlexItem (recordButton).withWidth (70.0f).withHeight (34.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 0)));
         transportFlex.items
-            .add (juce::FlexItem (playButton).withWidth (70.0f).withHeight (34.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 4)));
+            .add (juce::FlexItem (playButton).withWidth (70.0f).withHeight (34.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
+        transportFlex.items
+            .add (juce::FlexItem (prevButton).withWidth (70.0f).withHeight (34.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
+        transportFlex.items
+            .add (juce::FlexItem (nextButton).withWidth (70.0f).withHeight (34.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 4)));
 
         transportFlex.performLayout (transportBounds.toFloat());
 
@@ -133,6 +146,8 @@ private:
 
     juce::TextButton recordButton;
     juce::TextButton playButton;
+    juce::TextButton nextButton;
+    juce::TextButton prevButton;
 
     juce::Label masterLabel;
     juce::Slider masterFader;

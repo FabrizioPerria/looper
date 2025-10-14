@@ -55,12 +55,12 @@ public:
     void startRecording();
     void startPlaying();
     void stop();
-    void undo();
-    void redo();
-    void clear();
+    void undo (size_t trackIndex);
+    void redo (size_t trackIndex);
+    void clear (size_t trackIndex);
 
-    void loadBackingTrackToActiveTrack (const juce::AudioBuffer<float>& backingTrack);
-    void loadWaveFileToActiveTrack (const juce::File& audioFile);
+    void loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, size_t trackIndex);
+    void loadWaveFileToTrack (const juce::File& audioFile, size_t trackIndex);
 
     AudioToUIBridge* getUIBridgeByIndex (int trackIndex)
     {
@@ -113,7 +113,7 @@ private:
         return transportState == TransportState::Stopped;
     }
 
-    std::unordered_map<MidiKey, std::function<void (LooperEngine&)>, MidiKeyHash> midiCommandMap;
+    std::unordered_map<MidiKey, std::function<void (LooperEngine&, int)>, MidiKeyHash> midiCommandMap;
     void setupMidiCommands();
 
     TransportState transportState;

@@ -77,25 +77,30 @@ void LooperEngine::removeTrack (const int trackIndex)
     if (activeTrackIndex >= numTracks) activeTrackIndex = numTracks - 1;
 }
 
-void LooperEngine::undo()
+void LooperEngine::undo (size_t trackIndex)
 {
     PERFETTO_FUNCTION();
-    loopTracks[activeTrackIndex]->undo();
-    uiBridges[activeTrackIndex]->signalWaveformChanged();
+    if (trackIndex >= numTracks) trackIndex = activeTrackIndex;
+    loopTracks[trackIndex]->undo();
+    uiBridges[trackIndex]->signalWaveformChanged();
+    transportState = TransportState::Playing;
 }
 
-void LooperEngine::redo()
+void LooperEngine::redo (size_t trackIndex)
 {
     PERFETTO_FUNCTION();
-    loopTracks[activeTrackIndex]->redo();
-    uiBridges[activeTrackIndex]->signalWaveformChanged();
+    if (trackIndex >= numTracks) trackIndex = activeTrackIndex;
+    loopTracks[trackIndex]->redo();
+    uiBridges[trackIndex]->signalWaveformChanged();
+    transportState = TransportState::Playing;
 }
 
-void LooperEngine::clear()
+void LooperEngine::clear (size_t trackIndex)
 {
     PERFETTO_FUNCTION();
-    loopTracks[activeTrackIndex]->clear();
-    uiBridges[activeTrackIndex]->signalWaveformChanged();
+    if (trackIndex >= numTracks) trackIndex = activeTrackIndex;
+    loopTracks[trackIndex]->clear();
+    uiBridges[trackIndex]->signalWaveformChanged();
     transportState = TransportState::Stopped;
 }
 
@@ -128,39 +133,39 @@ void LooperEngine::setupMidiCommands()
 {
     PERFETTO_FUNCTION();
 
-    midiCommandMap[{ RECORD_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine)
+    midiCommandMap[{ RECORD_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int /**/)
     {
         if (engine.getTransportState() != TransportState::Recording)
             engine.startRecording();
         else
             engine.stop();
     };
-    midiCommandMap[{ TOGGLE_PLAY_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine)
+    midiCommandMap[{ TOGGLE_PLAY_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int /**/)
     {
         if (engine.getTransportState() == TransportState::Stopped)
             engine.startPlaying();
         else
             engine.stop();
     };
-    midiCommandMap[{ UNDO_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine) { engine.undo(); };
-    midiCommandMap[{ REDO_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine) { engine.redo(); };
-    midiCommandMap[{ CLEAR_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine) { engine.clear(); };
-    midiCommandMap[{ NEXT_TRACK_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine) { engine.selectNextTrack(); };
-    midiCommandMap[{ PREV_TRACK_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine) { engine.selectPreviousTrack(); };
-    midiCommandMap[{ SOLO_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine)
+    midiCommandMap[{ UNDO_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int trackIndex) { engine.undo (trackIndex); };
+    midiCommandMap[{ REDO_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int trackIndex) { engine.redo (trackIndex); };
+    midiCommandMap[{ CLEAR_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int trackIndex) { engine.clear (trackIndex); };
+    midiCommandMap[{ NEXT_TRACK_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int /**/) { engine.selectNextTrack(); };
+    midiCommandMap[{ PREV_TRACK_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int /**/) { engine.selectPreviousTrack(); };
+    midiCommandMap[{ SOLO_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int trackIndex)
     {
-        auto* track = engine.getActiveTrack();
-        if (track) engine.setTrackSoloed (engine.getActiveTrackIndex(), ! track->isSoloed());
+        auto* track = engine.getTrackByIndex (trackIndex);
+        if (track) engine.setTrackSoloed (trackIndex, ! track->isSoloed());
     };
-    midiCommandMap[{ MUTE_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine)
+    midiCommandMap[{ MUTE_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int trackIndex)
     {
-        auto* track = engine.getActiveTrack();
-        if (track) engine.setTrackMuted (engine.getActiveTrackIndex(), ! track->isMuted());
+        auto* track = engine.getTrackByIndex (trackIndex);
+        if (track) engine.setTrackMuted (trackIndex, ! track->isMuted());
     };
 
     juce::File defaultFile = juce::File::getSpecialLocation (juce::File::userDesktopDirectory).getChildFile ("backing.wav");
-    midiCommandMap[{ LOAD_BUTTON_MIDI_NOTE, NOTE_ON }] = [defaultFile] (LooperEngine& engine)
-    { engine.loadWaveFileToActiveTrack (defaultFile); };
+    midiCommandMap[{ LOAD_BUTTON_MIDI_NOTE, NOTE_ON }] = [defaultFile] (LooperEngine& engine, int trackIndex)
+    { engine.loadWaveFileToTrack (defaultFile, trackIndex); };
 }
 
 void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
@@ -168,11 +173,18 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
     PERFETTO_FUNCTION();
     if (midiMessages.getNumEvents() > 0)
     {
+        int targetTrack = activeTrackIndex;
         for (auto midi : midiMessages)
         {
             auto m = midi.getMessage();
+            if (m.isController() && m.getControllerNumber() == TRACK_SELECT_CC)
+            {
+                targetTrack = juce::jlimit (0, numTracks - 1, m.getControllerValue() % numTracks);
+                continue;
+            }
+
             auto it = midiCommandMap.find ({ m.getNoteNumber(), m.isNoteOn() });
-            if (it != midiCommandMap.end()) it->second (*this);
+            if (it != midiCommandMap.end()) it->second (*this, targetTrack);
         }
     }
 }
@@ -251,23 +263,27 @@ void LooperEngine::setOverdubGainsForTrack (const int trackIndex, const double o
     if (track) track->setOverdubGains (oldGain, newGain);
 }
 
-void LooperEngine::loadBackingTrackToActiveTrack (const juce::AudioBuffer<float>& backingTrack)
+void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, size_t trackIndex)
 {
     PERFETTO_FUNCTION();
-    auto activeTrack = getActiveTrack();
-    if (activeTrack)
+    if (trackIndex < 0 || trackIndex >= numTracks) return;
+
+    auto& track = loopTracks[trackIndex];
+    if (track)
     {
-        activeTrack->loadBackingTrack (backingTrack);
-        uiBridges[activeTrackIndex]->signalWaveformChanged();
+        track->loadBackingTrack (backingTrack);
+        uiBridges[trackIndex]->signalWaveformChanged();
         startPlaying();
     }
 }
 
-void LooperEngine::loadWaveFileToActiveTrack (const juce::File& audioFile)
+void LooperEngine::loadWaveFileToTrack (const juce::File& audioFile, size_t trackIndex)
 {
     PERFETTO_FUNCTION();
-    auto activeTrack = getActiveTrack();
-    if (activeTrack)
+    if (trackIndex < 0 || trackIndex >= numTracks) return;
+
+    auto& track = loopTracks[trackIndex];
+    if (track)
     {
         juce::AudioFormatManager formatManager;
         formatManager.registerBasicFormats();
@@ -276,7 +292,7 @@ void LooperEngine::loadWaveFileToActiveTrack (const juce::File& audioFile)
         {
             juce::AudioBuffer<float> backingTrack ((int) reader->numChannels, (int) reader->lengthInSamples);
             reader->read (&backingTrack, 0, (int) reader->lengthInSamples, 0, true, true);
-            loadBackingTrackToActiveTrack (backingTrack);
+            loadBackingTrackToTrack (backingTrack, trackIndex);
         }
     }
 }
