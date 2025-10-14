@@ -13,7 +13,7 @@ public:
         // Track label
         trackLabel.setText ("T" + juce::String (trackIdx), juce::dontSendNotification);
         trackLabel.setFont (LooperTheme::Fonts::getBoldFont (11.0f));
-        trackLabel.setJustificationType (juce::Justification::centred);
+        trackLabel.setJustificationType (juce::Justification::centredLeft);
         trackLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
         addAndMakeVisible (trackLabel);
 
@@ -32,20 +32,18 @@ public:
         clearButton.onClick = [this]() { sendMidiMessageToEngine (CLEAR_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (clearButton);
 
-        volumeFader.setSliderStyle (juce::Slider::LinearVertical);
+        volumeFader.setSliderStyle (juce::Slider::LinearHorizontal);
         volumeFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
         volumeFader.setRange (0.0, 1.0, 0.01);
         volumeFader.setValue (0.75);
         volumeFader.onValueChange = [this]() { looperEngine.setTrackVolume (trackIndex, (float) volumeFader.getValue()); };
         addAndMakeVisible (volumeFader);
 
-        // Mute button
         muteButton.setButtonText ("M");
         muteButton.setClickingTogglesState (true);
         muteButton.onClick = [this]() { sendMidiMessageToEngine (MUTE_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (muteButton);
 
-        // Solo button
         soloButton.setButtonText ("S");
         soloButton.setClickingTogglesState (true);
         soloButton.onClick = [this]() { sendMidiMessageToEngine (SOLO_BUTTON_MIDI_NOTE, NOTE_ON); };
@@ -60,7 +58,7 @@ public:
         stopTimer();
     }
 
-    void timerCallback()
+    void timerCallback() override
     {
         updateControlsFromEngine();
     }
@@ -70,69 +68,74 @@ public:
         auto* track = looperEngine.getTrackByIndex (trackIndex);
         if (! track) return;
 
-        // Update volume slider if it changed (avoid feedback loop)
         float currentVolume = track->getTrackVolume();
         if (std::abs (volumeFader.getValue() - currentVolume) > 0.001)
         {
             volumeFader.setValue (currentVolume, juce::dontSendNotification);
         }
 
-        // Update mute button
         bool currentMuted = track->isMuted();
         if (muteButton.getToggleState() != currentMuted)
         {
             muteButton.setToggleState (currentMuted, juce::dontSendNotification);
         }
+
+        static int lastActiveTrack = -1;
+        int currentActiveTrack = looperEngine.getActiveTrackIndex();
+        if (lastActiveTrack != currentActiveTrack)
+        {
+            repaint();
+            lastActiveTrack = currentActiveTrack;
+        }
+    }
+
+    void mouseDown (const juce::MouseEvent& event) override
+    {
+        looperEngine.selectTrack (trackIndex);
+        repaint();
     }
 
     void paint (juce::Graphics& g) override
     {
         auto bounds = getLocalBounds();
+        bool isActive = (looperEngine.getActiveTrackIndex() == trackIndex);
 
-        // Channel strip background
-        g.setColour (LooperTheme::Colors::surface);
-        g.fillRoundedRectangle (bounds.toFloat(), 6.0f);
+        // Track background
+        g.setColour (isActive ? LooperTheme::Colors::surface.brighter (0.15f) : LooperTheme::Colors::surface);
+        g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
 
         // Border
-        g.setColour (LooperTheme::Colors::border);
-        g.drawRoundedRectangle (bounds.toFloat().reduced (1), 6.0f, 1.5f);
+        g.setColour (isActive ? LooperTheme::Colors::cyan : LooperTheme::Colors::border);
+        g.drawRoundedRectangle (bounds.toFloat().reduced (0.5f), 4.0f, isActive ? 2.0f : 1.0f);
 
-        // Top accent line
-        g.setColour (LooperTheme::Colors::primary.withAlpha (0.3f));
-        g.fillRoundedRectangle (bounds.removeFromTop (3).toFloat(), 6.0f);
+        // Left accent bar
+        g.setColour (isActive ? LooperTheme::Colors::cyan.withAlpha (0.6f) : LooperTheme::Colors::primary.withAlpha (0.3f));
+        g.fillRoundedRectangle (bounds.removeFromLeft (3).toFloat(), 4.0f);
     }
 
     void resized() override
     {
-        juce::FlexBox mainFlex;
-        mainFlex.flexDirection = juce::FlexBox::Direction::row;
-        mainFlex.justifyContent = juce::FlexBox::JustifyContent::flexStart;
-        mainFlex.alignItems = juce::FlexBox::AlignItems::stretch;
+        juce::FlexBox flexMain;
+        flexMain.flexDirection = juce::FlexBox::Direction::row;
+        flexMain.justifyContent = juce::FlexBox::JustifyContent::flexStart;
+        flexMain.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        auto bounds = getLocalBounds().reduced (6).toFloat();
+        juce::FlexBox leftColumn;
+        leftColumn.flexDirection = juce::FlexBox::Direction::column;
+        leftColumn.justifyContent = juce::FlexBox::JustifyContent::flexStart;
+        leftColumn.alignItems = juce::FlexBox::AlignItems::stretch;
+        leftColumn.items.add (juce::FlexItem (trackLabel).withHeight (20.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
+        leftColumn.items.add (juce::FlexItem (undoButton).withHeight (18.0f).withMargin (juce::FlexItem::Margin (0, 0, 2, 0)));
+        leftColumn.items.add (juce::FlexItem (redoButton).withHeight (18.0f).withMargin (juce::FlexItem::Margin (0, 0, 2, 0)));
+        leftColumn.items.add (juce::FlexItem (clearButton).withHeight (18.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
+        leftColumn.items.add (juce::FlexItem (muteButton).withHeight (18.0f).withMargin (juce::FlexItem::Margin (0, 0, 2, 0)));
+        leftColumn.items.add (juce::FlexItem (soloButton).withHeight (18.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 0)));
 
-        mainFlex.items.add (juce::FlexItem (trackLabel).withHeight (20.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
+        flexMain.items.add (juce::FlexItem (leftColumn).withWidth (60.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 0)));
+        flexMain.items.add (juce::FlexItem (waveformDisplay).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 4, 24, 0)));
+        flexMain.items.add (juce::FlexItem (volumeFader).withHeight (20.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 0)));
 
-        juce::FlexBox buttonFlex;
-        buttonFlex.flexDirection = juce::FlexBox::Direction::column;
-        buttonFlex.justifyContent = juce::FlexBox::JustifyContent::spaceBetween;
-        buttonFlex.items.add (juce::FlexItem (undoButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 2, 0, 0)));
-        buttonFlex.items.add (juce::FlexItem (redoButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 2, 0, 2)));
-        buttonFlex.items.add (juce::FlexItem (clearButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 0, 0, 2)));
-        mainFlex.items.add (juce::FlexItem (buttonFlex).withHeight (20.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
-
-        mainFlex.items.add (juce::FlexItem (volumeFader).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 8, 0)));
-
-        juce::FlexBox button2Flex;
-        button2Flex.flexDirection = juce::FlexBox::Direction::column;
-        button2Flex.justifyContent = juce::FlexBox::JustifyContent::spaceBetween;
-        button2Flex.items.add (juce::FlexItem (muteButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 2, 0, 0)));
-        button2Flex.items.add (juce::FlexItem (soloButton).withFlex (1).withMargin (juce::FlexItem::Margin (0, 0, 0, 2)));
-        mainFlex.items.add (juce::FlexItem (button2Flex).withHeight (20.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
-
-        mainFlex.items.add (juce::FlexItem (waveformDisplay).withHeight (70.0f));
-
-        mainFlex.performLayout (bounds);
+        flexMain.performLayout (getLocalBounds().toFloat().reduced (4.0f));
     }
 
 private:
