@@ -10,7 +10,6 @@ class DawTrackComponent : public juce::Component, private juce::Timer
 public:
     DawTrackComponent (LooperEngine& engine, int trackIdx, AudioToUIBridge* bridge) : trackIndex (trackIdx), looperEngine (engine)
     {
-        // Track label
         trackLabel.setText ("T" + juce::String (trackIdx), juce::dontSendNotification);
         trackLabel.setFont (LooperTheme::Fonts::getBoldFont (11.0f));
         trackLabel.setJustificationType (juce::Justification::centredLeft);
@@ -49,6 +48,11 @@ public:
         soloButton.onClick = [this]() { sendMidiMessageToEngine (SOLO_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (soloButton);
 
+        // Create accent bar component
+        accentBar.setInterceptsMouseClicks (true, false);
+        accentBar.onClick = [this]() { looperEngine.selectTrack (trackIndex); };
+        addAndMakeVisible (accentBar);
+
         updateControlsFromEngine();
         startTimerHz (10);
     }
@@ -79,67 +83,100 @@ public:
         {
             muteButton.setToggleState (currentMuted, juce::dontSendNotification);
         }
-
-        static int lastActiveTrack = -1;
-        int currentActiveTrack = looperEngine.getActiveTrackIndex();
-        if (lastActiveTrack != currentActiveTrack)
-        {
-            repaint();
-            lastActiveTrack = currentActiveTrack;
-        }
     }
 
-    void mouseDown (const juce::MouseEvent& event) override
+    void setActive (bool shouldBeActive)
     {
-        looperEngine.selectTrack (trackIndex);
-        repaint();
+        if (isActive != shouldBeActive)
+        {
+            isActive = shouldBeActive;
+            repaint();
+        }
     }
 
     void paint (juce::Graphics& g) override
     {
         auto bounds = getLocalBounds();
-        bool isActive = (looperEngine.getActiveTrackIndex() == trackIndex);
 
-        // Track background
         g.setColour (isActive ? LooperTheme::Colors::surface.brighter (0.15f) : LooperTheme::Colors::surface);
         g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
 
-        // Border
         g.setColour (isActive ? LooperTheme::Colors::cyan : LooperTheme::Colors::border);
         g.drawRoundedRectangle (bounds.toFloat().reduced (0.5f), 4.0f, isActive ? 2.0f : 1.0f);
-
-        // Left accent bar
-        g.setColour (isActive ? LooperTheme::Colors::cyan.withAlpha (0.6f) : LooperTheme::Colors::primary.withAlpha (0.3f));
-        g.fillRoundedRectangle (bounds.removeFromLeft (3).toFloat(), 4.0f);
     }
 
     void resized() override
     {
-        juce::FlexBox flexMain;
-        flexMain.flexDirection = juce::FlexBox::Direction::row;
-        flexMain.justifyContent = juce::FlexBox::JustifyContent::flexStart;
-        flexMain.alignItems = juce::FlexBox::AlignItems::stretch;
+        auto bounds = getLocalBounds().reduced (4);
 
+        // Accent bar on the very left edge
+        accentBar.setBounds (bounds.removeFromLeft (8));
+        bounds.removeFromLeft (2);
+
+        juce::FlexBox mainRow;
+        mainRow.flexDirection = juce::FlexBox::Direction::row;
+        mainRow.alignItems = juce::FlexBox::AlignItems::stretch;
+
+        // Left controls column
         juce::FlexBox leftColumn;
         leftColumn.flexDirection = juce::FlexBox::Direction::column;
-        leftColumn.justifyContent = juce::FlexBox::JustifyContent::flexStart;
-        leftColumn.alignItems = juce::FlexBox::AlignItems::stretch;
-        leftColumn.items.add (juce::FlexItem (trackLabel).withHeight (20.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
-        leftColumn.items.add (juce::FlexItem (undoButton).withHeight (18.0f).withMargin (juce::FlexItem::Margin (0, 0, 2, 0)));
-        leftColumn.items.add (juce::FlexItem (redoButton).withHeight (18.0f).withMargin (juce::FlexItem::Margin (0, 0, 2, 0)));
-        leftColumn.items.add (juce::FlexItem (clearButton).withHeight (18.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
-        leftColumn.items.add (juce::FlexItem (muteButton).withHeight (18.0f).withMargin (juce::FlexItem::Margin (0, 0, 2, 0)));
-        leftColumn.items.add (juce::FlexItem (soloButton).withHeight (18.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 0)));
 
-        flexMain.items.add (juce::FlexItem (leftColumn).withWidth (60.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 0)));
-        flexMain.items.add (juce::FlexItem (waveformDisplay).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 4, 24, 0)));
-        flexMain.items.add (juce::FlexItem (volumeFader).withHeight (20.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 0)));
+        leftColumn.items.add (juce::FlexItem (trackLabel).withFlex (0.2f));
+        leftColumn.items.add (juce::FlexItem (undoButton).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+        leftColumn.items.add (juce::FlexItem (redoButton).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+        leftColumn.items.add (juce::FlexItem (clearButton).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+        leftColumn.items.add (juce::FlexItem().withFlex (0.05f)); // spacer
+        leftColumn.items.add (juce::FlexItem (muteButton).withFlex (0.15f));
+        leftColumn.items.add (juce::FlexItem (soloButton).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
 
-        flexMain.performLayout (getLocalBounds().toFloat().reduced (4.0f));
+        mainRow.items.add (juce::FlexItem (leftColumn).withFlex (0.08f).withMargin (juce::FlexItem::Margin (0, 4, 0, 0)));
+
+        // Right side with waveform and volume
+        juce::FlexBox rightColumn;
+        rightColumn.flexDirection = juce::FlexBox::Direction::column;
+
+        rightColumn.items.add (juce::FlexItem (waveformDisplay).withFlex (1.0f));
+        rightColumn.items.add (juce::FlexItem (volumeFader).withFlex (0.2f).withMargin (juce::FlexItem::Margin (4, 0, 0, 0)));
+
+        mainRow.items.add (juce::FlexItem (rightColumn).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 0)));
+
+        mainRow.performLayout (bounds.toFloat());
     }
 
 private:
+    class AccentBar : public juce::Component
+    {
+    public:
+        std::function<void()> onClick;
+
+        void paint (juce::Graphics& g) override
+        {
+            auto bounds = getLocalBounds();
+            auto* track = dynamic_cast<DawTrackComponent*> (getParentComponent());
+            bool isActive = track ? track->isActive : false;
+
+            g.setColour (isActive ? LooperTheme::Colors::cyan.withAlpha (0.8f) : LooperTheme::Colors::primary.withAlpha (0.3f));
+            g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
+        }
+
+        void mouseDown (const juce::MouseEvent&) override
+        {
+            if (onClick) onClick();
+        }
+
+        void mouseEnter (const juce::MouseEvent&) override
+        {
+            setMouseCursor (juce::MouseCursor::PointingHandCursor);
+        }
+
+        void mouseExit (const juce::MouseEvent&) override
+        {
+            setMouseCursor (juce::MouseCursor::NormalCursor);
+        }
+    };
+
     int trackIndex;
+    bool isActive = false;
     juce::Label trackLabel;
     WaveformComponent waveformDisplay;
     juce::TextButton undoButton;
@@ -148,6 +185,7 @@ private:
     juce::Slider volumeFader;
     juce::TextButton muteButton;
     juce::TextButton soloButton;
+    AccentBar accentBar;
 
     LooperEngine& looperEngine;
 

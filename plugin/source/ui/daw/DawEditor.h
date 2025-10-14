@@ -16,7 +16,6 @@ public:
             addAndMakeVisible (channel);
         }
 
-        // Transport buttons
         recordButton.setButtonText ("REC");
         recordButton.setClickingTogglesState (true);
         recordButton.onClick = [this]() { sendMidiMessageToEngine (RECORD_BUTTON_MIDI_NOTE, NOTE_ON); };
@@ -52,9 +51,11 @@ public:
         g.setColour (LooperTheme::Colors::surface);
         g.fillRect (topBar);
 
+        // Bottom border for top bar
         g.setColour (LooperTheme::Colors::border);
         g.drawLine (0, 50, getWidth(), 50, 1.0f);
 
+        // Draw title text
         g.setColour (LooperTheme::Colors::cyan);
         g.setFont (LooperTheme::Fonts::getTitleFont (18.0f));
         g.drawText ("LOOPER", juce::Rectangle<float> (12, 8, 150, 34), juce::Justification::centredLeft);
@@ -90,14 +91,16 @@ public:
         bounds.removeFromTop (8);
         bounds.reduce (8, 0);
 
-        // Stack tracks vertically (horizontal track layout)
-        int trackHeight = 120;
+        juce::FlexBox tracksFlex;
+        tracksFlex.flexDirection = juce::FlexBox::Direction::column;
+        tracksFlex.alignItems = juce::FlexBox::AlignItems::stretch;
+
         for (auto* channel : channels)
         {
-            if (bounds.getHeight() < trackHeight) break;
-            channel->setBounds (bounds.removeFromTop (trackHeight));
-            bounds.removeFromTop (4); // Spacing between tracks
+            tracksFlex.items.add (juce::FlexItem (*channel).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
         }
+
+        tracksFlex.performLayout (bounds.toFloat());
     }
 
 private:
@@ -123,6 +126,13 @@ private:
         auto state = looperEngine.getTransportState();
         recordButton.setToggleState (state == TransportState::Recording, juce::dontSendNotification);
         playButton.setToggleState (state != TransportState::Stopped, juce::dontSendNotification);
+
+        // Update active track highlighting
+        int activeTrackIndex = looperEngine.getActiveTrackIndex();
+        for (int i = 0; i < channels.size(); ++i)
+        {
+            channels[i]->setActive (i == activeTrackIndex);
+        }
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DawEditor)
