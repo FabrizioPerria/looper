@@ -109,9 +109,9 @@ TEST_F (LooperEngineTest, UndoAndClear)
     engine.stop();
 
     // Test undo
-    engine.undo();
+    engine.undo (-1);
 
     // Test clear
-    engine.clear();
+    engine.clear (-1);
     EXPECT_EQ (engine.getTransportState(), TransportState::Stopped);
 }

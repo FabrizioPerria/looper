@@ -153,6 +153,8 @@ private:
         juce::MidiBuffer midiBuffer;
         juce::MidiMessage msg = isNoteOn ? juce::MidiMessage::noteOn (1, noteNumber, (juce::uint8) 100)
                                          : juce::MidiMessage::noteOff (1, noteNumber);
+
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (msg, 0);
         looperEngine.handleMidiCommand (midiBuffer);
     }
