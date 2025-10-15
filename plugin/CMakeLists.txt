@@ -30,10 +30,10 @@ juce_add_plugin(
 juce_add_binary_data(
   BinaryData
   SOURCES
-  resources/mute.svg,
-  resources/solo.svg,
-  resources/undo.svg,
-  resources/redo.svg,
+  resources/mute.svg
+  resources/solo.svg
+  resources/undo.svg
+  resources/redo.svg
   resources/clear.svg)
 
 get_target_property(juce_library_code ${PROJECT_NAME}

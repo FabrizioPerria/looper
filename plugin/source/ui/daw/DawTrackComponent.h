@@ -10,7 +10,7 @@ class DawTrackComponent : public juce::Component, private juce::Timer
 public:
     DawTrackComponent (LooperEngine& engine, int trackIdx, AudioToUIBridge* bridge) : trackIndex (trackIdx), looperEngine (engine)
     {
-        trackLabel.setText ("T" + juce::String (trackIdx), juce::dontSendNotification);
+        trackLabel.setText ("Track " + juce::String (trackIdx + 1), juce::dontSendNotification);
         trackLabel.setFont (LooperTheme::Fonts::getBoldFont (11.0f));
         trackLabel.setJustificationType (juce::Justification::centredLeft);
         trackLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
@@ -133,7 +133,8 @@ public:
 
         leftColumn.items.add (juce::FlexItem (trackLabel).withFlex (0.15f));
 
-        // Horizontal button row for undo/redo/clear
+        leftColumn.items.add (juce::FlexItem().withFlex (0.15f)); // spacer
+
         juce::FlexBox buttonRow;
         buttonRow.flexDirection = juce::FlexBox::Direction::row;
         buttonRow.items.add (juce::FlexItem (undoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
@@ -142,11 +143,16 @@ public:
 
         leftColumn.items.add (juce::FlexItem (buttonRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
 
-        leftColumn.items.add (juce::FlexItem().withFlex (0.1f)); // spacer
-        leftColumn.items.add (juce::FlexItem (muteButton).withFlex (0.15f));
-        leftColumn.items.add (juce::FlexItem (soloButton).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+        leftColumn.items.add (juce::FlexItem().withFlex (0.2f));
 
-        mainRow.items.add (juce::FlexItem (leftColumn).withFlex (0.1f).withMargin (juce::FlexItem::Margin (0, 4, 0, 0)));
+        juce::FlexBox muteSoloRow;
+        muteSoloRow.flexDirection = juce::FlexBox::Direction::row;
+        muteSoloRow.items.add (juce::FlexItem (soloButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
+        muteSoloRow.items.add (juce::FlexItem().withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        muteSoloRow.items.add (juce::FlexItem (muteButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
+        leftColumn.items.add (juce::FlexItem (muteSoloRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+
+        mainRow.items.add (juce::FlexItem (leftColumn).withFlex (0.15f).withMargin (juce::FlexItem::Margin (0, 4, 0, 0)));
 
         // Right side with waveform and volume
         juce::FlexBox rightColumn;
