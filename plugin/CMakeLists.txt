@@ -27,7 +27,14 @@ juce_add_plugin(
   COMPANY_NAME
   "fp")
 
-juce_add_binary_data(BinaryData SOURCES resources/volume.svg)
+juce_add_binary_data(
+  BinaryData
+  SOURCES
+  resources/mute.svg,
+  resources/solo.svg,
+  resources/undo.svg,
+  resources/redo.svg,
+  resources/clear.svg)
 
 get_target_property(juce_library_code ${PROJECT_NAME}
                     JUCE_GENERATED_SOURCES_DIRECTORY)

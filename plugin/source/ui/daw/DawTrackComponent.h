@@ -20,14 +20,17 @@ public:
         addAndMakeVisible (waveformDisplay);
 
         undoButton.setButtonText ("U");
+        undoButton.setComponentID ("undo");
         undoButton.onClick = [this]() { sendMidiMessageToEngine (UNDO_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (undoButton);
 
         redoButton.setButtonText ("R");
+        redoButton.setComponentID ("redo");
         redoButton.onClick = [this]() { sendMidiMessageToEngine (REDO_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (redoButton);
 
         clearButton.setButtonText ("C");
+        clearButton.setComponentID ("clear");
         clearButton.onClick = [this]() { sendMidiMessageToEngine (CLEAR_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (clearButton);
 
@@ -38,12 +41,14 @@ public:
         volumeFader.onValueChange = [this]() { looperEngine.setTrackVolume (trackIndex, (float) volumeFader.getValue()); };
         addAndMakeVisible (volumeFader);
 
-        muteButton.setButtonText ("M");
+        muteButton.setButtonText ("MUTE");
+        muteButton.setComponentID ("mute");
         muteButton.setClickingTogglesState (true);
         muteButton.onClick = [this]() { sendMidiMessageToEngine (MUTE_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (muteButton);
 
-        soloButton.setButtonText ("S");
+        soloButton.setButtonText ("SOLO");
+        soloButton.setComponentID ("solo");
         soloButton.setClickingTogglesState (true);
         soloButton.onClick = [this]() { sendMidiMessageToEngine (SOLO_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (soloButton);
@@ -94,6 +99,11 @@ public:
         }
     }
 
+    void mouseDown (const juce::MouseEvent& event) override
+    {
+        // Removed - now handled by accent bar button
+    }
+
     void paint (juce::Graphics& g) override
     {
         auto bounds = getLocalBounds();
@@ -121,15 +131,22 @@ public:
         juce::FlexBox leftColumn;
         leftColumn.flexDirection = juce::FlexBox::Direction::column;
 
-        leftColumn.items.add (juce::FlexItem (trackLabel).withFlex (0.2f));
-        leftColumn.items.add (juce::FlexItem (undoButton).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
-        leftColumn.items.add (juce::FlexItem (redoButton).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
-        leftColumn.items.add (juce::FlexItem (clearButton).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
-        leftColumn.items.add (juce::FlexItem().withFlex (0.05f)); // spacer
+        leftColumn.items.add (juce::FlexItem (trackLabel).withFlex (0.15f));
+
+        // Horizontal button row for undo/redo/clear
+        juce::FlexBox buttonRow;
+        buttonRow.flexDirection = juce::FlexBox::Direction::row;
+        buttonRow.items.add (juce::FlexItem (undoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
+        buttonRow.items.add (juce::FlexItem (redoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        buttonRow.items.add (juce::FlexItem (clearButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
+
+        leftColumn.items.add (juce::FlexItem (buttonRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+
+        leftColumn.items.add (juce::FlexItem().withFlex (0.1f)); // spacer
         leftColumn.items.add (juce::FlexItem (muteButton).withFlex (0.15f));
         leftColumn.items.add (juce::FlexItem (soloButton).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
 
-        mainRow.items.add (juce::FlexItem (leftColumn).withFlex (0.08f).withMargin (juce::FlexItem::Margin (0, 4, 0, 0)));
+        mainRow.items.add (juce::FlexItem (leftColumn).withFlex (0.1f).withMargin (juce::FlexItem::Margin (0, 4, 0, 0)));
 
         // Right side with waveform and volume
         juce::FlexBox rightColumn;
