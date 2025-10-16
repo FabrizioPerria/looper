@@ -1,22 +1,21 @@
 #pragma once
-#include "MixerChannelComponent.h"
+#include "DawTrackComponent.h"
 #include "engine/midiMappings.h"
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
-class StudioMixerEditor : public juce::Component, public juce::Timer
+class DawEditor : public juce::Component, public juce::Timer
 {
 public:
-    StudioMixerEditor (LooperEngine& engine) : looperEngine (engine)
+    DawEditor (LooperEngine& engine) : looperEngine (engine)
     {
-        for (int i = 1; i <= engine.getNumTracks(); ++i)
+        for (int i = 0; i < engine.getNumTracks(); ++i)
         {
-            auto* channel = new MixerChannelComponent (engine, i - 1, engine.getUIBridgeByIndex (i - 1));
+            auto* channel = new DawTrackComponent (engine, i, engine.getUIBridgeByIndex (i));
             channels.add (channel);
             addAndMakeVisible (channel);
         }
 
-        // Transport buttons
         recordButton.setButtonText ("REC");
         recordButton.setClickingTogglesState (true);
         recordButton.onClick = [this]() { sendMidiMessageToEngine (RECORD_BUTTON_MIDI_NOTE, NOTE_ON); };
@@ -35,30 +34,16 @@ public:
         nextButton.onClick = [this]() { sendMidiMessageToEngine (NEXT_TRACK_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (nextButton);
 
-        // Master section
-        masterLabel.setText ("MASTER", juce::dontSendNotification);
-        masterLabel.setFont (LooperTheme::Fonts::getBoldFont (12.0f));
-        masterLabel.setJustificationType (juce::Justification::centred);
-        masterLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
-        addAndMakeVisible (masterLabel);
-
-        masterFader.setSliderStyle (juce::Slider::LinearVertical);
-        masterFader.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 50, 20);
-        masterFader.setRange (0.0, 1.0, 0.01);
-        masterFader.setValue (0.8);
-        addAndMakeVisible (masterFader);
-
         startTimerHz (10);
     }
 
-    ~StudioMixerEditor() override
+    ~DawEditor() override
     {
         stopTimer();
     }
 
     void paint (juce::Graphics& g) override
     {
-        // Background
         g.fillAll (LooperTheme::Colors::backgroundDark);
 
         // Top bar
@@ -84,8 +69,8 @@ public:
         auto topBar = bounds.removeFromTop (50);
         topBar.reduce (12, 8);
 
-        // Transport buttons in the center
-        auto transportBounds = topBar.withSizeKeepingCentre (230, 34);
+        // Transport buttons in a horizontal row
+        auto transportBounds = topBar.withSizeKeepingCentre (300, 34);
 
         juce::FlexBox transportFlex;
         transportFlex.flexDirection = juce::FlexBox::Direction::row;
@@ -106,51 +91,26 @@ public:
         bounds.removeFromTop (8);
         bounds.reduce (8, 0);
 
-        // Main horizontal flex for channels + master
-        juce::FlexBox mainFlex;
-        mainFlex.flexDirection = juce::FlexBox::Direction::row;
-        mainFlex.justifyContent = juce::FlexBox::JustifyContent::flexStart;
-        mainFlex.alignItems = juce::FlexBox::AlignItems::stretch;
+        juce::FlexBox tracksFlex;
+        tracksFlex.flexDirection = juce::FlexBox::Direction::column;
+        tracksFlex.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        // Add all channels - let them stretch vertically
         for (auto* channel : channels)
         {
-            mainFlex.items.add (juce::FlexItem (*channel).withWidth (180.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
+            tracksFlex.items.add (juce::FlexItem (*channel).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 4, 0)));
         }
 
-        mainFlex.items.add (juce::FlexItem().withWidth (8.0f));
-
-        // Master section (fixed width, flexible height)
-        juce::FlexBox masterFlex;
-        masterFlex.flexDirection = juce::FlexBox::Direction::column;
-        masterFlex.justifyContent = juce::FlexBox::JustifyContent::flexStart;
-        masterFlex.alignItems = juce::FlexBox::AlignItems::stretch;
-
-        masterFlex.items.add (juce::FlexItem (masterLabel).withHeight (30.0f).withMargin (juce::FlexItem::Margin (0, 0, 8, 0)));
-
-        // Master fader takes remaining space
-        masterFlex.items.add (juce::FlexItem (masterFader).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 8, 0)));
-
-        mainFlex.items.add (juce::FlexItem().withWidth (120.0f));
-
-        mainFlex.performLayout (bounds.toFloat());
-
-        // Perform master section layout
-        auto masterBounds = bounds.removeFromRight (120);
-        masterFlex.performLayout (masterBounds.toFloat());
+        tracksFlex.performLayout (bounds.toFloat());
     }
 
 private:
     LooperEngine& looperEngine;
-    juce::OwnedArray<MixerChannelComponent> channels;
+    juce::OwnedArray<DawTrackComponent> channels;
 
     juce::TextButton recordButton;
     juce::TextButton playButton;
     juce::TextButton nextButton;
     juce::TextButton prevButton;
-
-    juce::Label masterLabel;
-    juce::Slider masterFader;
 
     void sendMidiMessageToEngine (const int noteNumber, const bool isNoteOn)
     {
@@ -163,10 +123,17 @@ private:
 
     void timerCallback() override
     {
-        // Update transport button states based on engine state
         auto state = looperEngine.getTransportState();
         recordButton.setToggleState (state == TransportState::Recording, juce::dontSendNotification);
         playButton.setToggleState (state != TransportState::Stopped, juce::dontSendNotification);
+
+        // Update active track highlighting
+        int activeTrackIndex = looperEngine.getActiveTrackIndex();
+        for (int i = 0; i < channels.size(); ++i)
+        {
+            channels[i]->setActive (i == activeTrackIndex);
+        }
     }
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StudioMixerEditor)
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DawEditor)
 };

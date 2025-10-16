@@ -1,7 +1,7 @@
 #pragma once
-#include "LooperTheme.h"
 #include "engine/LooperEngine.h"
 #include "engine/midiMappings.h"
+#include "ui/colors/TokyoNight.h"
 #include "ui/components/WaveformComponent.h"
 #include <JuceHeader.h>
 
