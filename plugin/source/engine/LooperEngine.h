@@ -122,6 +122,7 @@ private:
     int numChannels;
     int numTracks;
     int activeTrackIndex { 0 };
+    int nextTrackIndex { -1 };
 
     std::vector<std::unique_ptr<LoopTrack>> loopTracks;
     std::vector<std::unique_ptr<AudioToUIBridge>> uiBridges;

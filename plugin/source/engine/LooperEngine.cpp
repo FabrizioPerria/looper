@@ -61,7 +61,11 @@ void LooperEngine::addTrack()
 void LooperEngine::selectTrack (const int trackIndex)
 {
     PERFETTO_FUNCTION();
-    if (trackIndex >= 0 && trackIndex < numTracks) activeTrackIndex = trackIndex;
+    if (trackIndex < 0 || trackIndex >= numTracks) return;
+
+    //we do not switch the track here. The actual switching happens in processBlock so we finish the loop cycle before switching. Here, we signal
+    // the swap.
+    nextTrackIndex = trackIndex;
 }
 
 void LooperEngine::removeTrack (const int trackIndex)
@@ -207,6 +211,16 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
             activeTrack->processRecord (buffer, buffer.getNumSamples());
             // Note: do not break here, we want to also play back while recording
         case TransportState::Playing:
+            // Handle track switching. If we are switching, we wait until the current track has finished its loop
+            if (nextTrackIndex >= 0 && nextTrackIndex != activeTrackIndex && activeTrack->getCurrentReadPosition() == 0)
+            {
+                stop();
+                transportState = TransportState::Playing; //ensure we are not in recording state when switching
+                activeTrackIndex = nextTrackIndex;
+                activeTrack = getActiveTrack();
+                bridge = getUIBridgeByIndex (activeTrackIndex);
+                nextTrackIndex = -1;
+            }
             activeTrack->processPlayback (const_cast<juce::AudioBuffer<float>&> (buffer), buffer.getNumSamples());
             break;
         case TransportState::Stopped:
