@@ -10,10 +10,12 @@ class LoopTrack
 public:
     LoopTrack()
     {
+        PERFETTO_FUNCTION();
     }
 
     ~LoopTrack()
     {
+        PERFETTO_FUNCTION();
         releaseResources();
     }
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 #include <atomic>
 
@@ -23,6 +24,7 @@ public:
 
         void copyFrom (const juce::AudioBuffer<float>& source, int sourceLength, int ver)
         {
+            PERFETTO_FUNCTION();
             if (buffer.getNumChannels() != source.getNumChannels() || buffer.getNumSamples() < sourceLength)
             {
                 buffer.setSize (source.getNumChannels(), sourceLength, false, false, true);
@@ -39,6 +41,7 @@ public:
 
     AudioToUIBridge()
     {
+        PERFETTO_FUNCTION();
         // Initialize triple buffer
         for (int i = 0; i < 3; ++i)
         {
@@ -48,11 +51,13 @@ public:
 
     void signalWaveformChanged()
     {
+        PERFETTO_FUNCTION();
         pendingUpdate.store (true, std::memory_order_release);
     }
 
     bool shouldUpdateWhileRecording (int samplesPerBlock, double sampleRate)
     {
+        PERFETTO_FUNCTION();
         recordingFrameCounter++;
         int framesPerUpdate = (int) (sampleRate * 0.1 / samplesPerBlock); // 100ms
 
@@ -66,12 +71,14 @@ public:
 
     void resetRecordingCounter()
     {
+        PERFETTO_FUNCTION();
         recordingFrameCounter = 0;
     }
 
     // Called from AUDIO THREAD - must be lock-free and fast
     void updateFromAudioThread (const juce::AudioBuffer<float>* audioBuffer, size_t length, size_t readPos, bool recording, bool playing)
     {
+        PERFETTO_FUNCTION();
         // Update lightweight state (always)
         state.loopLength.store (length, std::memory_order_relaxed);
         state.readPosition.store (readPos, std::memory_order_relaxed);
@@ -110,6 +117,7 @@ public:
     // Called from UI THREAD - get latest playback position
     void getPlaybackState (size_t& length, size_t& readPos, bool& recording, bool& playing)
     {
+        PERFETTO_FUNCTION();
         length = state.loopLength.load (std::memory_order_relaxed);
         readPos = state.readPosition.load (std::memory_order_relaxed);
         recording = state.isRecording.load (std::memory_order_relaxed);
@@ -119,6 +127,7 @@ public:
     // Called from UI THREAD - get waveform snapshot if updated
     bool getWaveformSnapshot (WaveformSnapshot& destination)
     {
+        PERFETTO_FUNCTION();
         int currentVersion = state.stateVersion.load (std::memory_order_acquire);
 
         // Check if we already have this version
@@ -145,6 +154,7 @@ public:
 
     const AudioState& getState() const
     {
+        PERFETTO_FUNCTION();
         return state;
     }
 

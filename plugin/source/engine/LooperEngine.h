@@ -26,20 +26,24 @@ public:
     LoopTrack* getActiveTrack();
     void selectNextTrack()
     {
+        PERFETTO_FUNCTION();
         selectTrack ((activeTrackIndex + 1) % numTracks);
     }
 
     void selectPreviousTrack()
     {
+        PERFETTO_FUNCTION();
         selectTrack ((activeTrackIndex - 1 + numTracks) % numTracks);
     }
 
     int getActiveTrackIndex() const
     {
+        PERFETTO_FUNCTION();
         return activeTrackIndex;
     }
     int getNumTracks() const
     {
+        PERFETTO_FUNCTION();
         return numTracks;
     }
 
@@ -49,6 +53,7 @@ public:
 
     TransportState getTransportState() const
     {
+        PERFETTO_FUNCTION();
         return transportState;
     }
 
@@ -64,12 +69,14 @@ public:
 
     AudioToUIBridge* getUIBridgeByIndex (int trackIndex)
     {
+        PERFETTO_FUNCTION();
         if (trackIndex >= 0 && trackIndex < (int) uiBridges.size()) return uiBridges[trackIndex].get();
         return nullptr;
     }
 
     LoopTrack* getTrackByIndex (int trackIndex)
     {
+        PERFETTO_FUNCTION();
         if (trackIndex >= 0 && trackIndex < (int) loopTracks.size()) return loopTracks[trackIndex].get();
         return nullptr;
     }
@@ -102,14 +109,17 @@ private:
 
     bool isRecording() const
     {
+        PERFETTO_FUNCTION();
         return transportState == TransportState::Recording;
     }
     bool isPlaying() const
     {
+        PERFETTO_FUNCTION();
         return transportState == TransportState::Playing;
     }
     bool isStopped() const
     {
+        PERFETTO_FUNCTION();
         return transportState == TransportState::Stopped;
     }
 

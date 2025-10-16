@@ -3,10 +3,12 @@
 
 LooperEngine::LooperEngine() : transportState (TransportState::Stopped), sampleRate (0.0), maxBlockSize (0), numChannels (0), numTracks (0)
 {
+    PERFETTO_FUNCTION();
 }
 
 LooperEngine::~LooperEngine()
 {
+    PERFETTO_FUNCTION();
     releaseResources();
 }
 
