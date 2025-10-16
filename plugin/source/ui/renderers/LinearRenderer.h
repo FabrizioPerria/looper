@@ -15,9 +15,15 @@ public:
     {
         PERFETTO_FUNCTION();
 
-        if (length <= 0 || width <= 0) return;
+        if (length < 0 || width < 0) return;
 
         int cacheWidth = cache.getWidth();
+        if (cacheWidth <= 0 || length == 0)
+        {
+            g.setColour (juce::Colours::green);
+            g.drawHorizontalLine (height / 2, 0.0f, (float) width);
+            return;
+        }
         int samplesPerPixel = std::max (1, length / cacheWidth);
         int readPixel = std::min (readPos / samplesPerPixel, cacheWidth - 1);
 

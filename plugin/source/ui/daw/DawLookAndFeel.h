@@ -137,26 +137,26 @@ public:
         else if (shouldDrawButtonAsHighlighted)
         {
             if (componentId == "mute")
-                colour = LooperTheme::Colors::red.brighter (0.2f);
+                colour = LooperTheme::Colors::red.brighter (0.4f);
             else if (componentId == "solo")
-                colour = LooperTheme::Colors::yellow.brighter (0.2f);
+                colour = LooperTheme::Colors::yellow.brighter (0.4f);
             else if (componentId == "clear")
-                colour = LooperTheme::Colors::magenta.brighter (0.2f);
+                colour = LooperTheme::Colors::magenta.brighter (0.4f);
             else
-                colour = LooperTheme::Colors::cyan.brighter (0.2f);
+                colour = LooperTheme::Colors::cyan.brighter (0.4f);
         }
 
         // Try to load SVG
-        auto svg = loadSvg (componentId);
-
-        if (svg != nullptr)
-        {
-            // Draw SVG
-            auto bounds = button.getLocalBounds().toFloat().reduced (3);
-            svg->replaceColour (juce::Colours::black, colour);
-            svg->drawWithin (g, bounds, juce::RectanglePlacement::centred, 1.0f);
-        }
-        else
+        // auto svg = loadSvg (componentId);
+        //
+        // if (svg != nullptr)
+        // {
+        //     // Draw SVG
+        //     auto bounds = button.getLocalBounds().toFloat().reduced (3);
+        //     svg->replaceColour (juce::Colours::black, colour);
+        //     svg->drawWithin (g, bounds, juce::RectanglePlacement::centred, 1.0f);
+        // }
+        // else
         {
             // Fallback to text if no SVG
             g.setColour (colour);

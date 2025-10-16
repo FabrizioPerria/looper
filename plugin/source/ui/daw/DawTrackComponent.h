@@ -19,17 +19,17 @@ public:
         waveformDisplay.setBridge (bridge);
         addAndMakeVisible (waveformDisplay);
 
-        undoButton.setButtonText ("U");
+        undoButton.setButtonText ("UNDO");
         undoButton.setComponentID ("undo");
         undoButton.onClick = [this]() { sendMidiMessageToEngine (UNDO_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (undoButton);
 
-        redoButton.setButtonText ("R");
+        redoButton.setButtonText ("REDO");
         redoButton.setComponentID ("redo");
         redoButton.onClick = [this]() { sendMidiMessageToEngine (REDO_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (redoButton);
 
-        clearButton.setButtonText ("C");
+        clearButton.setButtonText ("CLEAR");
         clearButton.setComponentID ("clear");
         clearButton.onClick = [this]() { sendMidiMessageToEngine (CLEAR_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (clearButton);
@@ -108,7 +108,7 @@ public:
     {
         auto bounds = getLocalBounds();
 
-        g.setColour (isActive ? LooperTheme::Colors::surface.brighter (0.15f) : LooperTheme::Colors::surface);
+        g.setColour (isActive ? LooperTheme::Colors::surface.brighter (0.05f) : LooperTheme::Colors::surface);
         g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
 
         g.setColour (isActive ? LooperTheme::Colors::cyan : LooperTheme::Colors::border);

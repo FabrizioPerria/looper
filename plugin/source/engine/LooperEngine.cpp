@@ -63,9 +63,11 @@ void LooperEngine::selectTrack (const int trackIndex)
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return;
 
-    //we do not switch the track here. The actual switching happens in processBlock so we finish the loop cycle before switching. Here, we signal
-    // the swap.
-    nextTrackIndex = trackIndex;
+    if (transportState == TransportState::Stopped || loopTracks[activeTrackIndex]->getLength() == 0)
+        activeTrackIndex = trackIndex;
+    else
+        //we do not switch the track here. The actual switching happens in processBlock so we finish the loop cycle before switching. Here, we signal the swap.
+        nextTrackIndex = trackIndex;
 }
 
 void LooperEngine::removeTrack (const int trackIndex)
@@ -86,8 +88,8 @@ void LooperEngine::undo (size_t trackIndex)
     PERFETTO_FUNCTION();
     if (trackIndex >= numTracks) trackIndex = activeTrackIndex;
     loopTracks[trackIndex]->undo();
-    uiBridges[trackIndex]->signalWaveformChanged();
     transportState = TransportState::Playing;
+    uiBridges[trackIndex]->signalWaveformChanged();
 }
 
 void LooperEngine::redo (size_t trackIndex)
@@ -95,8 +97,8 @@ void LooperEngine::redo (size_t trackIndex)
     PERFETTO_FUNCTION();
     if (trackIndex >= numTracks) trackIndex = activeTrackIndex;
     loopTracks[trackIndex]->redo();
-    uiBridges[trackIndex]->signalWaveformChanged();
     transportState = TransportState::Playing;
+    uiBridges[trackIndex]->signalWaveformChanged();
 }
 
 void LooperEngine::clear (size_t trackIndex)
@@ -104,8 +106,8 @@ void LooperEngine::clear (size_t trackIndex)
     PERFETTO_FUNCTION();
     if (trackIndex >= numTracks) trackIndex = activeTrackIndex;
     loopTracks[trackIndex]->clear();
-    uiBridges[trackIndex]->signalWaveformChanged();
     transportState = TransportState::Stopped;
+    uiBridges[trackIndex]->signalWaveformChanged();
 }
 
 void LooperEngine::startRecording()
@@ -128,9 +130,9 @@ void LooperEngine::stop()
         loopTracks[activeTrackIndex]->finalizeLayer();
         uiBridges[activeTrackIndex]->signalWaveformChanged();
         transportState = TransportState::Playing;
-        return;
     }
-    transportState = TransportState::Stopped;
+    else
+        transportState = TransportState::Stopped;
 }
 
 void LooperEngine::setupMidiCommands()

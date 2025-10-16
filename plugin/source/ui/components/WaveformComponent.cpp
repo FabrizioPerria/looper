@@ -58,15 +58,7 @@ void WaveformComponent::paint (juce::Graphics& g)
     bool recording, playing;
     bridge->getPlaybackState (length, readPos, recording, playing);
 
-    if (! cache.isEmpty() && cache.getWidth() > 0)
-    {
-        renderer->render (g, cache, (int) readPos, (int) length, getWidth(), getHeight(), recording);
-    }
-    else
-    {
-        g.setColour (juce::Colours::green);
-        g.drawLine (0.0f, getHeight() / 2.0f, (float) getWidth(), getHeight() / 2.0f, 2.0f);
-    }
+    renderer->render (g, cache, (int) readPos, (int) length, getWidth(), getHeight(), recording);
 }
 
 void WaveformComponent::handleAsyncUpdate()
