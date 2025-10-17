@@ -72,6 +72,11 @@ public:
         updateControlsFromEngine();
     }
 
+    int getTrackIndex() const
+    {
+        return trackIndex;
+    }
+
     void updateControlsFromEngine()
     {
         auto* track = looperEngine.getTrackByIndex (trackIndex);
@@ -120,48 +125,30 @@ public:
         auto bounds = getLocalBounds().reduced (4);
 
         // Accent bar on the very left edge
-        accentBar.setBounds (bounds.removeFromLeft (8));
+        accentBar.setBounds (bounds.removeFromLeft (28));
         bounds.removeFromLeft (2);
 
         juce::FlexBox mainRow;
-        mainRow.flexDirection = juce::FlexBox::Direction::row;
+        mainRow.flexDirection = juce::FlexBox::Direction::column;
         mainRow.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        // Left controls column
-        juce::FlexBox leftColumn;
-        leftColumn.flexDirection = juce::FlexBox::Direction::column;
+        juce::FlexBox undoRedoClearRow;
+        undoRedoClearRow.flexDirection = juce::FlexBox::Direction::row;
+        undoRedoClearRow.items.add (juce::FlexItem (undoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
+        undoRedoClearRow.items.add (juce::FlexItem (redoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        undoRedoClearRow.items.add (juce::FlexItem().withFlex (3.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        undoRedoClearRow.items.add (juce::FlexItem (clearButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
+        mainRow.items.add (juce::FlexItem (undoRedoClearRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
 
-        leftColumn.items.add (juce::FlexItem (trackLabel).withFlex (0.15f));
-
-        leftColumn.items.add (juce::FlexItem().withFlex (0.15f)); // spacer
-
-        juce::FlexBox buttonRow;
-        buttonRow.flexDirection = juce::FlexBox::Direction::row;
-        buttonRow.items.add (juce::FlexItem (undoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
-        buttonRow.items.add (juce::FlexItem (redoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        buttonRow.items.add (juce::FlexItem (clearButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
-
-        leftColumn.items.add (juce::FlexItem (buttonRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
-
-        leftColumn.items.add (juce::FlexItem().withFlex (0.2f));
+        mainRow.items.add (juce::FlexItem (waveformDisplay).withFlex (0.3f));
 
         juce::FlexBox muteSoloRow;
         muteSoloRow.flexDirection = juce::FlexBox::Direction::row;
-        muteSoloRow.items.add (juce::FlexItem (soloButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
+        muteSoloRow.items.add (juce::FlexItem (soloButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
+        muteSoloRow.items.add (juce::FlexItem (muteButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         muteSoloRow.items.add (juce::FlexItem().withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        muteSoloRow.items.add (juce::FlexItem (muteButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
-        leftColumn.items.add (juce::FlexItem (muteSoloRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
-
-        mainRow.items.add (juce::FlexItem (leftColumn).withFlex (0.15f).withMargin (juce::FlexItem::Margin (0, 4, 0, 0)));
-
-        // Right side with waveform and volume
-        juce::FlexBox rightColumn;
-        rightColumn.flexDirection = juce::FlexBox::Direction::column;
-
-        rightColumn.items.add (juce::FlexItem (waveformDisplay).withFlex (1.0f));
-        rightColumn.items.add (juce::FlexItem (volumeFader).withFlex (0.2f).withMargin (juce::FlexItem::Margin (4, 0, 0, 0)));
-
-        mainRow.items.add (juce::FlexItem (rightColumn).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 0)));
+        muteSoloRow.items.add (juce::FlexItem (volumeFader).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
+        mainRow.items.add (juce::FlexItem (muteSoloRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
 
         mainRow.performLayout (bounds.toFloat());
     }
@@ -180,6 +167,14 @@ private:
 
             g.setColour (isActive ? LooperTheme::Colors::cyan.withAlpha (0.8f) : LooperTheme::Colors::primary.withAlpha (0.3f));
             g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
+
+            g.setColour (isActive ? LooperTheme::Colors::backgroundDark : LooperTheme::Colors::cyan);
+            g.setFont (LooperTheme::Fonts::getBoldFont (14.0f)); // Bigger font
+
+            // Just draw the track number, centered vertically and horizontally
+            g.drawText (juce::String (track->getTrackIndex() + 1),
+                        bounds,
+                        juce::Justification::centred); // Changed from centredBottom to centred
         }
 
         void mouseDown (const juce::MouseEvent&) override

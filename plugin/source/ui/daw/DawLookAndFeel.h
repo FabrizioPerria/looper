@@ -134,6 +134,7 @@ public:
             else
                 colour = LooperTheme::Colors::cyan;
         }
+        // if (shouldDrawButtonAsHighlighted)
         else if (shouldDrawButtonAsHighlighted)
         {
             if (componentId == "mute")
@@ -147,27 +148,27 @@ public:
         }
 
         // Try to load SVG
-        // auto svg = loadSvg (componentId);
-        //
-        // if (svg != nullptr)
-        // {
-        //     // Draw SVG
-        //     auto bounds = button.getLocalBounds().toFloat().reduced (3);
-        //     svg->replaceColour (juce::Colours::black, colour);
-        //     svg->drawWithin (g, bounds, juce::RectanglePlacement::centred, 1.0f);
-        // }
-        // else
+        auto svg = loadSvg (componentId);
+
+        if (svg != nullptr)
+        {
+            // Draw SVG
+            auto bounds = button.getLocalBounds().toFloat().reduced (12);
+            svg->replaceColour (juce::Colours::black, colour);
+            svg->drawWithin (g, bounds, juce::RectanglePlacement::centred, 1.0f);
+        }
+        else
         {
             // Fallback to text if no SVG
             g.setColour (colour);
-            g.setFont (LooperTheme::Fonts::getBoldFont (9.0f));
+            g.setFont (LooperTheme::Fonts::getBoldFont (13.0f));
             g.drawText (button.getButtonText(), button.getLocalBounds(), juce::Justification::centred);
         }
     }
 
     juce::Font getTextButtonFont (juce::TextButton&, int) override
     {
-        return LooperTheme::Fonts::getBoldFont (9.0f);
+        return LooperTheme::Fonts::getBoldFont (13.0f);
     }
 
 private:

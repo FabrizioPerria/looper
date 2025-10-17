@@ -11,7 +11,7 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
 
     addAndMakeVisible (theme->editorComponent.get());
 
-    setSize (900, 600); // Make it bigger to see
+    setSize (1200, 900); // Make it bigger to see
 }
 
 AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
