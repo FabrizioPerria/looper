@@ -11,8 +11,9 @@ public:
         bufferSize = 0;
         musicalLength = 0;
         writePos = 0;
-        readPos = 0;
+        readPos = 0.0; // Changed to double
         shouldWrapAround = true;
+        playbackRate = 1.0; // Added
     }
 
     void prepareToPlay (int totalSize)
@@ -21,7 +22,8 @@ public:
         bufferSize = totalSize;
         musicalLength = totalSize;
         writePos = 0;
-        readPos = 0;
+        readPos = 0.0;      // Changed to double
+        playbackRate = 1.0; // Added
     }
 
     void clear()
@@ -55,6 +57,19 @@ public:
         return shouldWrapAround;
     }
 
+    // NEW: Set playback rate (positive = forward, negative = reverse)
+    void setPlaybackRate (double rate)
+    {
+        PERFETTO_FUNCTION();
+        playbackRate = rate;
+    }
+
+    double getPlaybackRate() const
+    {
+        PERFETTO_FUNCTION();
+        return playbackRate;
+    }
+
     void prepareToWrite (int numToWrite, int& start1, int& size1, int& start2, int& size2)
     {
         PERFETTO_FUNCTION();
@@ -70,26 +85,44 @@ public:
     {
         PERFETTO_FUNCTION();
         writePos = (writePos + numWritten) % musicalLength;
-        if (overdub) writePos = readPos;
+        if (overdub) writePos = (int) readPos; // Cast to int
     }
 
-    // Prepare to read N samples with wraparound
     void prepareToRead (int numToRead, int& start1, int& size1, int& start2, int& size2)
     {
         PERFETTO_FUNCTION();
-        start1 = readPos;
-        int remaining = musicalLength - readPos;
+        start1 = (int) readPos; // Cast to int
 
-        size1 = std::min (numToRead, remaining);
+        int samplesToTraverse = numToRead;
+        if (std::abs (playbackRate - 1.0) > 0.001) // Not normal speed
+        {
+            // Calculate samples we might traverse (for variable speed)
+            samplesToTraverse = (int) (numToRead * std::abs (playbackRate)) + 10;
+        }
+
+        int remaining = musicalLength - start1;
+
+        size1 = std::min (samplesToTraverse, remaining);
         start2 = 0;
-        size2 = std::max (0, numToRead - remaining);
+        size2 = std::max (0, samplesToTraverse - remaining);
     }
 
     void finishedRead (int numRead, bool overdub)
     {
         PERFETTO_FUNCTION();
-        readPos = (readPos + numRead) % musicalLength;
-        if (overdub) writePos = readPos;
+        // Advance by playback rate
+        readPos += playbackRate * numRead;
+
+        // Wrap around
+        if (musicalLength > 0)
+        {
+            while (readPos < 0.0)
+                readPos += musicalLength;
+            while (readPos >= musicalLength)
+                readPos -= musicalLength;
+        }
+
+        if (overdub) writePos = (int) readPos;
     }
 
     int getWritePos() const
@@ -97,7 +130,15 @@ public:
         PERFETTO_FUNCTION();
         return writePos;
     }
+
     int getReadPos() const
+    {
+        PERFETTO_FUNCTION();
+        return (int) readPos; // Return int for UI
+    }
+
+    // NEW: Get exact fractional position
+    double getExactReadPos() const
     {
         PERFETTO_FUNCTION();
         return readPos;
@@ -105,10 +146,11 @@ public:
 
 private:
     int bufferSize;
-    int musicalLength; // current loop length
+    int musicalLength;
     int writePos;
-    int readPos;
+    double readPos; // Changed from int
     bool shouldWrapAround { true };
+    double playbackRate { 1.0 }; // NEW
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopFifo)
 };
