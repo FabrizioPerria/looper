@@ -10,9 +10,11 @@ class UndoBuffer
 public:
     UndoBuffer()
     {
+        PERFETTO_FUNCTION();
     }
     ~UndoBuffer()
     {
+        PERFETTO_FUNCTION();
         releaseResources();
     }
 
