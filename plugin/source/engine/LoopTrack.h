@@ -2,22 +2,15 @@
 
 #include "LoopFifo.h"
 #include "UndoBuffer.h"
+#include "juce_audio_basics/juce_audio_basics.h"
 #include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 
 class LoopTrack
 {
 public:
-    LoopTrack()
-    {
-        PERFETTO_FUNCTION();
-    }
-
-    ~LoopTrack()
-    {
-        PERFETTO_FUNCTION();
-        releaseResources();
-    }
+    LoopTrack() {}
+    ~LoopTrack() { releaseResources(); }
 
     void prepareToPlay (const double currentSampleRate,
                         const uint maxBlockSize,
@@ -34,59 +27,20 @@ public:
     void undo();
     void redo();
 
-    const juce::AudioBuffer<float>& getAudioBuffer() const
-    {
-        PERFETTO_FUNCTION();
-        return *audioBuffer;
-    }
+    const juce::AudioBuffer<float>& getAudioBuffer() const { return *audioBuffer; }
 
-    double getSampleRate() const
-    {
-        PERFETTO_FUNCTION();
-        return sampleRate;
-    }
+    size_t getCurrentReadPosition() const { return fifo.getReadPos(); }
+    size_t getCurrentWritePosition() const { return fifo.getWritePos(); }
 
-    size_t getLength() const
-    {
-        PERFETTO_FUNCTION();
-        return length;
-    }
+    size_t getLength() const { return length; }
+    void setLength (const size_t newLength) { length = newLength; }
 
-    size_t getCurrentReadPosition() const
-    {
-        PERFETTO_FUNCTION();
-        return fifo.getReadPos();
-    }
+    double getSampleRate() const { return sampleRate; }
+    int getLoopDurationSeconds() const { return (int) (length / sampleRate); }
 
-    size_t getCurrentWritePosition() const
-    {
-        PERFETTO_FUNCTION();
-        return fifo.getWritePos();
-    }
+    void setCrossFadeLength (const size_t newLength) { crossFadeLength = newLength; }
 
-    int getLoopDurationSeconds() const
-    {
-        PERFETTO_FUNCTION();
-        return (int) (length / sampleRate);
-    }
-
-    void setLength (const size_t newLength)
-    {
-        PERFETTO_FUNCTION();
-        length = newLength;
-    }
-
-    void setCrossFadeLength (const size_t newLength)
-    {
-        PERFETTO_FUNCTION();
-        crossFadeLength = newLength;
-    }
-
-    bool isPrepared() const
-    {
-        PERFETTO_FUNCTION();
-        return alreadyPrepared;
-    }
+    bool isPrepared() const { return alreadyPrepared; }
 
     void setOverdubGains (const float oldGain, const float newGain)
     {
@@ -104,49 +58,19 @@ public:
         shouldNormalizeOutput = true;
     }
 
-    double getOverdubNewGain() const
-    {
-        PERFETTO_FUNCTION();
-        return overdubNewGain;
-    }
+    double getOverdubNewGain() const { return overdubNewGain; }
+    double getOverdubOldGain() const { return overdubOldGain; }
 
-    double getOverdubOldGain() const
-    {
-        PERFETTO_FUNCTION();
-        return overdubOldGain;
-    }
-
-    const UndoBuffer& getUndoBuffer() const
-    {
-        PERFETTO_FUNCTION();
-        return undoBuffer;
-    }
+    const UndoBuffer& getUndoBuffer() const { return undoBuffer; }
 
     void loadBackingTrack (const juce::AudioBuffer<float>& backingTrack);
 
-    void allowWrapAround()
-    {
-        PERFETTO_FUNCTION();
-        fifo.setWrapAround (true);
-    }
-    void preventWrapAround()
-    {
-        PERFETTO_FUNCTION();
-        fifo.setWrapAround (false);
-    }
+    void allowWrapAround() { fifo.setWrapAround (true); }
+    void preventWrapAround() { fifo.setWrapAround (false); }
 
-    bool isCurrentlyRecording() const
-    {
-        PERFETTO_FUNCTION();
-        return isRecording;
-    }
+    bool isCurrentlyRecording() const { return isRecording; }
 
-    bool isMuted() const
-    {
-        PERFETTO_FUNCTION();
-        return muted;
-    }
-
+    bool isMuted() const { return muted; }
     void setMuted (const bool shouldBeMuted)
     {
         PERFETTO_FUNCTION();
@@ -164,33 +88,50 @@ public:
         }
     }
 
-    bool isSoloed() const
-    {
-        PERFETTO_FUNCTION();
-        return soloed;
-    }
+    bool isSoloed() const { return soloed; }
+    void setSoloed (const bool shouldBeSoloed) { soloed = shouldBeSoloed; }
 
-    void setSoloed (const bool shouldBeSoloed)
+    float getTrackVolume() const { return trackVolume; }
+    void setTrackVolume (const float newVolume) { trackVolume = std::clamp (newVolume, 0.0f, 1.0f); }
+    void setPlaybackDirectionForward()
     {
-        PERFETTO_FUNCTION();
-        soloed = shouldBeSoloed;
+        if (! directionForward)
+        {
+            directionForward = true;
+            resetInterpolationFilters();
+        }
     }
+    void setPlaybackDirectionBackward()
+    {
+        if (directionForward)
+        {
+            directionForward = false;
+            resetInterpolationFilters();
+        }
+    }
+    bool isPlaybackDirectionForward() const { return directionForward; }
 
-    float getTrackVolume() const
+    void setPlaybackSpeed (float speed)
     {
         PERFETTO_FUNCTION();
-        return trackVolume;
-    }
+        float newSpeed = std::clamp (speed, 0.2f, 2.0f);
 
-    void setTrackVolume (const float newVolume)
-    {
-        PERFETTO_FUNCTION();
-        trackVolume = std::clamp (newVolume, 0.0f, 1.0f);
+        if (std::abs (playbackSpeed - newSpeed) > 0.001f)
+        {
+            playbackSpeed = newSpeed;
+            resetInterpolationFilters();
+        }
     }
+    float getPlaybackSpeed() const { return playbackSpeed; }
+
+    double getExactReadPosition() const { return fifo.getExactReadPos(); }
 
 private:
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
+    std::unique_ptr<juce::AudioBuffer<float>> interpolationBuffer = std::make_unique<juce::AudioBuffer<float>>();
+    std::vector<juce::LagrangeInterpolator> interpolationFilters;
+    float playbackSpeed = 1.0f;
 
     UndoBuffer undoBuffer;
 
@@ -219,46 +160,39 @@ private:
     bool muted = false;
     bool soloed = false;
 
+    bool directionForward = true;
+
     void processRecordChannel (const juce::AudioBuffer<float>& input, const uint numSamples, const uint ch);
     void updateLoopLength (const uint numSamples, const uint bufferSamples);
     void saveToUndoBuffer();
+
     void copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples);
+    void copyCircularDataLinearized (int startPos, int numSamples, float speedMultiplier, int destOffset = 0);
+
     void advanceWritePos (const uint numSamples, const uint bufferSamples);
     void advanceReadPos (const uint numSamples, const uint bufferSamples);
 
     void processPlaybackChannel (juce::AudioBuffer<float>& output, const uint numSamples, const uint ch);
 
-    bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const uint numSamples) const
+    void processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output, const uint numSamples);
+    void processPlaybackApplyVolume (juce::AudioBuffer<float>& output, const uint numSamples);
+    void processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output, const uint numSamples);
+
+    bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const uint numSamples) const;
+
+    bool shouldNotPlayback (const uint numSamples) const { return ! isPrepared() || length == 0 || numSamples == 0; }
+
+    bool shouldOverdub() const { return length > 0; }
+
+    void resetInterpolationFilters()
     {
-        PERFETTO_FUNCTION();
-        return numSamples == 0 || (uint) input.getNumSamples() < numSamples || ! isPrepared()
-               || input.getNumChannels() != audioBuffer->getNumChannels();
+        for (auto& filter : interpolationFilters)
+            filter.reset();
     }
 
-    bool shouldNotPlayback (const uint numSamples) const
-    {
-        PERFETTO_FUNCTION();
-        return ! isPrepared() || length == 0 || numSamples == 0;
-    }
+    void copyAudioToTmpBuffer();
 
-    bool shouldOverdub() const
-    {
-        PERFETTO_FUNCTION();
-        return length > 0;
-    }
-
-    void copyAudioToTmpBuffer()
-    {
-        PERFETTO_FUNCTION();
-        // Copy current audioBuffer state to tmpBuffer
-        // This prepares tmpBuffer to be pushed to undo stack on next overdub
-        for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
-        {
-            juce::FloatVectorOperations::copy (tmpBuffer->getWritePointer (ch), audioBuffer->getReadPointer (ch), (int) length);
-        }
-    }
-
-    static const uint MAX_SECONDS_HARD_LIMIT = 300; // 5mins
+    static const uint MAX_SECONDS_HARD_LIMIT = 10 * 60; // 10 minutes
     static const uint MAX_UNDO_LAYERS = 5;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopTrack)

@@ -16,15 +16,15 @@ cd "$BUILD_DIR"
 ctest --output-on-failure
 cd ..
 
-rm -rf ${MERGED_FILE}
-llvm-profdata merge -sparse "$BUILD_DIR"/coverage-*.profraw -o "$MERGED_FILE"
-rm -rf ${BUILD_DIR}/*.profraw
-
-llvm-cov show "$TEST_TARGET_DIR" \
-    -instr-profile="$MERGED_FILE" \
-    -format=html \
-    -output-dir="$HTML_DIR" \
-    --show-branches=percent \
-    $(find "$PWD/plugin/source" -name '*.cpp' -o -name '*.h')
-
-echo "Coverage report generated at $HTML_DIR/index.html"
+# rm -rf ${MERGED_FILE}
+# llvm-profdata merge -sparse "$BUILD_DIR"/coverage-*.profraw -o "$MERGED_FILE"
+# rm -rf ${BUILD_DIR}/*.profraw
+#
+# llvm-cov show "$TEST_TARGET_DIR" \
+#     -instr-profile="$MERGED_FILE" \
+#     -format=html \
+#     -output-dir="$HTML_DIR" \
+#     --show-branches=percent \
+#     $(find "$PWD/plugin/source" -name '*.cpp' -o -name '*.h')
+#
+# echo "Coverage report generated at $HTML_DIR/index.html"
