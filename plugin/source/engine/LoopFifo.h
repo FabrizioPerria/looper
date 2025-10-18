@@ -58,10 +58,10 @@ public:
     }
 
     // NEW: Set playback rate (positive = forward, negative = reverse)
-    void setPlaybackRate (double rate)
+    void setPlaybackRate (double speed, int direction)
     {
         PERFETTO_FUNCTION();
-        playbackRate = rate;
+        playbackRate = speed * direction;
     }
 
     double getPlaybackRate() const

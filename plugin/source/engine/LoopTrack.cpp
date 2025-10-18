@@ -31,8 +31,13 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
 
     undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
 
-    int maxInterpSamples = (int) maxBlockSize * 2 + 20;
-    interpolationBuffer->setSize ((int) numChannels, maxInterpSamples, false, true, true);
+    // Allocate interpolation buffer:
+    // - Source area: maxBlockSize * 2 + 20 (for double speed worst case)
+    // - Output area: maxBlockSize
+    // Total: maxBlockSize * 3 + 20
+    int maxInterpSourceSamples = (int) maxBlockSize * 2 + 20;
+    int totalInterpSize = maxInterpSourceSamples + (int) maxBlockSize;
+    interpolationBuffer->setSize ((int) numChannels, totalInterpSize, false, true, true);
 
     interpolationFilters.clear();
     interpolationFilters.resize ((int) numChannels);
@@ -71,8 +76,12 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
     PERFETTO_FUNCTION();
     if (shouldNotRecordInputBuffer (input, numSamples)) return;
 
-    fifo.setPlaybackRate (1.0);
+    playbackSpeedBeforeRecording = playbackSpeed;
+    playheadDirectionBeforeRecording = playheadDirection;
+
     setPlaybackDirectionForward();
+    setPlaybackSpeed (1.0f);
+    fifo.setPlaybackRate (playbackSpeed, playheadDirection);
 
     if (! isRecording)
     {
@@ -165,6 +174,12 @@ void LoopTrack::finalizeLayer()
 
     // sync full loop copy at end of recording
     copyAudioToTmpBuffer();
+
+    setPlaybackSpeed (playbackSpeedBeforeRecording);
+    if (playheadDirectionBeforeRecording == 1)
+        setPlaybackDirectionForward();
+    else
+        setPlaybackDirectionBackward();
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint numSamples)
@@ -172,7 +187,7 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
     PERFETTO_FUNCTION();
     if (shouldNotPlayback (numSamples)) return;
 
-    if (std::abs (playbackSpeed - 1.0f) < 0.001f)
+    if (std::abs (playbackSpeed - 1.0f) < 0.001f && isPlaybackDirectionForward())
         processPlaybackNormalSpeedForward (output, numSamples);
     else
         processPlaybackInterpolatedSpeed (output, numSamples);
@@ -182,10 +197,8 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
 void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output, const uint numSamples)
 {
     PERFETTO_FUNCTION();
-    float speedMultiplier = playbackSpeed;
-    if (! isPlaybackDirectionForward()) speedMultiplier *= -1.0f;
-
-    fifo.setPlaybackRate (speedMultiplier);
+    float speedMultiplier = playbackSpeed * playheadDirection;
+    fifo.setPlaybackRate (playbackSpeed, playheadDirection);
 
     double currentPos = fifo.getExactReadPos();
     int startPos = (int) currentPos;
@@ -264,6 +277,8 @@ void LoopTrack::clear()
     tmpBuffer->clear();
     length = 0;
     provisionalLength = 0;
+    playbackSpeed = 1.0f;
+    playheadDirection = 1;
     fifo.prepareToPlay ((int) alignedBufferSize);
 }
 

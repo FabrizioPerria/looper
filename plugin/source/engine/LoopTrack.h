@@ -93,23 +93,25 @@ public:
 
     float getTrackVolume() const { return trackVolume; }
     void setTrackVolume (const float newVolume) { trackVolume = std::clamp (newVolume, 0.0f, 1.0f); }
+    bool isPlaybackDirectionForward() const { return playheadDirection > 0; }
     void setPlaybackDirectionForward()
     {
-        if (! directionForward)
+        if (! isPlaybackDirectionForward())
         {
-            directionForward = true;
+            playheadDirection = 1;
             resetInterpolationFilters();
+            fifo.setPlaybackRate (playbackSpeed, playheadDirection);
         }
     }
     void setPlaybackDirectionBackward()
     {
-        if (directionForward)
+        if (isPlaybackDirectionForward())
         {
-            directionForward = false;
+            playheadDirection = -1;
             resetInterpolationFilters();
+            fifo.setPlaybackRate (playbackSpeed, playheadDirection);
         }
     }
-    bool isPlaybackDirectionForward() const { return directionForward; }
 
     void setPlaybackSpeed (float speed)
     {
@@ -120,6 +122,8 @@ public:
         {
             playbackSpeed = newSpeed;
             resetInterpolationFilters();
+
+            fifo.setPlaybackRate (playbackSpeed, playheadDirection);
         }
     }
     float getPlaybackSpeed() const { return playbackSpeed; }
@@ -132,6 +136,9 @@ private:
     std::unique_ptr<juce::AudioBuffer<float>> interpolationBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::vector<juce::LagrangeInterpolator> interpolationFilters;
     float playbackSpeed = 1.0f;
+    int playheadDirection = 1; // 1 = forward, -1 = backward
+    float playbackSpeedBeforeRecording = 1.0f;
+    int playheadDirectionBeforeRecording = 1;
 
     UndoBuffer undoBuffer;
 
@@ -159,8 +166,6 @@ private:
 
     bool muted = false;
     bool soloed = false;
-
-    bool directionForward = true;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const uint numSamples, const uint ch);
     void updateLoopLength (const uint numSamples, const uint bufferSamples);
