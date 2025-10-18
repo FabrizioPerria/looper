@@ -191,6 +191,21 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
                 continue;
             }
 
+            if (m.isController() && m.getControllerNumber() == TRACK_VOLUME_CC)
+            {
+                float volume = m.getControllerValue() / 127.0f;
+                setTrackVolume (targetTrack, volume);
+                continue;
+            }
+
+            if (m.isController() && m.getControllerNumber() == PLAYBACK_SPEED_CC)
+            {
+                float normalizedValue = m.getControllerValue() / 127.0f;
+                float speed = 0.2f + (normalizedValue * 1.8f); // Maps to 0.2-2.0
+                setTrackPlaybackSpeed (targetTrack, speed);
+                continue;
+            }
+
             auto it = midiCommandMap.find ({ m.getNoteNumber(), m.isNoteOn() });
             if (it != midiCommandMap.end()) it->second (*this, targetTrack);
         }

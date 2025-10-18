@@ -13,6 +13,8 @@ const int LOAD_BUTTON_MIDI_NOTE = 76;        // E5
 const int REVERSE_BUTTON_MIDI_NOTE = 77;     // F5
 
 const int TRACK_SELECT_CC = 102;
+const int TRACK_VOLUME_CC = 7;
+const int PLAYBACK_SPEED_CC = 1;
 
 const bool NOTE_ON = true;
 const bool NOTE_OFF = false;
