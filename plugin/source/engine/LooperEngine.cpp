@@ -174,6 +174,17 @@ void LooperEngine::setupMidiCommands()
     juce::File defaultFile = juce::File::getSpecialLocation (juce::File::userDesktopDirectory).getChildFile ("backing.wav");
     midiCommandMap[{ LOAD_BUTTON_MIDI_NOTE, NOTE_ON }] = [defaultFile] (LooperEngine& engine, int trackIndex)
     { engine.loadWaveFileToTrack (defaultFile, trackIndex); };
+    midiCommandMap[{ REVERSE_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int trackIndex)
+    {
+        auto* track = engine.getTrackByIndex (trackIndex);
+        if (track)
+        {
+            if (track->isPlaybackDirectionForward())
+                track->setPlaybackDirectionBackward();
+            else
+                track->setPlaybackDirectionForward();
+        }
+    };
 }
 
 void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
@@ -188,6 +199,22 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
             if (m.isController() && m.getControllerNumber() == TRACK_SELECT_CC)
             {
                 targetTrack = juce::jlimit (0, numTracks - 1, m.getControllerValue() % numTracks);
+                selectTrack (targetTrack);
+                continue;
+            }
+
+            if (m.isController() && m.getControllerNumber() == TRACK_VOLUME_CC)
+            {
+                float volume = m.getControllerValue() / 127.0f;
+                setTrackVolume (targetTrack, volume);
+                continue;
+            }
+
+            if (m.isController() && m.getControllerNumber() == PLAYBACK_SPEED_CC)
+            {
+                float normalizedValue = m.getControllerValue() / 127.0f; // 0.0 to 1.0
+                float speed = 0.2f + (normalizedValue * 1.8f);           // Maps to 0.2-2.0 ✓
+                setTrackPlaybackSpeed (targetTrack, speed);
                 continue;
             }
 

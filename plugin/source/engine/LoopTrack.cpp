@@ -31,9 +31,17 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
 
     undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
 
+    // // At slowest speed (0.2x), we need: blockSize / 0.2 = blockSize * 5
+    int maxInterpSourceSamples = (int) maxBlockSize * 5 + 20; // Changed from * 2
+    int totalInterpSize = maxInterpSourceSamples + (int) maxBlockSize;
+    interpolationBuffer->setSize ((int) numChannels, totalInterpSize, false, true, true);
+
+    interpolationFilters.clear();
+    interpolationFilters.resize ((int) numChannels);
+
     clear();
 
-    setCrossFadeLength ((int) (0.03 * sampleRate)); // default 30 ms crossfade
+    setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
 
     alreadyPrepared = true;
 }
@@ -47,8 +55,10 @@ void LoopTrack::releaseResources()
     clear();
     audioBuffer->setSize (0, 0, false, false, true);
     tmpBuffer->setSize (0, 0, false, false, true);
+    interpolationBuffer->setSize (0, 0, false, false, true);
 
     fifo.clear();
+    interpolationFilters.clear();
 
     sampleRate = 0.0;
     alreadyPrepared = false;
@@ -62,6 +72,13 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
 {
     PERFETTO_FUNCTION();
     if (shouldNotRecordInputBuffer (input, numSamples)) return;
+
+    playbackSpeedBeforeRecording = playbackSpeed;
+    playheadDirectionBeforeRecording = playheadDirection;
+
+    setPlaybackDirectionForward();
+    setPlaybackSpeed (1.0f);
+    fifo.setPlaybackRate (playbackSpeed, playheadDirection);
 
     if (! isRecording)
     {
@@ -153,19 +170,111 @@ void LoopTrack::finalizeLayer()
     }
 
     // sync full loop copy at end of recording
-    // max 5mins at 48kHz
-    // - 5 × 60 × 48000 × 2 channels × 4 bytes = 110MB approx
-    // Assuming 2GB/s RAM speed
-    // Copy time: 110 MB / 2 GB/s = 55ms
-    // Audio callback @ 512 samples:
-    // 512 / 48000 = 10.7ms max callback time
     copyAudioToTmpBuffer();
+
+    setPlaybackSpeed (playbackSpeedBeforeRecording);
+    if (playheadDirectionBeforeRecording == 1)
+        setPlaybackDirectionForward();
+    else
+        setPlaybackDirectionBackward();
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint numSamples)
 {
     PERFETTO_FUNCTION();
     if (shouldNotPlayback (numSamples)) return;
+
+    static bool wasUsingFastPath = true;
+    bool useFastPath = (std::abs (playbackSpeed - 1.0f) < 0.001f && isPlaybackDirectionForward());
+
+    if (useFastPath != wasUsingFastPath)
+    {
+        DBG ("Switched to: " << (useFastPath ? "FAST PATH" : "INTERPOLATED PATH"));
+        DBG ("playbackSpeed: " << playbackSpeed << ", direction: " << playheadDirection);
+        DBG ("FIFO rate: " << fifo.getPlaybackRate());
+        wasUsingFastPath = useFastPath;
+    }
+
+    if (useFastPath)
+    {
+        processPlaybackNormalSpeedForward (output, numSamples);
+    }
+    else
+    {
+        processPlaybackInterpolatedSpeed (output, numSamples);
+    }
+
+    processPlaybackApplyVolume (output, numSamples);
+}
+
+void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output, const uint numSamples)
+{
+    PERFETTO_FUNCTION();
+    float speedMultiplier = playbackSpeed * playheadDirection;
+
+    fifo.setPlaybackRate (playbackSpeed, playheadDirection);
+
+    double currentPos = fifo.getExactReadPos();
+    int startPos = (int) currentPos;
+
+    // Copy the SOURCE samples we need - this many samples from the loop
+    // At 2x: we advance through loop faster, need MORE source samples
+    // At 0.5x: we advance through loop slower, need FEWER source samples
+    int maxSourceSamples = (int) (numSamples * std::abs (speedMultiplier)) + 10;
+
+    // Copy samples in the correct direction
+    copyCircularDataLinearized (startPos, maxSourceSamples, speedMultiplier, 0);
+
+    int outputOffset = (int) blockSize * 2 + 20;
+
+    int channelsToProcess = std::min ({ output.getNumChannels(),
+                                        audioBuffer->getNumChannels(),
+                                        interpolationBuffer->getNumChannels(),
+                                        (int) interpolationFilters.size() });
+
+    for (int ch = 0; ch < channelsToProcess; ++ch)
+    {
+        juce::FloatVectorOperations::clear (interpolationBuffer->getWritePointer (ch) + outputOffset, (int) numSamples);
+
+        // Interpolate from maxSourceSamples down to numSamples
+        // Rate should be: numSamples / maxSourceSamples (how many output per input)
+        // double rate = (double) numSamples / (double) maxSourceSamples;
+
+        interpolationFilters[ch].process (std::abs (speedMultiplier),
+                                          interpolationBuffer->getReadPointer (ch),
+                                          interpolationBuffer->getWritePointer (ch) + outputOffset,
+                                          numSamples,
+                                          maxSourceSamples,
+                                          0);
+    }
+
+    for (int ch = 0; ch < channelsToProcess; ++ch)
+    {
+        output.addFrom (ch, 0, *interpolationBuffer, ch, outputOffset, numSamples);
+    }
+
+    fifo.finishedRead (numSamples, shouldOverdub());
+    float rms = interpolationBuffer->getRMSLevel (0, outputOffset, numSamples);
+    DBG ("RMS of interpolated audio: " << rms << " at speed " << playbackSpeed);
+}
+
+void LoopTrack::processPlaybackApplyVolume (juce::AudioBuffer<float>& output, const uint numSamples)
+{
+    PERFETTO_FUNCTION();
+    if (std::abs (trackVolume - previousTrackVolume) > 0.001f)
+    {
+        output.applyGainRamp (0, (int) numSamples, previousTrackVolume, trackVolume);
+        previousTrackVolume = trackVolume;
+    }
+    else
+    {
+        output.applyGain (trackVolume);
+    }
+}
+
+void LoopTrack::processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output, const uint numSamples)
+{
+    PERFETTO_FUNCTION();
 
     int readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap;
     fifo.prepareToRead ((int) numSamples, readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap);
@@ -181,16 +290,6 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
             juce::FloatVectorOperations::add (outPtr + samplesBeforeWrap, loopPtr + readPosAfterWrap, samplesAfterWrap);
     }
 
-    if (std::abs (trackVolume - previousTrackVolume) > 0.001f)
-    {
-        output.applyGainRamp (0, (int) numSamples, previousTrackVolume, trackVolume);
-        previousTrackVolume = trackVolume;
-    }
-    else
-    {
-        output.applyGain (trackVolume);
-    }
-
     fifo.finishedRead (actualRead, shouldOverdub());
 }
 
@@ -202,6 +301,8 @@ void LoopTrack::clear()
     tmpBuffer->clear();
     length = 0;
     provisionalLength = 0;
+    playbackSpeed = 1.0f;
+    playheadDirection = 1;
     fifo.prepareToPlay ((int) alignedBufferSize);
 }
 
@@ -248,4 +349,47 @@ void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
     provisionalLength = (size_t) copySamples;
 
     finalizeLayer();
+}
+
+bool LoopTrack::shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const uint numSamples) const
+{
+    PERFETTO_FUNCTION();
+    return numSamples == 0 || (uint) input.getNumSamples() < numSamples || ! isPrepared()
+           || input.getNumChannels() != audioBuffer->getNumChannels();
+}
+
+void LoopTrack::copyAudioToTmpBuffer()
+{
+    PERFETTO_FUNCTION();
+    // Copy current audioBuffer state to tmpBuffer
+    // This prepares tmpBuffer to be pushed to undo stack on next overdub
+    for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+    {
+        juce::FloatVectorOperations::copy (tmpBuffer->getWritePointer (ch), audioBuffer->getReadPointer (ch), (int) length);
+    }
+}
+
+void LoopTrack::copyCircularDataLinearized (int startPos, int numSamples, float speedMultiplier, int destOffset)
+{
+    PERFETTO_FUNCTION();
+    // Copy circular data into linear buffer
+    for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+    {
+        float* destPtr = interpolationBuffer->getWritePointer (ch) + destOffset;
+        const float* loopPtr = audioBuffer->getReadPointer (ch);
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            int readIdx = startPos + i;
+            if (speedMultiplier < 0) readIdx = startPos - i;
+
+            // Wrap around
+            while (readIdx < 0)
+                readIdx += length;
+            while (readIdx >= (int) length)
+                readIdx -= length;
+
+            destPtr[i] = loopPtr[readIdx];
+        }
+    }
 }

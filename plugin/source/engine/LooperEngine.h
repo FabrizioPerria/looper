@@ -81,6 +81,54 @@ public:
         return nullptr;
     }
 
+public:
+    void setTrackPlaybackSpeed (int trackIndex, float speed)
+    {
+        PERFETTO_FUNCTION();
+        if (trackIndex < 0 || trackIndex >= numTracks) return;
+
+        auto& track = loopTracks[trackIndex];
+        if (track) track->setPlaybackSpeed (speed);
+    }
+
+    void setTrackPlaybackDirectionForward (int trackIndex)
+    {
+        PERFETTO_FUNCTION();
+        if (trackIndex < 0 || trackIndex >= numTracks) return;
+
+        auto& track = loopTracks[trackIndex];
+        if (track) track->setPlaybackDirectionForward();
+    }
+
+    void setTrackPlaybackDirectionBackward (int trackIndex)
+    {
+        PERFETTO_FUNCTION();
+        if (trackIndex < 0 || trackIndex >= numTracks) return;
+
+        auto& track = loopTracks[trackIndex];
+        if (track) track->setPlaybackDirectionBackward();
+    }
+
+    float getTrackPlaybackSpeed (int trackIndex) const
+    {
+        PERFETTO_FUNCTION();
+        if (trackIndex < 0 || trackIndex >= numTracks) return 1.0f;
+
+        auto& track = loopTracks[trackIndex];
+        if (track) return track->getPlaybackSpeed();
+        return 1.0f;
+    }
+
+    bool isTrackPlaybackForward (int trackIndex) const
+    {
+        PERFETTO_FUNCTION();
+        if (trackIndex < 0 || trackIndex >= numTracks) return true;
+
+        auto& track = loopTracks[trackIndex];
+        if (track) return track->isPlaybackDirectionForward();
+        return true;
+    }
+
     void setTrackVolume (int trackIndex, float volume);
     void setTrackMuted (int trackIndex, bool muted);
     void setTrackSoloed (int trackIndex, bool soloed);
@@ -93,18 +141,12 @@ private:
     {
         int noteNumber;
         bool isNoteOn;
-        bool operator== (const MidiKey& other) const
-        {
-            return noteNumber == other.noteNumber && isNoteOn == other.isNoteOn;
-        }
+        bool operator== (const MidiKey& other) const { return noteNumber == other.noteNumber && isNoteOn == other.isNoteOn; }
     };
 
     struct MidiKeyHash
     {
-        std::size_t operator() (const MidiKey& k) const
-        {
-            return std::hash<int>() (k.noteNumber) ^ std::hash<bool>() (k.isNoteOn);
-        }
+        std::size_t operator() (const MidiKey& k) const { return std::hash<int>() (k.noteNumber) ^ std::hash<bool>() (k.isNoteOn); }
     };
 
     bool isRecording() const

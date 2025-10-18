@@ -1959,4 +1959,1174 @@ TEST (Perf, measureCopyTimeForAudioBuffer)
         for (int i = 0; i < numSamples; ++i)
             EXPECT_FLOAT_EQ (destBuffer.getSample (ch, i), sourceBuffer.getSample (ch, i));
 }
+
+// Add to the end of LoopTrack_test.cpp, before the closing brace of audio_plugin_test namespace
+
+// ============================================================================
+// Time Management Tests - Playback Speed
+// ============================================================================
+
+TEST (LoopTrackTimeManagement, NormalSpeedPlayback)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    // Record a 1-second loop
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    EXPECT_EQ (track.getLength(), loopSamples);
+    EXPECT_FLOAT_EQ (track.getPlaybackSpeed(), 1.0f);
+
+    size_t initialPos = track.getCurrentReadPosition();
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t newPos = track.getCurrentReadPosition();
+
+    EXPECT_EQ (newPos, (initialPos + maxBlock) % track.getLength());
+}
+
+TEST (LoopTrackTimeManagement, HalfSpeedPlayback)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    track.setPlaybackSpeed (0.5f);
+    EXPECT_FLOAT_EQ (track.getPlaybackSpeed(), 0.5f);
+
+    size_t initialPos = track.getCurrentReadPosition();
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t newPos = track.getCurrentReadPosition();
+
+    size_t expectedAdvance = (size_t) (maxBlock * 0.5);
+    size_t expectedPos = (initialPos + expectedAdvance) % track.getLength();
+
+    EXPECT_NEAR (newPos, expectedPos, 2);
+}
+
+TEST (LoopTrackTimeManagement, DoubleSpeedPlayback)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    track.setPlaybackSpeed (2.0f);
+    EXPECT_FLOAT_EQ (track.getPlaybackSpeed(), 2.0f);
+
+    size_t initialPos = track.getCurrentReadPosition();
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t newPos = track.getCurrentReadPosition();
+
+    size_t expectedAdvance = (size_t) (maxBlock * 2.0);
+    size_t expectedPos = (initialPos + expectedAdvance) % track.getLength();
+
+    EXPECT_NEAR (newPos, expectedPos, 5);
+}
+
+TEST (LoopTrackTimeManagement, MinimumSpeedPlayback)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    track.setPlaybackSpeed (0.2f);
+    EXPECT_FLOAT_EQ (track.getPlaybackSpeed(), 0.2f);
+
+    size_t initialPos = track.getCurrentReadPosition();
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t newPos = track.getCurrentReadPosition();
+
+    size_t expectedAdvance = (size_t) (maxBlock * 0.2);
+    size_t expectedPos = (initialPos + expectedAdvance) % track.getLength();
+
+    EXPECT_NEAR (newPos, expectedPos, 2);
+}
+
+TEST (LoopTrackTimeManagement, SpeedClampingBeyondRange)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+
+    // Try to set speed beyond maximum
+    track.setPlaybackSpeed (3.0f);
+    EXPECT_FLOAT_EQ (track.getPlaybackSpeed(), 2.0f);
+
+    // Try to set speed below minimum
+    track.setPlaybackSpeed (0.1f);
+    EXPECT_FLOAT_EQ (track.getPlaybackSpeed(), 0.2f);
+
+    // Negative speed should clamp to minimum
+    track.setPlaybackSpeed (-1.0f);
+    EXPECT_FLOAT_EQ (track.getPlaybackSpeed(), 0.2f);
+}
+
+TEST (LoopTrackTimeManagement, VariableSpeedRange)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Test various speeds within range
+    float testSpeeds[] = { 0.2f, 0.5f, 0.7f, 1.0f, 1.3f, 1.7f, 2.0f };
+
+    for (float speed : testSpeeds)
+    {
+        track.setPlaybackSpeed (speed);
+        EXPECT_FLOAT_EQ (track.getPlaybackSpeed(), speed);
+
+        size_t initialPos = track.getCurrentReadPosition();
+        juce::AudioBuffer<float> output (numChannels, maxBlock);
+        output.clear();
+        track.processPlayback (output, maxBlock);
+        size_t newPos = track.getCurrentReadPosition();
+
+        size_t expectedAdvance = (size_t) (maxBlock * speed);
+        size_t expectedPos = (initialPos + expectedAdvance) % track.getLength();
+
+        EXPECT_NEAR (newPos, expectedPos, 5);
+    }
+}
+
+// ============================================================================
+// Time Management Tests - Direction
+// ============================================================================
+
+TEST (LoopTrackTimeManagement, ForwardDirection)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    track.setPlaybackDirectionForward();
+    EXPECT_TRUE (track.isPlaybackDirectionForward());
+
+    size_t initialPos = track.getCurrentReadPosition();
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t newPos = track.getCurrentReadPosition();
+
+    // Should advance forward
+    EXPECT_GT (newPos, initialPos);
+}
+
+TEST (LoopTrackTimeManagement, ReverseDirection)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Move to middle of loop
+    juce::AudioBuffer<float> dummy (numChannels, 24000);
+    track.processPlayback (dummy, 24000);
+
+    size_t initialPos = track.getCurrentReadPosition();
+    track.setPlaybackDirectionBackward();
+    EXPECT_FALSE (track.isPlaybackDirectionForward());
+
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t newPos = track.getCurrentReadPosition();
+
+    // Should move backward
+    EXPECT_LT (newPos, initialPos);
+}
+
+TEST (LoopTrackTimeManagement, ReverseDirectionWraparound)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 10000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Position near beginning
+    track.setPlaybackDirectionBackward();
+
+    size_t initialPos = track.getCurrentReadPosition();
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t newPos = track.getCurrentReadPosition();
+
+    // Should wrap to end of loop
+    if (initialPos < maxBlock)
+    {
+        EXPECT_GE (newPos, loopSamples - maxBlock);
+    }
+}
+
+TEST (LoopTrackTimeManagement, ReverseDoubleSpeed)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Move to middle
+    juce::AudioBuffer<float> dummy (numChannels, 24000);
+    track.processPlayback (dummy, 24000);
+
+    track.setPlaybackSpeed (2.0f);
+    track.setPlaybackDirectionBackward();
+
+    size_t initialPos = track.getCurrentReadPosition();
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t newPos = track.getCurrentReadPosition();
+
+    // Should move backward at double speed
+    size_t expectedAdvance = maxBlock * 2;
+
+    if (initialPos >= expectedAdvance)
+    {
+        EXPECT_NEAR (newPos, initialPos - expectedAdvance, 5);
+    }
+    else
+    {
+        // Wrapped around
+        EXPECT_GT (newPos, loopSamples - expectedAdvance);
+    }
+}
+
+TEST (LoopTrackTimeManagement, ReverseHalfSpeed)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Move to middle
+    juce::AudioBuffer<float> dummy (numChannels, 24000);
+    track.processPlayback (dummy, 24000);
+
+    track.setPlaybackSpeed (0.5f);
+    track.setPlaybackDirectionBackward();
+
+    size_t initialPos = track.getCurrentReadPosition();
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t newPos = track.getCurrentReadPosition();
+
+    // Should move backward at half speed
+    size_t expectedAdvance = (size_t) (maxBlock * 0.5);
+
+    EXPECT_NEAR (newPos, (initialPos - expectedAdvance + loopSamples) % loopSamples, 5);
+}
+
+// ============================================================================
+// Time Management Tests - Wraparound
+// ============================================================================
+
+TEST (LoopTrackTimeManagement, ForwardWraparound)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    // Small loop to test wraparound
+    const int loopSamples = 10000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    track.setPlaybackSpeed (1.0f);
+
+    // Position near end
+    juce::AudioBuffer<float> dummy (numChannels, 9500);
+    track.processPlayback (dummy, 9500);
+
+    size_t posBeforeWrap = track.getCurrentReadPosition();
+    EXPECT_NEAR (posBeforeWrap, 9500, 10);
+
+    // Process past the end
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t posAfterWrap = track.getCurrentReadPosition();
+
+    // Should wrap to beginning
+    EXPECT_LT (posAfterWrap, 512);
+}
+
+TEST (LoopTrackTimeManagement, DoubleSpeedWraparound)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 10000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    track.setPlaybackSpeed (2.0f);
+
+    // Position near end - FIXED: Process in chunks of maxBlock
+    int targetPosition = 9000;
+    juce::AudioBuffer<float> dummy (numChannels, maxBlock);
+    while (track.getCurrentReadPosition() < targetPosition)
+    {
+        dummy.clear();
+        track.processPlayback (dummy, maxBlock);
+    }
+
+    // Process at double speed - should wrap
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t posAfterWrap = track.getCurrentReadPosition();
+
+    // At double speed, we advance by maxBlock * 2 from wherever we ended up
+    // The position won't be exactly 9000, but should wrap around
+    EXPECT_LT (posAfterWrap, 2000); // Should have wrapped to beginning area
+}
+
+TEST (LoopTrackTimeManagement, MultipleWraparounds)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    // Very small loop
+    const int loopSamples = 5000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    track.setPlaybackSpeed (2.0f);
+
+    // Process enough to wrap multiple times
+    for (int i = 0; i < 20; ++i)
+    {
+        juce::AudioBuffer<float> output (numChannels, maxBlock);
+        output.clear();
+        track.processPlayback (output, maxBlock);
+    }
+
+    // Should still be within valid range
+    size_t finalPos = track.getCurrentReadPosition();
+    EXPECT_LT (finalPos, loopSamples);
+    EXPECT_GE (finalPos, 0);
+}
+
+// ============================================================================
+// Time Management Tests - Exact Position
+// ============================================================================
+
+TEST (LoopTrackTimeManagement, ExactPositionTracking)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    track.setPlaybackSpeed (0.7f);
+
+    double exactPosBefore = track.getExactReadPosition();
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    double exactPosAfter = track.getExactReadPosition();
+
+    double expectedAdvance = maxBlock * 0.7;
+    EXPECT_NEAR (exactPosAfter - exactPosBefore, expectedAdvance, 1.0);
+}
+
+TEST (LoopTrackTimeManagement, IntegerVsExactPosition)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    track.setPlaybackSpeed (0.3f);
+
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+
+    size_t intPos = track.getCurrentReadPosition();
+    double exactPos = track.getExactReadPosition();
+
+    // Integer position should be floor of exact position
+    EXPECT_EQ (intPos, (size_t) exactPos);
+}
+
+// ============================================================================
+// Time Management Tests - Recording Behavior
+// ============================================================================
+
+TEST (LoopTrackTimeManagement, RecordingForcesForwardDirection)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+
+    // Set reverse direction
+    track.setPlaybackSpeed (2.0f);
+    EXPECT_FLOAT_EQ (track.getPlaybackSpeed(), 2.0f);
+
+    track.setPlaybackDirectionBackward();
+    EXPECT_FALSE (track.isPlaybackDirectionForward());
+
+    // Start recording
+    juce::AudioBuffer<float> input (numChannels, maxBlock);
+    input.clear();
+    track.processRecord (input, maxBlock);
+    EXPECT_FLOAT_EQ (track.getPlaybackSpeed(), 1.0f);
+    EXPECT_TRUE (track.isPlaybackDirectionForward());
+    track.finalizeLayer();
+
+    EXPECT_FALSE (track.isPlaybackDirectionForward());
+    EXPECT_FLOAT_EQ (track.getPlaybackSpeed(), 2.0f);
+}
+
+// ============================================================================
+// Time Management Tests - Edge Cases
+// ============================================================================
+
+TEST (LoopTrackTimeManagement, VeryShortLoop)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    // Very short loop
+    const int loopSamples = 100;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    EXPECT_EQ (track.getLength(), loopSamples);
+
+    track.setPlaybackSpeed (2.0f);
+
+    // Should handle wraparound correctly even with tiny loop
+    for (int i = 0; i < 10; ++i)
+    {
+        juce::AudioBuffer<float> output (numChannels, maxBlock);
+        output.clear();
+        track.processPlayback (output, maxBlock);
+        size_t pos = track.getCurrentReadPosition();
+        EXPECT_LT (pos, track.getLength());
+    }
+}
+
+TEST (LoopTrackTimeManagement, SpeedChangesDuringPlayback)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+
+    // Start at normal speed
+    track.setPlaybackSpeed (1.0f);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+
+    // Change to half speed
+    track.setPlaybackSpeed (0.5f);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t pos1 = track.getCurrentReadPosition();
+
+    // Change to double speed
+    track.setPlaybackSpeed (2.0f);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t pos2 = track.getCurrentReadPosition();
+
+    // Positions should still be valid
+    EXPECT_LT (pos1, track.getLength());
+    EXPECT_LT (pos2, track.getLength());
+}
+
+TEST (LoopTrackTimeManagement, DirectionToggleDuringPlayback)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Move to middle
+    juce::AudioBuffer<float> dummy (numChannels, 24000);
+    track.processPlayback (dummy, 24000);
+
+    size_t posForward = track.getCurrentReadPosition();
+
+    // Toggle to reverse
+    track.setPlaybackDirectionBackward();
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t posReverse1 = track.getCurrentReadPosition();
+
+    // Toggle back to forward
+    track.setPlaybackDirectionForward();
+    output.clear();
+    track.processPlayback (output, maxBlock);
+    size_t posForward2 = track.getCurrentReadPosition();
+
+    // Should have moved backward then forward
+    EXPECT_LT (posReverse1, posForward);
+    EXPECT_GT (posForward2, posReverse1);
+}
+
+// ============================================================================
+// Time Management Tests - Audio Quality
+// ============================================================================
+
+TEST (LoopTrackTimeManagement, NoAudioGlitchesAtSpeedChange)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+
+    // Play at normal speed
+    track.setPlaybackSpeed (1.0f);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+
+    // Check output is not silent
+    float rms1 = output.getRMSLevel (0, 0, maxBlock);
+    EXPECT_GT (rms1, 0.0f);
+
+    // Change speed and play
+    track.setPlaybackSpeed (0.5f);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+
+    // Should still have audio output
+    float rms2 = output.getRMSLevel (0, 0, maxBlock);
+    EXPECT_GT (rms2, 0.0f);
+}
+
+TEST (LoopTrackTimeManagement, PositionConsistencyOverTime)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    track.setPlaybackSpeed (1.5f);
+
+    size_t totalAdvance = 0;
+    size_t currentPos = track.getCurrentReadPosition();
+
+    // Process multiple blocks
+    for (int i = 0; i < 100; ++i)
+    {
+        size_t prevPos = currentPos;
+        juce::AudioBuffer<float> output (numChannels, maxBlock);
+        output.clear();
+        track.processPlayback (output, maxBlock);
+        currentPos = track.getCurrentReadPosition();
+
+        size_t advance;
+        if (currentPos >= prevPos)
+        {
+            advance = currentPos - prevPos;
+        }
+        else
+        {
+            // Wrapped around
+            advance = (track.getLength() - prevPos) + currentPos;
+        }
+
+        totalAdvance += advance;
+    }
+
+    // Total advance should be approximately maxBlock * 1.5 * 100
+    size_t expectedAdvance = (size_t) (maxBlock * 1.5 * 100);
+
+    // Account for wraparound
+    expectedAdvance = expectedAdvance % track.getLength();
+    totalAdvance = totalAdvance % track.getLength();
+
+    EXPECT_NEAR (totalAdvance, expectedAdvance, 100);
+}
+
+// ============================================================================
+// Time Management Tests - Combined Speed and Direction
+// ============================================================================
+
+TEST (LoopTrackTimeManagement, ReverseVariableSpeed)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Test various speeds in reverse
+    float testSpeeds[] = { 0.3f, 0.7f, 1.2f, 1.8f };
+
+    for (float speed : testSpeeds)
+    {
+        // Reset to middle position
+        track.setPlaybackDirectionForward();
+        juce::AudioBuffer<float> resetBuffer (numChannels, 24000);
+        track.processPlayback (resetBuffer, 24000);
+
+        size_t startPos = track.getCurrentReadPosition();
+
+        track.setPlaybackSpeed (speed);
+        track.setPlaybackDirectionBackward();
+
+        juce::AudioBuffer<float> output (numChannels, maxBlock);
+        output.clear();
+        track.processPlayback (output, maxBlock);
+
+        size_t endPos = track.getCurrentReadPosition();
+
+        // Should have moved backward
+        if (startPos >= maxBlock * speed)
+        {
+            EXPECT_LT (endPos, startPos);
+        }
+        else
+        {
+            // Wrapped to end
+            EXPECT_GT (endPos, loopSamples / 2);
+        }
+    }
+}
+
+TEST (LoopTrackTimeManagement, AlternatingDirectionWithSpeed)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    track.setPlaybackSpeed (1.5f);
+
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+
+    // Alternate between forward and reverse
+    for (int i = 0; i < 10; ++i)
+    {
+        if (i % 2 == 0)
+            track.setPlaybackDirectionForward();
+        else
+            track.setPlaybackDirectionBackward();
+
+        output.clear();
+        track.processPlayback (output, maxBlock);
+
+        // Should always produce valid audio
+        float rms = output.getRMSLevel (0, 0, maxBlock);
+        EXPECT_GT (rms, 0.0f);
+
+        // Position should be valid
+        size_t pos = track.getCurrentReadPosition();
+        EXPECT_LT (pos, track.getLength());
+    }
+}
+
+// ============================================================================
+// Time Management Tests - Real-World Scenarios
+// ============================================================================
+
+TEST (LoopTrackTimeManagement, DJStyleSlowdown)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Simulate DJ slowdown from 1.0x to 0.5x
+    float speeds[] = { 1.0f, 0.9f, 0.8f, 0.7f, 0.6f, 0.5f };
+
+    for (float speed : speeds)
+    {
+        track.setPlaybackSpeed (speed);
+        juce::AudioBuffer<float> output (numChannels, maxBlock);
+        output.clear();
+        track.processPlayback (output, maxBlock);
+
+        // Should produce audio at all speeds
+        float rms = output.getRMSLevel (0, 0, maxBlock);
+        EXPECT_GT (rms, 0.0f);
+    }
+}
+
+TEST (LoopTrackTimeManagement, BackspinEffect)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Move forward a bit
+    juce::AudioBuffer<float> dummy (numChannels, 10000);
+    track.processPlayback (dummy, 10000);
+    size_t forwardPos = track.getCurrentReadPosition();
+
+    // Quick reverse (backspin effect)
+    track.setPlaybackSpeed (2.0f);
+    track.setPlaybackDirectionBackward();
+
+    for (int i = 0; i < 5; ++i)
+    {
+        juce::AudioBuffer<float> output (numChannels, maxBlock);
+        output.clear();
+        track.processPlayback (output, maxBlock);
+
+        float rms = output.getRMSLevel (0, 0, maxBlock);
+        EXPECT_GT (rms, 0.0f);
+    }
+
+    size_t backspinPos = track.getCurrentReadPosition();
+    EXPECT_LT (backspinPos, forwardPos);
+
+    // Return to forward
+    track.setPlaybackSpeed (1.0f);
+    track.setPlaybackDirectionForward();
+
+    juce::AudioBuffer<float> output (numChannels, maxBlock);
+    output.clear();
+    track.processPlayback (output, maxBlock);
+
+    float rms = output.getRMSLevel (0, 0, maxBlock);
+    EXPECT_GT (rms, 0.0f);
+}
+
+TEST (LoopTrackTimeManagement, ExtendedPlaybackAllSpeeds)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 10000; // Smaller loop for faster testing
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Test extended playback at different speeds
+    float testSpeeds[] = { 0.2f, 0.5f, 1.0f, 1.5f, 2.0f };
+
+    for (float speed : testSpeeds)
+    {
+        track.setPlaybackSpeed (speed);
+
+        // Play for equivalent of 10 loop cycles
+        int blocksToPlay = (int) ((loopSamples * 10) / maxBlock / speed) + 1;
+
+        for (int i = 0; i < blocksToPlay; ++i)
+        {
+            juce::AudioBuffer<float> output (numChannels, maxBlock);
+            output.clear();
+            track.processPlayback (output, maxBlock);
+
+            // Should never produce silence or invalid position
+            float rms = output.getRMSLevel (0, 0, maxBlock);
+            EXPECT_GT (rms, 0.0f);
+
+            size_t pos = track.getCurrentReadPosition();
+            EXPECT_LT (pos, track.getLength());
+        }
+    }
+}
+
+// ============================================================================
+// Time Management Tests - Stress Tests
+// ============================================================================
+
+TEST (LoopTrackTimeManagement, RapidSpeedChanges)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Rapidly change speeds
+    float speeds[] = { 2.0f, 0.5f, 1.5f, 0.3f, 1.8f, 0.7f, 1.0f };
+
+    for (int iteration = 0; iteration < 5; ++iteration)
+    {
+        for (float speed : speeds)
+        {
+            track.setPlaybackSpeed (speed);
+            juce::AudioBuffer<float> output (numChannels, maxBlock);
+            output.clear();
+            track.processPlayback (output, maxBlock);
+
+            // Should remain stable
+            float rms = output.getRMSLevel (0, 0, maxBlock);
+            EXPECT_GT (rms, 0.0f);
+
+            size_t pos = track.getCurrentReadPosition();
+            EXPECT_LT (pos, track.getLength());
+        }
+    }
+}
+
+TEST (LoopTrackTimeManagement, RapidDirectionChanges)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Move to middle
+    juce::AudioBuffer<float> dummy (numChannels, 24000);
+    track.processPlayback (dummy, 24000);
+
+    // Rapidly toggle direction
+    for (int i = 0; i < 50; ++i)
+    {
+        if (i % 2 == 0)
+            track.setPlaybackDirectionForward();
+        else
+            track.setPlaybackDirectionBackward();
+
+        juce::AudioBuffer<float> output (numChannels, maxBlock);
+        output.clear();
+        track.processPlayback (output, maxBlock);
+
+        // Should remain stable
+        float rms = output.getRMSLevel (0, 0, maxBlock);
+        EXPECT_GT (rms, 0.0f);
+
+        size_t pos = track.getCurrentReadPosition();
+        EXPECT_LT (pos, track.getLength());
+    }
+}
+
+TEST (LoopTrackTimeManagement, ExtremeSpeedAndDirection)
+{
+    LoopTrack track;
+    const double sr = 48000.0;
+    const int maxSeconds = 10;
+    const int maxBlock = 512;
+    const int numChannels = 2;
+    const int undoLayers = 1;
+    track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
+    track.setCrossFadeLength (0);
+    track.setOverdubGains (1.0f, 1.0f);
+
+    const int loopSamples = 48000;
+    juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, loopSamples, sr, 440.0f);
+    track.processRecord (input, loopSamples);
+    track.finalizeLayer();
+
+    // Test extreme combinations
+    struct TestCase
+    {
+        float speed;
+        bool forward;
+    };
+
+    TestCase testCases[] = {
+        { 0.2f, true },  // Slowest forward
+        { 0.2f, false }, // Slowest reverse
+        { 2.0f, true },  // Fastest forward
+        { 2.0f, false }, // Fastest reverse
+    };
+
+    for (const auto& testCase : testCases)
+    {
+        track.setPlaybackSpeed (testCase.speed);
+        if (testCase.forward)
+            track.setPlaybackDirectionForward();
+        else
+            track.setPlaybackDirectionBackward();
+
+        // Play for several blocks
+        for (int i = 0; i < 20; ++i)
+        {
+            juce::AudioBuffer<float> output (numChannels, maxBlock);
+            output.clear();
+            track.processPlayback (output, maxBlock);
+
+            // Should remain stable even at extremes
+            float rms = output.getRMSLevel (0, 0, maxBlock);
+            EXPECT_GT (rms, 0.0f);
+
+            size_t pos = track.getCurrentReadPosition();
+            EXPECT_LT (pos, track.getLength());
+        }
+    }
+}
+
 } // namespace audio_plugin_test

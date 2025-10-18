@@ -1,10 +1,8 @@
 #include "WaveformComponent.h"
-#include "ui/renderers/CircularRenderer.h"
 #include "ui/renderers/LinearRenderer.h"
 
 WaveformComponent::WaveformComponent()
 {
-    // renderer = std::make_unique<CircularRenderer>();
     renderer = std::make_unique<LinearRenderer>();
     startTimerHz (60);
 }
@@ -45,12 +43,17 @@ void WaveformComponent::timerCallback()
 void WaveformComponent::paint (juce::Graphics& g)
 {
     PERFETTO_FUNCTION();
-    g.fillAll (juce::Colours::black);
+
+    // Enable high quality rendering
+    g.setImageResamplingQuality (juce::Graphics::highResamplingQuality);
+
+    // Use surface color instead of pure black
+    g.fillAll (LooperTheme::Colors::surface);
 
     if (! bridge)
     {
-        g.setColour (juce::Colours::white);
-        g.drawText ("No audio bridge", getLocalBounds(), juce::Justification::centred);
+        g.setColour (LooperTheme::Colors::textDim);
+        g.drawText ("No audio", getLocalBounds(), juce::Justification::centred);
         return;
     }
 
