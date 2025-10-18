@@ -31,11 +31,8 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
 
     undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
 
-    // Allocate interpolation buffer:
-    // - Source area: maxBlockSize * 2 + 20 (for double speed worst case)
-    // - Output area: maxBlockSize
-    // Total: maxBlockSize * 3 + 20
-    int maxInterpSourceSamples = (int) maxBlockSize * 2 + 20;
+    // // At slowest speed (0.2x), we need: blockSize / 0.2 = blockSize * 5
+    int maxInterpSourceSamples = (int) maxBlockSize * 5 + 20; // Changed from * 2
     int totalInterpSize = maxInterpSourceSamples + (int) maxBlockSize;
     interpolationBuffer->setSize ((int) numChannels, totalInterpSize, false, true, true);
 
@@ -187,10 +184,26 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
     PERFETTO_FUNCTION();
     if (shouldNotPlayback (numSamples)) return;
 
-    if (std::abs (playbackSpeed - 1.0f) < 0.001f && isPlaybackDirectionForward())
+    static bool wasUsingFastPath = true;
+    bool useFastPath = (std::abs (playbackSpeed - 1.0f) < 0.001f && isPlaybackDirectionForward());
+
+    if (useFastPath != wasUsingFastPath)
+    {
+        DBG ("Switched to: " << (useFastPath ? "FAST PATH" : "INTERPOLATED PATH"));
+        DBG ("playbackSpeed: " << playbackSpeed << ", direction: " << playheadDirection);
+        DBG ("FIFO rate: " << fifo.getPlaybackRate());
+        wasUsingFastPath = useFastPath;
+    }
+
+    if (useFastPath)
+    {
         processPlaybackNormalSpeedForward (output, numSamples);
+    }
     else
+    {
         processPlaybackInterpolatedSpeed (output, numSamples);
+    }
+
     processPlaybackApplyVolume (output, numSamples);
 }
 
@@ -198,24 +211,34 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
 {
     PERFETTO_FUNCTION();
     float speedMultiplier = playbackSpeed * playheadDirection;
+
     fifo.setPlaybackRate (playbackSpeed, playheadDirection);
 
     double currentPos = fifo.getExactReadPos();
     int startPos = (int) currentPos;
 
-    // Calculate source samples needed
+    // Copy the SOURCE samples we need - this many samples from the loop
+    // At 2x: we advance through loop faster, need MORE source samples
+    // At 0.5x: we advance through loop slower, need FEWER source samples
     int maxSourceSamples = (int) (numSamples * std::abs (speedMultiplier)) + 10;
 
-    // Copy circular data into linear buffer - REUSED METHOD
+    // Copy samples in the correct direction
     copyCircularDataLinearized (startPos, maxSourceSamples, speedMultiplier, 0);
 
-    // Calculate offset for output area
     int outputOffset = (int) blockSize * 2 + 20;
 
-    // Use interpolator
-    for (int ch = 0; ch < output.getNumChannels(); ++ch)
+    int channelsToProcess = std::min ({ output.getNumChannels(),
+                                        audioBuffer->getNumChannels(),
+                                        interpolationBuffer->getNumChannels(),
+                                        (int) interpolationFilters.size() });
+
+    for (int ch = 0; ch < channelsToProcess; ++ch)
     {
         juce::FloatVectorOperations::clear (interpolationBuffer->getWritePointer (ch) + outputOffset, (int) numSamples);
+
+        // Interpolate from maxSourceSamples down to numSamples
+        // Rate should be: numSamples / maxSourceSamples (how many output per input)
+        // double rate = (double) numSamples / (double) maxSourceSamples;
 
         interpolationFilters[ch].process (std::abs (speedMultiplier),
                                           interpolationBuffer->getReadPointer (ch),
@@ -225,13 +248,14 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
                                           0);
     }
 
-    // Add interpolated audio to output
-    for (int ch = 0; ch < output.getNumChannels(); ++ch)
+    for (int ch = 0; ch < channelsToProcess; ++ch)
     {
         output.addFrom (ch, 0, *interpolationBuffer, ch, outputOffset, numSamples);
     }
 
     fifo.finishedRead (numSamples, shouldOverdub());
+    float rms = interpolationBuffer->getRMSLevel (0, outputOffset, numSamples);
+    DBG ("RMS of interpolated audio: " << rms << " at speed " << playbackSpeed);
 }
 
 void LoopTrack::processPlaybackApplyVolume (juce::AudioBuffer<float>& output, const uint numSamples)

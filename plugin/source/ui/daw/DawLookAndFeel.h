@@ -1,13 +1,34 @@
 #pragma once
 #include "ui/colors/TokyoNight.h"
+#include "ui/daw/PlaybackSlider.h"
 #include <JuceHeader.h>
 
 class DawLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    DawLookAndFeel()
+    DawLookAndFeel() { setColour (juce::ResizableWindow::backgroundColourId, LooperTheme::Colors::backgroundDark); }
+
+    juce::Label* createSliderTextBox (juce::Slider& slider) override
     {
-        setColour (juce::ResizableWindow::backgroundColourId, LooperTheme::Colors::backgroundDark);
+        auto* label = new juce::Label();
+
+        label->setJustificationType (juce::Justification::centred);
+        label->setFont (LooperTheme::Fonts::getBoldFont (12.0f));
+        label->setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
+        label->setColour (juce::Label::backgroundColourId, LooperTheme::Colors::surface);
+        label->setColour (juce::Label::outlineColourId, LooperTheme::Colors::cyan.withAlpha (0.5f));
+        label->setBorderSize (juce::BorderSize<int> (1));
+
+        return label;
+    }
+
+    juce::Rectangle<int>
+        getTooltipBounds (const juce::String& tipText, juce::Point<int> screenPos, juce::Rectangle<int> parentArea) override
+    {
+        const int tooltipWidth = 60;
+        const int tooltipHeight = 24;
+
+        return juce::Rectangle<int> (screenPos.x - tooltipWidth / 2, screenPos.y - tooltipHeight - 10, tooltipWidth, tooltipHeight);
     }
 
     void drawLinearSlider (juce::Graphics& g,
@@ -23,15 +44,29 @@ public:
     {
         if (style == juce::Slider::LinearHorizontal)
         {
+            slider.setPopupDisplayEnabled (true, true, nullptr);
             auto bounds = juce::Rectangle<float> (x, y, width, height);
-            auto trackHeight = juce::jmin (6.0f, height * 0.5f);
-            auto trackBounds = bounds.withSizeKeepingCentre (width, trackHeight);
 
+            // Check if this is a PlaybackSpeedSlider
+            bool isSpeedSlider = (dynamic_cast<PlaybackSpeedSlider*> (&slider) != nullptr);
+
+            // Reserve space for tick marks if speed slider
+            float bottomSpace = isSpeedSlider ? 18.0f : 0.0f;
+            auto sliderBounds = bounds.withHeight (bounds.getHeight() - bottomSpace);
+
+            auto trackHeight = juce::jmin (6.0f, sliderBounds.getHeight() * 0.5f);
+            auto trackBounds = sliderBounds.withSizeKeepingCentre (sliderBounds.getWidth(), trackHeight);
+
+            // Save original for tick marks
+            auto originalTrackBounds = trackBounds;
+
+            // Draw track background
             g.setColour (LooperTheme::Colors::backgroundDark);
             g.fillRoundedRectangle (trackBounds, trackHeight / 2.0f);
 
-            auto filledWidth = sliderPos - bounds.getX();
-            auto filledBounds = trackBounds.removeFromLeft (filledWidth);
+            // Draw filled portion
+            auto filledWidth = sliderPos - trackBounds.getX();
+            auto filledBounds = trackBounds.removeFromLeft (filledWidth); // This modifies trackBounds!
 
             juce::ColourGradient gradient (LooperTheme::Colors::primary,
                                            filledBounds.getX(),
@@ -43,10 +78,17 @@ public:
             g.setGradientFill (gradient);
             g.fillRoundedRectangle (filledBounds, trackHeight / 2.0f);
 
+            // Draw tick marks using the ORIGINAL trackBounds
+            if (isSpeedSlider)
+            {
+                drawSpeedTickMarks (g, originalTrackBounds, slider);
+            }
+
+            // Draw thumb
             auto thumbWidth = 16.0f;
-            auto thumbHeight = juce::jmin (height - 4.0f, 20.0f);
+            auto thumbHeight = juce::jmin (sliderBounds.getHeight() - 4.0f, 20.0f);
             auto thumbBounds = juce::Rectangle<float> (thumbWidth, thumbHeight)
-                                   .withCentre (juce::Point<float> (sliderPos, bounds.getCentreY()));
+                                   .withCentre (juce::Point<float> (sliderPos, sliderBounds.getCentreY()));
 
             g.setColour (juce::Colours::black.withAlpha (0.3f));
             g.fillRoundedRectangle (thumbBounds.translated (0, 1), 2.0f);
@@ -166,10 +208,7 @@ public:
         }
     }
 
-    juce::Font getTextButtonFont (juce::TextButton&, int) override
-    {
-        return LooperTheme::Fonts::getBoldFont (13.0f);
-    }
+    juce::Font getTextButtonFont (juce::TextButton&, int) override { return LooperTheme::Fonts::getBoldFont (13.0f); }
 
 private:
     std::map<juce::String, std::unique_ptr<juce::Drawable>> svgCache;
@@ -220,5 +259,47 @@ private:
         }
 
         return nullptr;
+    }
+
+    void drawSpeedTickMarks (juce::Graphics& g, juce::Rectangle<float> trackBounds, juce::Slider& slider)
+    {
+        auto drawTickMark = [&] (float value, const juce::String& label, bool isMajor)
+        {
+            // Calculate position based on slider's value range
+            float proportion = (value - slider.getMinimum()) / (slider.getMaximum() - slider.getMinimum());
+
+            // Apply the same skew that the slider uses
+            proportion = slider.proportionOfLengthToValue (proportion);
+            proportion = slider.valueToProportionOfLength (value);
+
+            float tickX = trackBounds.getX() + proportion * trackBounds.getWidth();
+
+            // Draw tick line
+            g.setColour (isMajor ? LooperTheme::Colors::cyan.withAlpha (0.6f) : LooperTheme::Colors::textDim.withAlpha (0.3f));
+            float tickHeight = isMajor ? 8.0f : 4.0f;
+            float tickY = trackBounds.getBottom() + 2.0f;
+
+            g.drawLine (tickX, tickY, tickX, tickY + tickHeight, isMajor ? 1.5f : 1.5f);
+
+            // Draw label for major ticks
+            if (isMajor && label.isNotEmpty())
+            {
+                g.setFont (LooperTheme::Fonts::getRegularFont (9.0f));
+                g.setColour (LooperTheme::Colors::textDim);
+                auto labelWidth = 30;
+                auto labelBounds = juce::Rectangle<int> ((int) tickX - labelWidth / 2, (int) (tickY + tickHeight + 1), labelWidth, 12);
+                g.drawText (label, labelBounds, juce::Justification::centred);
+            }
+        };
+
+        // Draw major tick marks at snap points
+        drawTickMark (0.5f, "0.5x", true);
+        drawTickMark (1.0f, "1.0x", true);
+        drawTickMark (2.0f, "2.0x", true);
+
+        // Optional: Draw minor tick marks
+        drawTickMark (0.3f, "", false);
+        drawTickMark (0.7f, "", false);
+        drawTickMark (1.5f, "", false);
     }
 };

@@ -37,10 +37,7 @@ public:
         startTimerHz (10);
     }
 
-    ~DawEditor() override
-    {
-        stopTimer();
-    }
+    ~DawEditor() override { stopTimer(); }
 
     void paint (juce::Graphics& g) override
     {

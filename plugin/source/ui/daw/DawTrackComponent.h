@@ -3,6 +3,7 @@
 #include "engine/midiMappings.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/WaveformComponent.h"
+#include "ui/daw/PlaybackSlider.h"
 #include <JuceHeader.h>
 
 class DawTrackComponent : public juce::Component, private juce::Timer
@@ -38,7 +39,7 @@ public:
         volumeFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
         volumeFader.setRange (0.0, 1.0, 0.01);
         volumeFader.setValue (0.75);
-        volumeFader.onValueChange = [this]() { looperEngine.setTrackVolume (trackIndex, (float) volumeFader.getValue()); };
+        volumeFader.onValueChange = [this]() { sendMidiMessageToEngine (TRACK_VOLUME_CC, volumeFader.getValue()); };
         addAndMakeVisible (volumeFader);
 
         muteButton.setButtonText ("MUTE");
@@ -55,27 +56,31 @@ public:
 
         // Create accent bar component
         accentBar.setInterceptsMouseClicks (true, false);
-        accentBar.onClick = [this]() { looperEngine.selectTrack (trackIndex); };
+        accentBar.onClick = [this]() { sendMidiMessageToEngine (TRACK_SELECT_CC, trackIndex); };
         addAndMakeVisible (accentBar);
+
+        reverseButton.setButtonText ("REV");
+        reverseButton.setComponentID ("reverse");
+        reverseButton.setClickingTogglesState (true);
+        reverseButton.onClick = [this]() { sendMidiMessageToEngine (REVERSE_BUTTON_MIDI_NOTE, NOTE_ON); };
+        addAndMakeVisible (reverseButton);
+
+        speedFader.setSliderStyle (juce::Slider::LinearHorizontal);
+        speedFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+        speedFader.setRange (0.2, 2.0, 0.01);
+        speedFader.setValue (1.0);
+        speedFader.onValueChange = [this]() { sendMidiMessageToEngine (PLAYBACK_SPEED_CC, speedFader.getValue()); };
+        addAndMakeVisible (speedFader);
 
         updateControlsFromEngine();
         startTimerHz (10);
     }
 
-    ~DawTrackComponent() override
-    {
-        stopTimer();
-    }
+    ~DawTrackComponent() override { stopTimer(); }
 
-    void timerCallback() override
-    {
-        updateControlsFromEngine();
-    }
+    void timerCallback() override { updateControlsFromEngine(); }
 
-    int getTrackIndex() const
-    {
-        return trackIndex;
-    }
+    int getTrackIndex() const { return trackIndex; }
 
     void updateControlsFromEngine()
     {
@@ -142,6 +147,13 @@ public:
 
         mainRow.items.add (juce::FlexItem (waveformDisplay).withFlex (0.3f));
 
+        juce::FlexBox reverseSpeedRow;
+        reverseSpeedRow.flexDirection = juce::FlexBox::Direction::row;
+        reverseSpeedRow.items.add (juce::FlexItem (reverseButton).withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
+        reverseSpeedRow.items.add (juce::FlexItem().withFlex (0.6f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        reverseSpeedRow.items.add (juce::FlexItem (speedFader).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
+        mainRow.items.add (juce::FlexItem (reverseSpeedRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+
         juce::FlexBox muteSoloRow;
         muteSoloRow.flexDirection = juce::FlexBox::Direction::row;
         muteSoloRow.items.add (juce::FlexItem (soloButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
@@ -182,15 +194,9 @@ private:
             if (onClick) onClick();
         }
 
-        void mouseEnter (const juce::MouseEvent&) override
-        {
-            setMouseCursor (juce::MouseCursor::PointingHandCursor);
-        }
+        void mouseEnter (const juce::MouseEvent&) override { setMouseCursor (juce::MouseCursor::PointingHandCursor); }
 
-        void mouseExit (const juce::MouseEvent&) override
-        {
-            setMouseCursor (juce::MouseCursor::NormalCursor);
-        }
+        void mouseExit (const juce::MouseEvent&) override { setMouseCursor (juce::MouseCursor::NormalCursor); }
     };
 
     int trackIndex;
@@ -204,6 +210,8 @@ private:
     juce::TextButton muteButton;
     juce::TextButton soloButton;
     AccentBar accentBar;
+    juce::TextButton reverseButton;
+    PlaybackSpeedSlider speedFader;
 
     LooperEngine& looperEngine;
 
@@ -213,8 +221,26 @@ private:
         juce::MidiMessage msg = isNoteOn ? juce::MidiMessage::noteOn (1, noteNumber, (juce::uint8) 100)
                                          : juce::MidiMessage::noteOff (1, noteNumber);
 
-        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (msg, 0);
+        looperEngine.handleMidiCommand (midiBuffer);
+    }
+
+    void sendMidiMessageToEngine (const int controllerNumber, const int value)
+    {
+        juce::MidiBuffer midiBuffer;
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, value), 0);
+        looperEngine.handleMidiCommand (midiBuffer);
+    }
+
+    void sendMidiMessageToEngine (const int controllerNumber, const double value)
+    {
+        juce::MidiBuffer midiBuffer;
+
+        // Normalize speed from 0.2-2.0 range to 0-1 range
+        double normalized = (value - 0.2) / 1.8; // 1.06 → (1.06-0.2)/1.8 = 0.477
+        int ccValue = (int) std::clamp (normalized * 127.0, 0.0, 127.0);
+
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, ccValue), 0);
         looperEngine.handleMidiCommand (midiBuffer);
     }
 

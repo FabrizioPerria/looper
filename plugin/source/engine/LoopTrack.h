@@ -124,6 +124,10 @@ public:
             resetInterpolationFilters();
 
             fifo.setPlaybackRate (playbackSpeed, playheadDirection);
+            // ADD DEBUG HERE - only prints when speed changes
+            DBG ("Speed changed to: " << playbackSpeed);
+            DBG ("Direction: " << playheadDirection);
+            DBG ("FIFO rate now: " << fifo.getPlaybackRate());
         }
     }
     float getPlaybackSpeed() const { return playbackSpeed; }
