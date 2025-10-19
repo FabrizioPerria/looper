@@ -90,7 +90,7 @@ void LooperEngine::removeTrack (const int trackIndex)
 void LooperEngine::undo (int trackIndex)
 {
     PERFETTO_FUNCTION();
-    if (trackIndex >= numTracks) trackIndex = activeTrackIndex;
+    if (trackIndex >= numTracks || trackIndex < 0) trackIndex = activeTrackIndex;
     loopTracks[(size_t) trackIndex]->undo();
     transportState = TransportState::Playing;
     uiBridges[(size_t) trackIndex]->signalWaveformChanged();
@@ -99,7 +99,7 @@ void LooperEngine::undo (int trackIndex)
 void LooperEngine::redo (int trackIndex)
 {
     PERFETTO_FUNCTION();
-    if (trackIndex >= numTracks) trackIndex = activeTrackIndex;
+    if (trackIndex >= numTracks || trackIndex < 0) trackIndex = activeTrackIndex;
     loopTracks[(size_t) trackIndex]->redo();
     transportState = TransportState::Playing;
     uiBridges[(size_t) trackIndex]->signalWaveformChanged();
@@ -108,7 +108,7 @@ void LooperEngine::redo (int trackIndex)
 void LooperEngine::clear (int trackIndex)
 {
     PERFETTO_FUNCTION();
-    if (trackIndex >= numTracks) trackIndex = activeTrackIndex;
+    if (trackIndex >= numTracks || trackIndex < 0) trackIndex = activeTrackIndex;
     loopTracks[(size_t) trackIndex]->clear();
     transportState = TransportState::Stopped;
     uiBridges[(size_t) trackIndex]->signalWaveformChanged();

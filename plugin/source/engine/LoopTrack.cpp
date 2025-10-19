@@ -27,14 +27,10 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     {
         audioBuffer->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
         tmpBuffer->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
+        interpolationBuffer->setSize ((int) numChannels, alignedBufferSize, false, true, true);
     }
 
     undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
-
-    // // At slowest speed (0.2x), we need: blockSize / 0.2 = blockSize * 5
-    int maxInterpSourceSamples = (int) maxBlockSize * 5 + 20; // Changed from * 2
-    int totalInterpSize = maxInterpSourceSamples + (int) maxBlockSize;
-    interpolationBuffer->setSize ((int) numChannels, totalInterpSize, false, true, true);
 
     clear();
 
@@ -234,7 +230,7 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
 
     double currentPos = fifo.getExactReadPos();
     int startPos = (int) currentPos;
-    int maxSourceSamples = (numSamples * (int) std::abs (speedMultiplier));
+    int maxSourceSamples = (int) ((float) numSamples * std::abs (speedMultiplier));
 
     // Copy source samples to FIRST HALF of interpolationBuffer
     copyCircularDataLinearized (startPos, maxSourceSamples, speedMultiplier, 0);

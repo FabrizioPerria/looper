@@ -2,8 +2,6 @@
 
 #include "ui/daw/DawEditor.h"
 #include "ui/daw/DawLookAndFeel.h"
-#include "ui/mixer/StudioMixerEditor.h"
-#include "ui/mixer/StudioMixerLookAndFeel.h"
 #include <JuceHeader.h>
 
 struct Theme
@@ -19,12 +17,7 @@ public:
     {
         auto theme = std::make_unique<Theme>();
 
-        if (themeName == "Mixer")
-        {
-            theme->lookAndFeel = std::make_unique<StudioMixerLookAndFeel>();
-            theme->editorComponent = std::make_unique<StudioMixerEditor> (engine);
-        }
-        else if (themeName == "Daw")
+        if (themeName == "Daw")
         {
             theme->lookAndFeel = std::make_unique<DawLookAndFeel>();
             theme->editorComponent = std::make_unique<DawEditor> (engine);
