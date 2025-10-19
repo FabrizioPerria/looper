@@ -18,10 +18,7 @@ public:
         if (bridge) triggerAsyncUpdate();
     }
 
-    void setBridge (AudioToUIBridge* newBridge)
-    {
-        bridge = newBridge;
-    }
+    void setBridge (AudioToUIBridge* newBridge) { bridge = newBridge; }
 
     void setRenderer (std::unique_ptr<IRenderer> newRenderer)
     {
@@ -38,7 +35,7 @@ private:
     juce::ThreadPool backgroundProcessor { 1 };
 
     // State tracking
-    size_t lastReadPos = 0;
+    int lastReadPos = 0;
     bool lastRecording = false;
     bool lastPlaying = false;
     int lastProcessedVersion = -1;

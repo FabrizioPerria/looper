@@ -18,11 +18,11 @@ public:
         if (samplesPerPixel < 1) return;
 
         std::vector<std::vector<std::pair<float, float>>> newData;
-        newData.resize (source.getNumChannels());
+        newData.resize ((size_t) source.getNumChannels());
 
         for (int ch = 0; ch < source.getNumChannels(); ++ch)
         {
-            newData[ch].resize (targetWidth);
+            newData[(size_t) ch].resize ((size_t) targetWidth);
             const float* data = source.getReadPointer (ch);
 
             for (int pixel = 0; pixel < targetWidth; ++pixel)
@@ -36,7 +36,7 @@ public:
                     min = std::min (min, data[i]);
                     max = std::max (max, data[i]);
                 }
-                newData[ch][pixel] = { min, max };
+                newData[(size_t) ch][(size_t) pixel] = { min, max };
             }
         }
 
@@ -53,9 +53,9 @@ public:
 
         if (channel < 0 || channel >= numChannels) return false;
         if (pixelIndex < 0 || pixelIndex >= width) return false;
-        if (minMaxData.empty() || minMaxData[channel].empty()) return false;
+        if (minMaxData.empty() || minMaxData[(size_t) channel].empty()) return false;
 
-        const auto& data = minMaxData[channel][pixelIndex];
+        const auto& data = minMaxData[(size_t) channel][(size_t) pixelIndex];
         min = data.first;
         max = data.second;
         return true;
@@ -86,7 +86,7 @@ private:
     void downsample (std::vector<std::pair<float, float>>& destination, const float* source, int sourceLength, int targetWidth)
     {
         PERFETTO_FUNCTION();
-        destination.resize (targetWidth);
+        destination.resize ((size_t) targetWidth);
         int samplesPerPixel = sourceLength / targetWidth;
         if (samplesPerPixel < 1) return;
 
@@ -101,7 +101,7 @@ private:
                 min = std::min (min, source[i]);
                 max = std::max (max, source[i]);
             }
-            destination[pixel] = { min, max };
+            destination[(size_t) pixel] = { min, max };
         }
     }
 
