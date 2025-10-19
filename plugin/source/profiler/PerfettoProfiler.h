@@ -88,10 +88,7 @@ private:
         return std::chrono::time_point_cast<std::chrono::microseconds> (now).time_since_epoch().count();
     }
 
-    uint32_t getThreadId()
-    {
-        return static_cast<uint32_t> (std::hash<std::thread::id> {}(std::this_thread::get_id()));
-    }
+    uint32_t getThreadId() { return static_cast<uint32_t> (std::hash<std::thread::id> {}(std::this_thread::get_id())); }
 
     uint32_t getProcessId()
     {
@@ -107,15 +104,9 @@ private:
 class PerfettoScope
 {
 public:
-    explicit PerfettoScope (const std::string& name) : name (name)
-    {
-        PerfettoProfiler::getInstance().beginEvent (name);
-    }
+    explicit PerfettoScope (const std::string& name) : name (name) { PerfettoProfiler::getInstance().beginEvent (name); }
 
-    ~PerfettoScope()
-    {
-        PerfettoProfiler::getInstance().endEvent (name);
-    }
+    ~PerfettoScope() { PerfettoProfiler::getInstance().endEvent (name); }
 
 private:
     std::string name;

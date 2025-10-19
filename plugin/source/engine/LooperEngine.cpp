@@ -185,6 +185,11 @@ void LooperEngine::setupMidiCommands()
                 track->setPlaybackDirectionForward();
         }
     };
+    midiCommandMap[{ KEEP_PITCH_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int trackIndex)
+    {
+        auto currentSetting = engine.getKeepPitchWhenChangingSpeed (trackIndex);
+        engine.setKeepPitchWhenChangingSpeed (trackIndex, ! currentSetting);
+    };
 }
 
 void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
@@ -243,7 +248,7 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
             // Note: do not break here, we want to also play back while recording
         case TransportState::Playing:
             // Handle track switching. If we are switching, we wait until the current track has finished its loop
-            if (nextTrackIndex >= 0 && nextTrackIndex != activeTrackIndex && activeTrack->getCurrentReadPosition() == 0)
+            if (nextTrackIndex >= 0 && nextTrackIndex != activeTrackIndex && activeTrack->hasWrappedAround())
             {
                 stop();
                 transportState = TransportState::Playing; //ensure we are not in recording state when switching
@@ -404,5 +409,24 @@ bool LooperEngine::isTrackMuted (int trackIndex) const
 
     auto& track = loopTracks[trackIndex];
     if (track) return track->isMuted();
+    return false;
+}
+
+void LooperEngine::setKeepPitchWhenChangingSpeed (int trackIndex, bool shouldKeepPitch)
+{
+    PERFETTO_FUNCTION();
+    if (trackIndex < 0 || trackIndex >= numTracks) return;
+
+    auto& track = loopTracks[trackIndex];
+    if (track) track->setKeepPitchWhenChangingSpeed (shouldKeepPitch);
+}
+
+bool LooperEngine::getKeepPitchWhenChangingSpeed (int trackIndex) const
+{
+    PERFETTO_FUNCTION();
+    if (trackIndex < 0 || trackIndex >= numTracks) return false;
+
+    auto& track = loopTracks[trackIndex];
+    if (track) return track->shouldKeepPitchWhenChangingSpeed();
     return false;
 }

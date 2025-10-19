@@ -192,7 +192,7 @@ public:
         // Try to load SVG
         auto svg = loadSvg (componentId);
 
-        if (svg != nullptr)
+        if (svg != nullptr || false) //svg are nice, but don't care now
         {
             // Draw SVG
             auto bounds = button.getLocalBounds().toFloat().reduced (12);
@@ -293,13 +293,13 @@ private:
         };
 
         // Draw major tick marks at snap points
+        drawTickMark (0.5f, "0.2x", true);
         drawTickMark (0.5f, "0.5x", true);
         drawTickMark (1.0f, "1.0x", true);
         drawTickMark (2.0f, "2.0x", true);
 
         // Optional: Draw minor tick marks
-        drawTickMark (0.3f, "", false);
-        drawTickMark (0.7f, "", false);
+        drawTickMark (0.75f, "", false);
         drawTickMark (1.5f, "", false);
     }
 };

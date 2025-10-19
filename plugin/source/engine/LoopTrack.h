@@ -100,7 +100,6 @@ public:
         if (! isPlaybackDirectionForward())
         {
             playheadDirection = 1;
-            resetInterpolationFilters();
             fifo.setPlaybackRate (playbackSpeed, playheadDirection);
         }
     }
@@ -109,7 +108,6 @@ public:
         if (isPlaybackDirectionForward())
         {
             playheadDirection = -1;
-            resetInterpolationFilters();
             fifo.setPlaybackRate (playbackSpeed, playheadDirection);
         }
     }
@@ -122,27 +120,40 @@ public:
         if (std::abs (playbackSpeed - newSpeed) > 0.001f)
         {
             playbackSpeed = newSpeed;
-            resetInterpolationFilters();
-
             fifo.setPlaybackRate (playbackSpeed, playheadDirection);
-            // ADD DEBUG HERE - only prints when speed changes
-            DBG ("Speed changed to: " << playbackSpeed);
-            DBG ("Direction: " << playheadDirection);
-            DBG ("FIFO rate now: " << fifo.getPlaybackRate());
         }
     }
     float getPlaybackSpeed() const { return playbackSpeed; }
 
     double getExactReadPosition() const { return fifo.getExactReadPos(); }
 
+    bool shouldKeepPitchWhenChangingSpeed() const { return keepPitchWhenChangingSpeed; }
+    void setKeepPitchWhenChangingSpeed (const bool shouldKeepPitch)
+    {
+        for (auto& st : soundTouchProcessors)
+        {
+            st.clear();
+        }
+
+        keepPitchWhenChangingSpeed = shouldKeepPitch;
+    }
+
+    bool hasWrappedAround()
+    {
+        double current = fifo.getExactReadPos();
+        bool wrapped = current < previousReadPos;
+        previousReadPos = current;
+        return wrapped;
+    }
+
 private:
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> interpolationBuffer = std::make_unique<juce::AudioBuffer<float>>();
-    std::vector<juce::LagrangeInterpolator> interpolationFilters;
-
-    // std::unique_ptr<soundtouch::SoundTouch> soundTouchProcessor = std::make_unique<soundtouch::SoundTouch>();
     std::vector<soundtouch::SoundTouch> soundTouchProcessors;
+
+    bool keepPitchWhenChangingSpeed = false;
+    double previousReadPos = 0.0;
 
     float playbackSpeed = 1.0f;
     int playheadDirection = 1; // 1 = forward, -1 = backward
@@ -198,12 +209,6 @@ private:
     bool shouldNotPlayback (const uint numSamples) const { return ! isPrepared() || length == 0 || numSamples == 0; }
 
     bool shouldOverdub() const { return length > 0; }
-
-    void resetInterpolationFilters()
-    {
-        for (auto& filter : interpolationFilters)
-            filter.reset();
-    }
 
     void copyAudioToTmpBuffer();
 
