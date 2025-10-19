@@ -18,7 +18,7 @@ TEST_F (LoopLifoTest, Constructor)
     LoopLifo l;
     l.prepareToPlay (3);
     EXPECT_EQ (l.getCapacity(), 3);
-    EXPECT_EQ (l.getWritePos(), 0);
+    EXPECT_EQ (l.getSlotToPush(), 0);
     EXPECT_EQ (l.getActiveLayers(), 0);
 }
 
@@ -39,13 +39,13 @@ TEST_F (LoopLifoTest, FinishedWriteIncrementsWritePos)
     lifo->prepareToWrite (1, start1, size1, start2, size2);
     lifo->finishedWrite (1, false);
 
-    EXPECT_EQ (lifo->getWritePos(), 1);
+    EXPECT_EQ (lifo->getSlotToPush(), 1);
     EXPECT_EQ (lifo->getActiveLayers(), 1);
 
     lifo->prepareToWrite (1, start1, size1, start2, size2);
     lifo->finishedWrite (1, false);
 
-    EXPECT_EQ (lifo->getWritePos(), 2);
+    EXPECT_EQ (lifo->getSlotToPush(), 2);
     EXPECT_EQ (lifo->getActiveLayers(), 2);
 }
 
@@ -58,7 +58,7 @@ TEST_F (LoopLifoTest, WrapAroundWritePos)
         lifo->finishedWrite (1, false);
     }
 
-    EXPECT_EQ (lifo->getWritePos(), 0);
+    EXPECT_EQ (lifo->getSlotToPush(), 0);
     EXPECT_EQ (lifo->getActiveLayers(), 5);
 }
 
@@ -87,14 +87,14 @@ TEST_F (LoopLifoTest, FinishedReadDecrementsActiveLayers)
     lifo->finishedRead (1, false);
 
     EXPECT_EQ (lifo->getActiveLayers(), 2);
-    EXPECT_EQ (lifo->getWritePos(), 2); // writePos moves back after pop
+    EXPECT_EQ (lifo->getSlotToPush(), 2); // writePos moves back after pop
 
     // Pop again
     lifo->prepareToRead (1, start1, size1, start2, size2);
     lifo->finishedRead (1, false);
 
     EXPECT_EQ (lifo->getActiveLayers(), 1);
-    EXPECT_EQ (lifo->getWritePos(), 1);
+    EXPECT_EQ (lifo->getSlotToPush(), 1);
 }
 
 TEST_F (LoopLifoTest, PopEmptyReturnsZeroSize)
@@ -113,7 +113,7 @@ TEST_F (LoopLifoTest, ReadWithNoActiveLayersDoesNothing)
     lifo->finishedRead (1, false); // should do nothing
 
     EXPECT_EQ (lifo->getActiveLayers(), 0);
-    EXPECT_EQ (lifo->getWritePos(), 0);
+    EXPECT_EQ (lifo->getSlotToPush(), 0);
 }
 
 // prepareToRead branch: activeLayers == 0
@@ -136,7 +136,7 @@ TEST_F (LoopLifoTest, FinishedReadEmptyStack)
     lifo->finishedRead (1, false);
 
     EXPECT_EQ (lifo->getActiveLayers(), 0);
-    EXPECT_EQ (lifo->getWritePos(), 0);
+    EXPECT_EQ (lifo->getSlotToPush(), 0);
 }
 
 // prepareToRead and finishedRead branch: non-empty stack
@@ -156,7 +156,7 @@ TEST_F (LoopLifoTest, PrepareAndFinishedReadNonEmptyStack)
 
     lifo->finishedRead (1, false);
     EXPECT_EQ (lifo->getActiveLayers(), 0);
-    EXPECT_EQ (lifo->getWritePos(), 0);
+    EXPECT_EQ (lifo->getSlotToPush(), 0);
 }
 
 // ensure wraparound branches are touched
@@ -181,5 +181,5 @@ TEST_F (LoopLifoTest, WrapAroundPushAndPop)
     }
 
     EXPECT_EQ (lifo->getActiveLayers(), 0);
-    EXPECT_EQ (lifo->getWritePos(), 0);
+    EXPECT_EQ (lifo->getSlotToPush(), 0);
 }

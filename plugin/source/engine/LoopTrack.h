@@ -14,15 +14,15 @@ public:
     ~LoopTrack() { releaseResources(); }
 
     void prepareToPlay (const double currentSampleRate,
-                        const uint maxBlockSize,
-                        const uint numChannels,
-                        const uint maxSeconds = MAX_SECONDS_HARD_LIMIT,
-                        const size_t maxUndoLayers = MAX_UNDO_LAYERS);
+                        const int maxBlockSize,
+                        const int numChannels,
+                        const int maxSeconds = MAX_SECONDS_HARD_LIMIT,
+                        const int maxUndoLayers = MAX_UNDO_LAYERS);
     void releaseResources();
 
-    void processRecord (const juce::AudioBuffer<float>& input, const uint numSamples);
+    void processRecord (const juce::AudioBuffer<float>& input, const int numSamples);
     void finalizeLayer();
-    void processPlayback (juce::AudioBuffer<float>& output, const uint numSamples);
+    void processPlayback (juce::AudioBuffer<float>& output, const int numSamples);
 
     void clear();
     void undo();
@@ -30,24 +30,24 @@ public:
 
     const juce::AudioBuffer<float>& getAudioBuffer() const { return *audioBuffer; }
 
-    size_t getCurrentReadPosition() const { return fifo.getReadPos(); }
-    size_t getCurrentWritePosition() const { return fifo.getWritePos(); }
+    int getCurrentReadPosition() const { return fifo.getReadPos(); }
+    int getCurrentWritePosition() const { return fifo.getWritePos(); }
 
-    size_t getLength() const { return length; }
-    void setLength (const size_t newLength) { length = newLength; }
+    int getLength() const { return length; }
+    void setLength (const int newLength) { length = newLength; }
 
     double getSampleRate() const { return sampleRate; }
     int getLoopDurationSeconds() const { return (int) (length / sampleRate); }
 
-    void setCrossFadeLength (const size_t newLength) { crossFadeLength = newLength; }
+    void setCrossFadeLength (const int newLength) { crossFadeLength = newLength; }
 
     bool isPrepared() const { return alreadyPrepared; }
 
-    void setOverdubGains (const float oldGain, const float newGain)
+    void setOverdubGains (const double oldGain, const double newGain)
     {
         PERFETTO_FUNCTION();
-        overdubNewGain = std::clamp (newGain, 0.0f, 2.0f);
-        overdubOldGain = std::clamp (oldGain, 0.0f, 2.0f);
+        overdubNewGain = std::clamp (newGain, 0.0, 2.0);
+        overdubOldGain = std::clamp (oldGain, 0.0, 2.0);
         shouldNormalizeOutput = false;
     }
 
@@ -132,7 +132,7 @@ public:
     {
         for (auto& st : soundTouchProcessors)
         {
-            st.clear();
+            st->clear();
         }
 
         keepPitchWhenChangingSpeed = shouldKeepPitch;
@@ -150,7 +150,7 @@ private:
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> interpolationBuffer = std::make_unique<juce::AudioBuffer<float>>();
-    std::vector<soundtouch::SoundTouch> soundTouchProcessors;
+    std::vector<std::unique_ptr<soundtouch::SoundTouch>> soundTouchProcessors;
 
     bool keepPitchWhenChangingSpeed = false;
     double previousReadPos = 0.0;
@@ -169,15 +169,15 @@ private:
 
     LoopFifo fifo;
 
-    size_t length = 0;
-    uint provisionalLength = 0;
-    size_t crossFadeLength = 0;
+    int length = 0;
+    int provisionalLength = 0;
+    int crossFadeLength = 0;
 
     bool isRecording = false;
     bool alreadyPrepared = false;
 
-    float overdubNewGain = 1.0f;
-    float overdubOldGain = 1.0f;
+    double overdubNewGain = 1.0;
+    double overdubOldGain = 1.0;
 
     bool shouldNormalizeOutput = true;
 
@@ -187,33 +187,33 @@ private:
     bool muted = false;
     bool soloed = false;
 
-    void processRecordChannel (const juce::AudioBuffer<float>& input, const uint numSamples, const uint ch);
-    void updateLoopLength (const uint numSamples, const uint bufferSamples);
+    void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
+    void updateLoopLength (const int numSamples, const int bufferSamples);
     void saveToUndoBuffer();
 
-    void copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples);
+    void copyInputToLoopBuffer (const int ch, const float* bufPtr, const int offset, const int numSamples);
     void copyCircularDataLinearized (int startPos, int numSamples, float speedMultiplier, int destOffset = 0);
 
-    void advanceWritePos (const uint numSamples, const uint bufferSamples);
-    void advanceReadPos (const uint numSamples, const uint bufferSamples);
+    void advanceWritePos (const int numSamples, const int bufferSamples);
+    void advanceReadPos (const int numSamples, const int bufferSamples);
 
-    void processPlaybackChannel (juce::AudioBuffer<float>& output, const uint numSamples, const uint ch);
+    void processPlaybackChannel (juce::AudioBuffer<float>& output, const int numSamples, const int ch);
 
-    void processPlaybackInterpolatedSpeedWithPitchCorrection (juce::AudioBuffer<float>& output, const uint numSamples);
-    void processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output, const uint numSamples);
-    void processPlaybackApplyVolume (juce::AudioBuffer<float>& output, const uint numSamples);
-    void processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output, const uint numSamples);
+    void processPlaybackInterpolatedSpeedWithPitchCorrection (juce::AudioBuffer<float>& output, const int numSamples);
+    void processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output, const int numSamples);
+    void processPlaybackApplyVolume (juce::AudioBuffer<float>& output, const int numSamples);
+    void processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output, const int numSamples);
 
-    bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const uint numSamples) const;
+    bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const int numSamples) const;
 
-    bool shouldNotPlayback (const uint numSamples) const { return ! isPrepared() || length == 0 || numSamples == 0; }
+    bool shouldNotPlayback (const int numSamples) const { return ! isPrepared() || length == 0 || numSamples == 0; }
 
     bool shouldOverdub() const { return length > 0; }
 
     void copyAudioToTmpBuffer();
 
-    static const uint MAX_SECONDS_HARD_LIMIT = 10 * 60; // 10 minutes
-    static const uint MAX_UNDO_LAYERS = 5;
+    static const int MAX_SECONDS_HARD_LIMIT = 10 * 60; // 10 minutes
+    static const int MAX_UNDO_LAYERS = 5;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopTrack)
 };

@@ -8,15 +8,8 @@
 class UndoBuffer
 {
 public:
-    UndoBuffer()
-    {
-        PERFETTO_FUNCTION();
-    }
-    ~UndoBuffer()
-    {
-        PERFETTO_FUNCTION();
-        releaseResources();
-    }
+    UndoBuffer() {}
+    ~UndoBuffer() { releaseResources(); }
 
     void prepareToPlay (int numLayers, int numChannels, int bufferSamples)
     {
@@ -46,34 +39,34 @@ public:
         length = 0;
     }
 
-    void printBufferSummary (const juce::AudioBuffer<float>& buf, const std::string& name, bool isActive)
-    {
-        if (buf.getNumChannels() > 0 && buf.getNumSamples() > 0)
-        {
-            auto* ptr = buf.getReadPointer (0);
-            std::cout << name;
-            if (isActive)
-                std::cout << ">> ";
-            else
-                std::cout << "   ";
-            int len = std::min (20, buf.getNumSamples());
-            for (int i = 0; i < len; ++i)
-                std::cout << " " << ptr[i];
-        }
-        std::cout << std::endl;
-    }
+    // void printBufferSummary (const juce::AudioBuffer<float>& buf, const std::string& name, bool isActive)
+    // {
+    //     if (buf.getNumChannels() > 0 && buf.getNumSamples() > 0)
+    //     {
+    //         auto* ptr = buf.getReadPointer (0);
+    //         std::cout << name;
+    //         if (isActive)
+    //             std::cout << ">> ";
+    //         else
+    //             std::cout << "   ";
+    //         int len = std::min (20, buf.getNumSamples());
+    //         for (int i = 0; i < len; ++i)
+    //             std::cout << " " << ptr[i];
+    //     }
+    //     std::cout << std::endl;
+    // }
+    //
+    // void printSummary (const juce::AudioBuffer<float>& destination, int uStart1, int rStart1, std::string action)
+    // {
+    //     printBufferSummary (destination, "Dest" + action, false);
+    //     for (int i = 0; i < undoBuffers.size(); ++i)
+    //         printBufferSummary (*undoBuffers[i], "Undo Buffer " + std::to_string (i) + action, i == (int) uStart1);
+    //     for (int i = 0; i < redoBuffers.size(); ++i)
+    //         printBufferSummary (*redoBuffers[i], "Redo Buffer " + std::to_string (i) + action, i == (int) rStart1);
+    //     std::cout << "----" << std::endl;
+    // }
 
-    void printSummary (const juce::AudioBuffer<float>& destination, int uStart1, int rStart1, std::string action)
-    {
-        printBufferSummary (destination, "Dest" + action, false);
-        for (uint i = 0; i < undoBuffers.size(); ++i)
-            printBufferSummary (*undoBuffers[i], "Undo Buffer " + std::to_string (i) + action, i == (uint) uStart1);
-        for (uint i = 0; i < redoBuffers.size(); ++i)
-            printBufferSummary (*redoBuffers[i], "Redo Buffer " + std::to_string (i) + action, i == (uint) rStart1);
-        std::cout << "----" << std::endl;
-    }
-
-    void pushLayer (std::unique_ptr<juce::AudioBuffer<float>>& source, size_t loopLength)
+    void pushLayer (std::unique_ptr<juce::AudioBuffer<float>>& source, int loopLength)
     {
         PERFETTO_FUNCTION();
         for (int ch = 0; ch < source->getNumChannels(); ++ch)
@@ -84,10 +77,10 @@ public:
         int start1, size1, start2, size2;
         undoLifo.prepareToWrite (1, start1, size1, start2, size2);
 
-        if (loopLength > 0 && loopLength < (size_t) source->getNumSamples())
+        if (loopLength > 0 && loopLength < (int) source->getNumSamples())
             length = loopLength;
         else
-            length = (size_t) source->getNumSamples();
+            length = (int) source->getNumSamples();
 
         std::swap (undoBuffers[(size_t) start1], source);
 
@@ -121,7 +114,6 @@ public:
     bool redo (std::unique_ptr<juce::AudioBuffer<float>>& destination)
     {
         PERFETTO_FUNCTION();
-        // Get top of redo stack
         int rStart1, rSize1, rStart2, rSize2;
         redoLifo.prepareToRead (1, rStart1, rSize1, rStart2, rSize2);
 
@@ -142,27 +134,11 @@ public:
         return false;
     }
 
-    const uint getNumSamples() const
-    {
-        PERFETTO_FUNCTION();
-        return undoBuffers.empty() ? 0 : (uint) undoBuffers[0]->getNumSamples();
-    }
-    const int getNumChannels() const
-    {
-        PERFETTO_FUNCTION();
-        return undoBuffers.empty() ? 0 : undoBuffers[0]->getNumChannels();
-    }
-    const size_t getNumLayers() const
-    {
-        PERFETTO_FUNCTION();
-        return undoBuffers.size();
-    }
+    const int getNumSamples() const { return undoBuffers.empty() ? 0 : (int) undoBuffers[0]->getNumSamples(); }
+    const int getNumChannels() const { return undoBuffers.empty() ? 0 : undoBuffers[0]->getNumChannels(); }
+    const int getNumLayers() const { return (int) undoBuffers.size(); }
 
-    const std::vector<std::unique_ptr<juce::AudioBuffer<float>>>& getBuffers() const
-    {
-        PERFETTO_FUNCTION();
-        return undoBuffers;
-    }
+    const std::vector<std::unique_ptr<juce::AudioBuffer<float>>>& getBuffers() const { return undoBuffers; }
 
     void clear()
     {
@@ -191,7 +167,7 @@ public:
         redoBuffers.clear();
     }
 
-    void finalizeCopyAndPush (std::unique_ptr<juce::AudioBuffer<float>>& tmpBuffer, size_t loopLength)
+    void finalizeCopyAndPush (std::unique_ptr<juce::AudioBuffer<float>>& tmpBuffer, int loopLength)
     {
         PERFETTO_FUNCTION();
         int start1, size1, start2, size2;
@@ -211,7 +187,7 @@ private:
     LoopLifo redoLifo;
     std::vector<std::unique_ptr<juce::AudioBuffer<float>>> redoBuffers {};
 
-    size_t length { 0 };
+    int length { 0 };
     std::unique_ptr<juce::AudioBuffer<float>> undoStaging = std::make_unique<juce::AudioBuffer<float>>();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (UndoBuffer)

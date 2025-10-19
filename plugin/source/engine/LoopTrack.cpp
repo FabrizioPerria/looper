@@ -9,10 +9,10 @@
 //==============================================================================
 
 void LoopTrack::prepareToPlay (const double currentSampleRate,
-                               const uint maxBlockSize,
-                               const uint numChannels,
-                               const uint maxSeconds,
-                               const size_t maxUndoLayers)
+                               const int maxBlockSize,
+                               const int numChannels,
+                               const int maxSeconds,
+                               const int maxUndoLayers)
 {
     PERFETTO_FUNCTION();
     if (isPrepared() || currentSampleRate <= 0.0 || ! maxBlockSize || ! numChannels || ! maxSeconds) return;
@@ -20,10 +20,10 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     sampleRate = currentSampleRate;
     blockSize = (int) maxBlockSize;
     channels = (int) numChannels;
-    const uint requestedSamples = std::max ((uint) currentSampleRate * maxSeconds, 1u); // at least 1 block will be allocated
+    auto requestedSamples = std::max ((int) currentSampleRate * maxSeconds, 1); // at least 1 block will be allocated
     alignedBufferSize = ((requestedSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
 
-    if (alignedBufferSize > (uint) audioBuffer->getNumSamples())
+    if (alignedBufferSize > (int) audioBuffer->getNumSamples())
     {
         audioBuffer->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
         tmpBuffer->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
@@ -39,17 +39,21 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     clear();
 
     soundTouchProcessors.clear();
-    soundTouchProcessors.resize ((int) numChannels);
+    for (int ch = 0; ch < numChannels; ++ch)
+    {
+        soundTouchProcessors.push_back (std::make_unique<soundtouch::SoundTouch>());
+    }
+
     for (auto& soundTouchProcessor : soundTouchProcessors)
     {
-        soundTouchProcessor.setSampleRate ((float) sampleRate);
-        soundTouchProcessor.setChannels (1);
-        soundTouchProcessor.setPitchSemiTones (0);                 // Keep original pitch
-        soundTouchProcessor.setSetting (SETTING_USE_QUICKSEEK, 0); // More quality
-        soundTouchProcessor.setSetting (SETTING_USE_AA_FILTER, 1);
-        soundTouchProcessor.setSetting (SETTING_SEQUENCE_MS, 82);   // Default is better
-        soundTouchProcessor.setSetting (SETTING_SEEKWINDOW_MS, 28); // Default
-        soundTouchProcessor.setSetting (SETTING_OVERLAP_MS, 12);    // Default
+        soundTouchProcessor->setSampleRate ((uint) sampleRate);
+        soundTouchProcessor->setChannels (1);
+        soundTouchProcessor->setPitchSemiTones (0);
+        soundTouchProcessor->setSetting (SETTING_USE_QUICKSEEK, 0);
+        soundTouchProcessor->setSetting (SETTING_USE_AA_FILTER, 1);
+        soundTouchProcessor->setSetting (SETTING_SEQUENCE_MS, 82);
+        soundTouchProcessor->setSetting (SETTING_SEEKWINDOW_MS, 28);
+        soundTouchProcessor->setSetting (SETTING_OVERLAP_MS, 12);
     }
 
     setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
@@ -79,7 +83,7 @@ void LoopTrack::releaseResources()
 // Recording
 //==============================================================================
 
-void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint numSamples)
+void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int numSamples)
 {
     PERFETTO_FUNCTION();
     if (shouldNotRecordInputBuffer (input, numSamples)) return;
@@ -104,14 +108,14 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
     {
         if (samplesBeforeWrap > 0)
         {
-            copyInputToLoopBuffer ((uint) ch, input.getReadPointer (ch), (uint) writePosBeforeWrap, (uint) samplesBeforeWrap);
+            copyInputToLoopBuffer ((int) ch, input.getReadPointer (ch), (int) writePosBeforeWrap, (int) samplesBeforeWrap);
         }
         if (samplesAfterWrap > 0 && shouldOverdub())
         {
-            copyInputToLoopBuffer ((uint) ch,
+            copyInputToLoopBuffer ((int) ch,
                                    input.getReadPointer (ch) + samplesBeforeWrap,
-                                   (uint) writePosAfterWrap,
-                                   (uint) samplesAfterWrap);
+                                   (int) writePosAfterWrap,
+                                   (int) samplesAfterWrap);
         }
     }
 
@@ -125,7 +129,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const uint
         return;
     }
 
-    updateLoopLength ((uint) samplesBeforeWrap, shouldOverdub() ? length : (uint) audioBuffer->getNumSamples());
+    updateLoopLength ((int) samplesBeforeWrap, shouldOverdub() ? length : (int) audioBuffer->getNumSamples());
 }
 
 void LoopTrack::saveToUndoBuffer()
@@ -136,17 +140,17 @@ void LoopTrack::saveToUndoBuffer()
     undoBuffer.finalizeCopyAndPush (tmpBuffer, length);
 }
 
-void LoopTrack::copyInputToLoopBuffer (const uint ch, const float* bufPtr, const uint offset, const uint numSamples)
+void LoopTrack::copyInputToLoopBuffer (const int ch, const float* bufPtr, const int offset, const int numSamples)
 {
     if (! isRecording) return;
 
     auto* dest = audioBuffer->getWritePointer ((int) ch) + offset;
 
-    juce::FloatVectorOperations::multiply (dest, shouldOverdub() ? overdubOldGain : 0, (int) numSamples);
-    juce::FloatVectorOperations::addWithMultiply (dest, bufPtr, overdubNewGain, (int) numSamples);
+    juce::FloatVectorOperations::multiply (dest, shouldOverdub() ? (float) overdubOldGain : 0, (int) numSamples);
+    juce::FloatVectorOperations::addWithMultiply (dest, bufPtr, (float) overdubNewGain, (int) numSamples);
 }
 
-void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSamples)
+void LoopTrack::updateLoopLength (const int numSamples, const int bufferSamples)
 {
     provisionalLength = std::min (provisionalLength + numSamples, bufferSamples);
 }
@@ -154,7 +158,7 @@ void LoopTrack::updateLoopLength (const uint numSamples, const uint bufferSample
 void LoopTrack::finalizeLayer()
 {
     PERFETTO_FUNCTION();
-    const size_t currentLength = std::max ({ (int) length, (int) provisionalLength, 1 });
+    const int currentLength = std::max ({ (int) length, (int) provisionalLength, 1 });
     if (length == 0)
     {
         fifo.setMusicalLength ((int) currentLength);
@@ -173,7 +177,7 @@ void LoopTrack::finalizeLayer()
             audioBuffer->applyGain (0, length, 0.9f / maxSample);
     }
 
-    const uint fadeSamples = std::min (crossFadeLength, length / 4);
+    const int fadeSamples = std::min (crossFadeLength, length / 4);
     if (fadeSamples > 0)
     {
         audioBuffer->applyGainRamp (0, fadeSamples, 0.0f, 1.0f);                    // fade in
@@ -190,7 +194,7 @@ void LoopTrack::finalizeLayer()
         setPlaybackDirectionBackward();
 }
 
-void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint numSamples)
+void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int numSamples)
 {
     PERFETTO_FUNCTION();
     if (shouldNotPlayback (numSamples)) return;
@@ -203,7 +207,7 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
     {
         for (auto& st : soundTouchProcessors)
         {
-            st.clear();
+            st->clear();
         }
         fifo.setPlaybackRate (1.0, 1);
     }
@@ -221,16 +225,16 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const uint nu
     processPlaybackApplyVolume (output, numSamples);
 }
 
-void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output, const uint numSamples)
+void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output, const int numSamples)
 {
     PERFETTO_FUNCTION();
 
-    float speedMultiplier = playbackSpeed * playheadDirection;
+    float speedMultiplier = playbackSpeed * (float) playheadDirection;
     fifo.setPlaybackRate (playbackSpeed, playheadDirection);
 
     double currentPos = fifo.getExactReadPos();
     int startPos = (int) currentPos;
-    int maxSourceSamples = (int) (numSamples * std::abs (speedMultiplier));
+    int maxSourceSamples = (numSamples * (int) std::abs (speedMultiplier));
 
     // Copy source samples to FIRST HALF of interpolationBuffer
     copyCircularDataLinearized (startPos, maxSourceSamples, speedMultiplier, 0);
@@ -238,10 +242,10 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
     // Calculate offset for SECOND HALF (output section)
     int outputOffset = maxSourceSamples + 100; // Add some padding between sections
 
-    int channelsToProcess = std::min ({ output.getNumChannels(),
-                                        audioBuffer->getNumChannels(),
-                                        interpolationBuffer->getNumChannels(),
-                                        (int) soundTouchProcessors.size() });
+    int channelsToProcess = (int) std::min ({ output.getNumChannels(),
+                                              audioBuffer->getNumChannels(),
+                                              interpolationBuffer->getNumChannels(),
+                                              (int) soundTouchProcessors.size() });
 
     bool speedChanged = false;
     static float previousSpeedMultiplier = 1.0f;
@@ -250,28 +254,28 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
 
     for (int ch = 0; ch < channelsToProcess; ++ch)
     {
-        auto& st = soundTouchProcessors[ch];
+        auto& st = soundTouchProcessors[(size_t) ch];
 
         if (speedChanged)
         {
             if (shouldKeepPitchWhenChangingSpeed())
-                st.setTempo (playbackSpeed);
+                st->setTempo (playbackSpeed);
             else
-                st.setRate (playbackSpeed);
+                st->setRate (playbackSpeed);
         }
 
         // Read from FIRST HALF
-        st.putSamples (interpolationBuffer->getReadPointer (ch), maxSourceSamples);
-        while (st.numSamples() < (int) numSamples)
+        st->putSamples (interpolationBuffer->getReadPointer (ch), (uint) maxSourceSamples);
+        while (st->numSamples() < (uint) numSamples)
         {
-            st.putSamples (interpolationBuffer->getReadPointer (ch), maxSourceSamples);
+            st->putSamples (interpolationBuffer->getReadPointer (ch), (uint) maxSourceSamples);
         }
 
-        int received = st.receiveSamples (interpolationBuffer->getWritePointer (ch) + outputOffset, (int) numSamples);
+        uint received = st->receiveSamples (interpolationBuffer->getWritePointer (ch) + outputOffset, (uint) numSamples);
 
-        if (received < (int) numSamples)
-            juce::FloatVectorOperations::clear (interpolationBuffer->getWritePointer (ch) + outputOffset + received,
-                                                (int) numSamples - received);
+        if (received < (uint) numSamples)
+            juce::FloatVectorOperations::clear (received + interpolationBuffer->getWritePointer (ch) + outputOffset,
+                                                (int) ((uint) numSamples - received));
 
         // ADD from second half to output
         output.addFrom (ch, 0, *interpolationBuffer, ch, outputOffset, (int) numSamples);
@@ -280,7 +284,7 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
     fifo.finishedRead (numSamples, shouldOverdub());
 }
 
-void LoopTrack::processPlaybackApplyVolume (juce::AudioBuffer<float>& output, const uint numSamples)
+void LoopTrack::processPlaybackApplyVolume (juce::AudioBuffer<float>& output, const int numSamples)
 {
     PERFETTO_FUNCTION();
     if (std::abs (trackVolume - previousTrackVolume) > 0.001f)
@@ -294,7 +298,7 @@ void LoopTrack::processPlaybackApplyVolume (juce::AudioBuffer<float>& output, co
     }
 }
 
-void LoopTrack::processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output, const uint numSamples)
+void LoopTrack::processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output, const int numSamples)
 {
     PERFETTO_FUNCTION();
 
@@ -328,7 +332,7 @@ void LoopTrack::clear()
     fifo.prepareToPlay ((int) alignedBufferSize);
     for (auto& st : soundTouchProcessors)
     {
-        st.clear();
+        st->clear();
     }
 }
 
@@ -363,24 +367,24 @@ void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
     auto prevBlockSize = blockSize;
     auto prevChannels = channels;
     releaseResources();
-    prepareToPlay (prevSampleRate, (uint) prevBlockSize, (uint) prevChannels);
+    prepareToPlay (prevSampleRate, (int) prevBlockSize, (int) prevChannels);
 
-    const size_t copySamples = std::min ((size_t) backingTrack.getNumSamples(), (size_t) MAX_SECONDS_HARD_LIMIT * (size_t) sampleRate);
+    const int copySamples = std::min ((int) backingTrack.getNumSamples(), (int) MAX_SECONDS_HARD_LIMIT * (int) sampleRate);
 
     for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
     {
         juce::FloatVectorOperations::copy (audioBuffer->getWritePointer (ch), backingTrack.getReadPointer (ch), copySamples);
     }
 
-    provisionalLength = (size_t) copySamples;
+    provisionalLength = (int) copySamples;
 
     finalizeLayer();
 }
 
-bool LoopTrack::shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const uint numSamples) const
+bool LoopTrack::shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const int numSamples) const
 {
     PERFETTO_FUNCTION();
-    return numSamples == 0 || (uint) input.getNumSamples() < numSamples || ! isPrepared()
+    return numSamples == 0 || (int) input.getNumSamples() < numSamples || ! isPrepared()
            || input.getNumChannels() != audioBuffer->getNumChannels();
 }
 
