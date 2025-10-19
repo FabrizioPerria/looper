@@ -44,18 +44,12 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    LooperEngine& getLooperEngine()
-    {
-        return looperEngine;
-    }
+    LooperEngine* getLooperEngine() { return looperEngine.get(); }
 
-    AudioToUIBridge& getUIBridge()
-    {
-        return uiBridge;
-    }
+    AudioToUIBridge& getUIBridge() { return uiBridge; }
 
 private:
-    LooperEngine looperEngine;
+    std::unique_ptr<LooperEngine> looperEngine = std::make_unique<LooperEngine>();
     AudioToUIBridge uiBridge;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessor)

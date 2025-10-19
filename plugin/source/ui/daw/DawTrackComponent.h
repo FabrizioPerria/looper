@@ -9,7 +9,7 @@
 class DawTrackComponent : public juce::Component, private juce::Timer
 {
 public:
-    DawTrackComponent (LooperEngine& engine, int trackIdx, AudioToUIBridge* bridge) : trackIndex (trackIdx), looperEngine (engine)
+    DawTrackComponent (LooperEngine* engine, int trackIdx, AudioToUIBridge* bridge) : trackIndex (trackIdx), looperEngine (engine)
     {
         trackLabel.setText ("Track " + juce::String (trackIdx + 1), juce::dontSendNotification);
         trackLabel.setFont (LooperTheme::Fonts::getBoldFont (11.0f));
@@ -32,7 +32,11 @@ public:
 
         clearButton.setButtonText ("CLEAR");
         clearButton.setComponentID ("clear");
-        clearButton.onClick = [this]() { sendMidiMessageToEngine (CLEAR_BUTTON_MIDI_NOTE, NOTE_ON); };
+        clearButton.onClick = [this]()
+        {
+            sendMidiMessageToEngine (CLEAR_BUTTON_MIDI_NOTE, NOTE_ON);
+            waveformDisplay.clearTrack();
+        };
         addAndMakeVisible (clearButton);
 
         volumeFader.setSliderStyle (juce::Slider::LinearHorizontal);
@@ -89,7 +93,7 @@ public:
 
     void updateControlsFromEngine()
     {
-        auto* track = looperEngine.getTrackByIndex (trackIndex);
+        auto* track = looperEngine->getTrackByIndex (trackIndex);
         if (! track) return;
 
         float currentVolume = track->getTrackVolume();
@@ -215,7 +219,7 @@ private:
     juce::TextButton keepPitchButton;
     PlaybackSpeedSlider speedFader;
 
-    LooperEngine& looperEngine;
+    LooperEngine* looperEngine;
 
     void sendMidiMessageToEngine (const int noteNumber, const bool isNoteOn)
     {
@@ -225,7 +229,7 @@ private:
 
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (msg, 0);
-        looperEngine.handleMidiCommand (midiBuffer);
+        looperEngine->handleMidiCommand (midiBuffer);
     }
 
     void sendMidiMessageToEngine (const int controllerNumber, const int value)
@@ -233,7 +237,7 @@ private:
         juce::MidiBuffer midiBuffer;
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, value), 0);
-        looperEngine.handleMidiCommand (midiBuffer);
+        looperEngine->handleMidiCommand (midiBuffer);
     }
 
     void sendMidiMessageToEngine (const int controllerNumber, const double value)
@@ -246,7 +250,7 @@ private:
 
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, ccValue), 0);
-        looperEngine.handleMidiCommand (midiBuffer);
+        looperEngine->handleMidiCommand (midiBuffer);
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DawTrackComponent)

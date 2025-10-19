@@ -14,18 +14,9 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     setSize (1200, 900); // Make it bigger to see
 }
 
-AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
-{
-    setLookAndFeel (nullptr);
-}
+AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor() { setLookAndFeel (nullptr); }
 
 //==============================================================================
-void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
-{
-    g.fillAll (LooperTheme::Colors::backgroundDark);
-}
+void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g) { g.fillAll (LooperTheme::Colors::backgroundDark); }
 
-void AudioPluginAudioProcessorEditor::resized()
-{
-    theme->editorComponent->setBounds (getLocalBounds());
-}
+void AudioPluginAudioProcessorEditor::resized() { theme->editorComponent->setBounds (getLocalBounds()); }

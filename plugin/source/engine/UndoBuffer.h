@@ -39,33 +39,6 @@ public:
         length = 0;
     }
 
-    // void printBufferSummary (const juce::AudioBuffer<float>& buf, const std::string& name, bool isActive)
-    // {
-    //     if (buf.getNumChannels() > 0 && buf.getNumSamples() > 0)
-    //     {
-    //         auto* ptr = buf.getReadPointer (0);
-    //         std::cout << name;
-    //         if (isActive)
-    //             std::cout << ">> ";
-    //         else
-    //             std::cout << "   ";
-    //         int len = std::min (20, buf.getNumSamples());
-    //         for (int i = 0; i < len; ++i)
-    //             std::cout << " " << ptr[i];
-    //     }
-    //     std::cout << std::endl;
-    // }
-    //
-    // void printSummary (const juce::AudioBuffer<float>& destination, int uStart1, int rStart1, std::string action)
-    // {
-    //     printBufferSummary (destination, "Dest" + action, false);
-    //     for (int i = 0; i < undoBuffers.size(); ++i)
-    //         printBufferSummary (*undoBuffers[i], "Undo Buffer " + std::to_string (i) + action, i == (int) uStart1);
-    //     for (int i = 0; i < redoBuffers.size(); ++i)
-    //         printBufferSummary (*redoBuffers[i], "Redo Buffer " + std::to_string (i) + action, i == (int) rStart1);
-    //     std::cout << "----" << std::endl;
-    // }
-
     void pushLayer (std::unique_ptr<juce::AudioBuffer<float>>& source, int loopLength)
     {
         PERFETTO_FUNCTION();

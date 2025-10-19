@@ -7,11 +7,11 @@
 class DawEditor : public juce::Component, public juce::Timer
 {
 public:
-    DawEditor (LooperEngine& engine) : looperEngine (engine)
+    DawEditor (LooperEngine* engine) : looperEngine (engine)
     {
-        for (int i = 0; i < engine.getNumTracks(); ++i)
+        for (int i = 0; i < engine->getNumTracks(); ++i)
         {
-            auto* channel = new DawTrackComponent (engine, i, engine.getUIBridgeByIndex (i));
+            auto* channel = new DawTrackComponent (engine, i, engine->getUIBridgeByIndex (i));
             channels.add (channel);
             addAndMakeVisible (channel);
         }
@@ -101,7 +101,7 @@ public:
     }
 
 private:
-    LooperEngine& looperEngine;
+    LooperEngine* looperEngine;
     juce::OwnedArray<DawTrackComponent> channels;
 
     juce::TextButton recordButton;
@@ -115,17 +115,17 @@ private:
         juce::MidiMessage msg = isNoteOn ? juce::MidiMessage::noteOn (1, noteNumber, (juce::uint8) 100)
                                          : juce::MidiMessage::noteOff (1, noteNumber);
         midiBuffer.addEvent (msg, 0);
-        looperEngine.handleMidiCommand (midiBuffer);
+        looperEngine->handleMidiCommand (midiBuffer);
     }
 
     void timerCallback() override
     {
-        auto state = looperEngine.getTransportState();
+        auto state = looperEngine->getTransportState();
         recordButton.setToggleState (state == TransportState::Recording, juce::dontSendNotification);
         playButton.setToggleState (state != TransportState::Stopped, juce::dontSendNotification);
 
         // Update active track highlighting
-        int activeTrackIndex = looperEngine.getActiveTrackIndex();
+        int activeTrackIndex = looperEngine->getActiveTrackIndex();
         for (int i = 0; i < channels.size(); ++i)
         {
             channels[i]->setActive (i == activeTrackIndex);

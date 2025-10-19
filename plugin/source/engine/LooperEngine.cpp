@@ -46,6 +46,8 @@ void LooperEngine::releaseResources()
     numTracks = 0;
     activeTrackIndex = 0;
     transportState = TransportState::Stopped;
+    nextTrackIndex = -1;
+    midiCommandMap.clear();
 }
 
 void LooperEngine::addTrack()
@@ -111,6 +113,8 @@ void LooperEngine::clear (int trackIndex)
     if (trackIndex >= numTracks || trackIndex < 0) trackIndex = activeTrackIndex;
     loopTracks[(size_t) trackIndex]->clear();
     transportState = TransportState::Stopped;
+    uiBridges[(size_t) trackIndex]->clear();
+    bridgeInitialized[(size_t) trackIndex] = false;
     uiBridges[(size_t) trackIndex]->signalWaveformChanged();
 }
 

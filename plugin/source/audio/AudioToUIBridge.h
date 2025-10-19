@@ -55,6 +55,26 @@ public:
         pendingUpdate.store (true, std::memory_order_release);
     }
 
+    void clear()
+    {
+        PERFETTO_FUNCTION();
+        for (int i = 0; i < 3; ++i)
+        {
+            snapshots[i]->buffer.setSize (0, 0); // Release memory
+            snapshots[i]->length = 0;
+            snapshots[i]->version = -1;
+        }
+
+        state.loopLength.store (0, std::memory_order_relaxed);
+        state.readPosition.store (0, std::memory_order_relaxed);
+        state.isRecording.store (false, std::memory_order_relaxed);
+        state.isPlaying.store (false, std::memory_order_relaxed);
+        state.stateVersion.fetch_add (1, std::memory_order_release);
+
+        pendingUpdate.store (false, std::memory_order_relaxed);
+        lastUIVersion = -1;
+    }
+
     bool shouldUpdateWhileRecording (int samplesPerBlock, double sampleRate)
     {
         PERFETTO_FUNCTION();

@@ -26,6 +26,12 @@ public:
         repaint();
     }
 
+    void clearTrack()
+    {
+        cache.clear();
+        repaint();
+    }
+
 private:
     void handleAsyncUpdate() override;
 

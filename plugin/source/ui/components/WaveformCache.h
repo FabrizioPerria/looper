@@ -9,6 +9,14 @@ public:
     WaveformCache() = default;
     ~WaveformCache() = default;
 
+    void clear()
+    {
+        juce::ScopedLock sl (lock);
+        minMaxData.clear();
+        width.store (0, std::memory_order_relaxed);
+        numChannels.store (0, std::memory_order_relaxed);
+    }
+
     void updateFromBuffer (const juce::AudioBuffer<float>& source, int sourceLength, int targetWidth)
     {
         PERFETTO_FUNCTION();
