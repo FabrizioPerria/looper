@@ -25,6 +25,7 @@ public:
         int samplesPerPixel = sourceLength / targetWidth;
         if (samplesPerPixel < 1) return;
 
+        juce::ScopedLock sl (lock);
         std::vector<std::vector<std::pair<float, float>>> newData;
         newData.resize ((size_t) source.getNumChannels());
 
@@ -48,7 +49,6 @@ public:
             }
         }
 
-        juce::ScopedLock sl (lock);
         minMaxData.swap (newData);
         width = targetWidth;
         numChannels = source.getNumChannels();
