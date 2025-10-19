@@ -18,7 +18,9 @@ public:
         const double snapThreshold = 0.05;
 
         if (std::abs (attemptedValue - 0.5) < snapThreshold) return 0.5;
+        if (std::abs (attemptedValue - 0.75) < snapThreshold) return 0.75;
         if (std::abs (attemptedValue - 1.0) < snapThreshold) return 1.0;
+        if (std::abs (attemptedValue - 1.5) < snapThreshold) return 1.5;
         if (std::abs (attemptedValue - 2.0) < snapThreshold) return 2.0;
 
         return attemptedValue;

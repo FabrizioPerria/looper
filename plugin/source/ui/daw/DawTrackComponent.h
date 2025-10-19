@@ -65,9 +65,14 @@ public:
         reverseButton.onClick = [this]() { sendMidiMessageToEngine (REVERSE_BUTTON_MIDI_NOTE, NOTE_ON); };
         addAndMakeVisible (reverseButton);
 
+        keepPitchButton.setButtonText ("PITCH");
+        keepPitchButton.setComponentID ("keepPitch");
+        keepPitchButton.setClickingTogglesState (true);
+        keepPitchButton.onClick = [this]() { sendMidiMessageToEngine (KEEP_PITCH_BUTTON_MIDI_NOTE, NOTE_ON); };
+        addAndMakeVisible (keepPitchButton);
+
         speedFader.setSliderStyle (juce::Slider::LinearHorizontal);
         speedFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-        speedFader.setRange (0.2, 2.0, 0.01);
         speedFader.setValue (1.0);
         speedFader.onValueChange = [this]() { sendMidiMessageToEngine (PLAYBACK_SPEED_CC, speedFader.getValue()); };
         addAndMakeVisible (speedFader);
@@ -149,8 +154,9 @@ public:
 
         juce::FlexBox reverseSpeedRow;
         reverseSpeedRow.flexDirection = juce::FlexBox::Direction::row;
-        reverseSpeedRow.items.add (juce::FlexItem (reverseButton).withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
-        reverseSpeedRow.items.add (juce::FlexItem().withFlex (0.6f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        reverseSpeedRow.items.add (juce::FlexItem (reverseButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
+        reverseSpeedRow.items.add (juce::FlexItem (keepPitchButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        reverseSpeedRow.items.add (juce::FlexItem().withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         reverseSpeedRow.items.add (juce::FlexItem (speedFader).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
         mainRow.items.add (juce::FlexItem (reverseSpeedRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
 
@@ -211,6 +217,7 @@ private:
     juce::TextButton soloButton;
     AccentBar accentBar;
     juce::TextButton reverseButton;
+    juce::TextButton keepPitchButton;
     PlaybackSpeedSlider speedFader;
 
     LooperEngine& looperEngine;
@@ -221,6 +228,7 @@ private:
         juce::MidiMessage msg = isNoteOn ? juce::MidiMessage::noteOn (1, noteNumber, (juce::uint8) 100)
                                          : juce::MidiMessage::noteOff (1, noteNumber);
 
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (msg, 0);
         looperEngine.handleMidiCommand (midiBuffer);
     }
@@ -228,6 +236,7 @@ private:
     void sendMidiMessageToEngine (const int controllerNumber, const int value)
     {
         juce::MidiBuffer midiBuffer;
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, value), 0);
         looperEngine.handleMidiCommand (midiBuffer);
     }
@@ -236,10 +245,11 @@ private:
     {
         juce::MidiBuffer midiBuffer;
 
-        // Normalize speed from 0.2-2.0 range to 0-1 range
-        double normalized = (value - 0.2) / 1.8; // 1.06 → (1.06-0.2)/1.8 = 0.477
-        int ccValue = (int) std::clamp (normalized * 127.0, 0.0, 127.0);
+        int ccValue = (int) std::clamp (value * 127.0, 0.0, 127.0);
 
+        if (controllerNumber == PLAYBACK_SPEED_CC) ccValue = (int) (((value - 0.2) / 1.8) * 127.0);
+
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, ccValue), 0);
         looperEngine.handleMidiCommand (midiBuffer);
     }

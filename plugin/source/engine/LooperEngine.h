@@ -81,7 +81,6 @@ public:
         return nullptr;
     }
 
-public:
     void setTrackPlaybackSpeed (int trackIndex, float speed)
     {
         PERFETTO_FUNCTION();
@@ -135,6 +134,9 @@ public:
     float getTrackVolume (int trackIndex) const;
     bool isTrackMuted (int trackIndex) const;
     void handleMidiCommand (const juce::MidiBuffer& midiMessages);
+
+    void setKeepPitchWhenChangingSpeed (int trackIndex, bool shouldKeepPitch);
+    bool getKeepPitchWhenChangingSpeed (int trackIndex) const;
 
 private:
     struct MidiKey

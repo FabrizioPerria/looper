@@ -46,6 +46,23 @@ cpmaddpackage(
   "INSTALL_GTEST OFF"
   "gtest_force_shared_crt ON")
 
+set(BUILD_SOUNDSTRETCH
+    OFF
+    CACHE BOOL "" FORCE)
+set(SOUNDTOUCH_DLL
+    OFF
+    CACHE BOOL "" FORCE)
+cpmaddpackage(
+  NAME
+  Soundtouch
+  URL
+  https://www.surina.net/soundtouch/soundtouch-2.4.0.tar.gz
+  SOURCE_DIR
+  ${LIB_DIR}/soundtouch
+  OPTIONS
+  "BUILD_SOUNDSTRETCH OFF"
+  "SOUNDTOUCH_DLL OFF")
+
 enable_testing()
 
 if(MSVC)
