@@ -293,8 +293,8 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
 
     // Update bridge
     bridge->updateFromAudioThread (&activeTrack->getAudioBuffer(),
-                                   (size_t) lengthToShow,
-                                   (size_t) activeTrack->getCurrentReadPosition(),
+                                   lengthToShow,
+                                   activeTrack->getCurrentReadPosition(),
                                    nowRecording,
                                    transportState == TransportState::Playing);
 }
