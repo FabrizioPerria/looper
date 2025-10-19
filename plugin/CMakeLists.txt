@@ -71,4 +71,4 @@ target_compile_definitions(
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 target_link_options(${PROJECT_NAME} PUBLIC
-                    "-Wl,-weak_reference_mismatches,weak")
+                    "-Wall -Werror -Wl,-weak_reference_mismatches,weak")

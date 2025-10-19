@@ -1,16 +1,18 @@
 #include "LooperEngine.h"
 #include "engine/midiMappings.h"
 
-LooperEngine::LooperEngine() : transportState (TransportState::Stopped), sampleRate (0.0), maxBlockSize (0), numChannels (0), numTracks (0)
+LooperEngine::LooperEngine()
+    : transportState (TransportState::Stopped)
+    , sampleRate (0.0)
+    , maxBlockSize (0)
+    , numChannels (0)
+    , numTracks (0)
+    , activeTrackIndex (0)
+    , nextTrackIndex (-1)
 {
-    PERFETTO_FUNCTION();
 }
 
-LooperEngine::~LooperEngine()
-{
-    PERFETTO_FUNCTION();
-    releaseResources();
-}
+LooperEngine::~LooperEngine() { releaseResources(); }
 
 void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int newNumTracks, int newNumChannels)
 {
@@ -65,7 +67,7 @@ void LooperEngine::selectTrack (const int trackIndex)
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return;
 
-    if (transportState == TransportState::Stopped || loopTracks[activeTrackIndex]->getLength() == 0)
+    if (transportState == TransportState::Stopped || loopTracks[(size_t) activeTrackIndex]->getLength() == 0)
         activeTrackIndex = trackIndex;
     else
         //we do not switch the track here. The actual switching happens in processBlock so we finish the loop cycle before switching. Here, we signal the swap.
@@ -85,31 +87,31 @@ void LooperEngine::removeTrack (const int trackIndex)
     if (activeTrackIndex >= numTracks) activeTrackIndex = numTracks - 1;
 }
 
-void LooperEngine::undo (size_t trackIndex)
+void LooperEngine::undo (int trackIndex)
 {
     PERFETTO_FUNCTION();
-    if (trackIndex >= numTracks) trackIndex = activeTrackIndex;
-    loopTracks[trackIndex]->undo();
+    if (trackIndex >= numTracks || trackIndex < 0) trackIndex = activeTrackIndex;
+    loopTracks[(size_t) trackIndex]->undo();
     transportState = TransportState::Playing;
-    uiBridges[trackIndex]->signalWaveformChanged();
+    uiBridges[(size_t) trackIndex]->signalWaveformChanged();
 }
 
-void LooperEngine::redo (size_t trackIndex)
+void LooperEngine::redo (int trackIndex)
 {
     PERFETTO_FUNCTION();
-    if (trackIndex >= numTracks) trackIndex = activeTrackIndex;
-    loopTracks[trackIndex]->redo();
+    if (trackIndex >= numTracks || trackIndex < 0) trackIndex = activeTrackIndex;
+    loopTracks[(size_t) trackIndex]->redo();
     transportState = TransportState::Playing;
-    uiBridges[trackIndex]->signalWaveformChanged();
+    uiBridges[(size_t) trackIndex]->signalWaveformChanged();
 }
 
-void LooperEngine::clear (size_t trackIndex)
+void LooperEngine::clear (int trackIndex)
 {
     PERFETTO_FUNCTION();
-    if (trackIndex >= numTracks) trackIndex = activeTrackIndex;
-    loopTracks[trackIndex]->clear();
+    if (trackIndex >= numTracks || trackIndex < 0) trackIndex = activeTrackIndex;
+    loopTracks[(size_t) trackIndex]->clear();
     transportState = TransportState::Stopped;
-    uiBridges[trackIndex]->signalWaveformChanged();
+    uiBridges[(size_t) trackIndex]->signalWaveformChanged();
 }
 
 void LooperEngine::startRecording()
@@ -129,8 +131,8 @@ void LooperEngine::stop()
     PERFETTO_FUNCTION();
     if (isRecording())
     {
-        loopTracks[activeTrackIndex]->finalizeLayer();
-        uiBridges[activeTrackIndex]->signalWaveformChanged();
+        loopTracks[(size_t) activeTrackIndex]->finalizeLayer();
+        uiBridges[(size_t) activeTrackIndex]->signalWaveformChanged();
         transportState = TransportState::Playing;
     }
     else
@@ -210,15 +212,15 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
 
             if (m.isController() && m.getControllerNumber() == TRACK_VOLUME_CC)
             {
-                float volume = m.getControllerValue() / 127.0f;
+                float volume = (float) m.getControllerValue() / 127.0f;
                 setTrackVolume (targetTrack, volume);
                 continue;
             }
 
             if (m.isController() && m.getControllerNumber() == PLAYBACK_SPEED_CC)
             {
-                float normalizedValue = m.getControllerValue() / 127.0f; // 0.0 to 1.0
-                float speed = 0.2f + (normalizedValue * 1.8f);           // Maps to 0.2-2.0 ✓
+                float normalizedValue = (float) m.getControllerValue() / 127.0f; // 0.0 to 1.0
+                float speed = 0.2f + (normalizedValue * 1.8f);                   // Maps to 0.2-2.0 ✓
                 setTrackPlaybackSpeed (targetTrack, speed);
                 continue;
             }
@@ -266,10 +268,10 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     bool nowRecording = activeTrack->isCurrentlyRecording();
 
     // Handle waveform update signals
-    if (! bridgeInitialized[activeTrackIndex] && activeTrack->getLength() > 0)
+    if (! bridgeInitialized[(size_t) activeTrackIndex] && activeTrack->getLength() > 0)
     {
         bridge->signalWaveformChanged();
-        bridgeInitialized[activeTrackIndex] = true;
+        bridgeInitialized[(size_t) activeTrackIndex] = true;
     }
 
     bool isFinalizing = wasRecording && ! nowRecording;
@@ -285,9 +287,9 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     }
 
     // Determine length to show
-    size_t lengthToShow = activeTrack->getLength();
+    int lengthToShow = activeTrack->getLength();
     if (lengthToShow == 0 && nowRecording)
-        lengthToShow = std::min (activeTrack->getCurrentWritePosition() + 200, (size_t) activeTrack->getAudioBuffer().getNumSamples());
+        lengthToShow = std::min (activeTrack->getCurrentWritePosition() + 200, (int) activeTrack->getAudioBuffer().getNumSamples());
 
     // Update bridge
     bridge->updateFromAudioThread (&activeTrack->getAudioBuffer(),
@@ -301,7 +303,7 @@ LoopTrack* LooperEngine::getActiveTrack()
 {
     PERFETTO_FUNCTION();
     if (loopTracks.empty() || activeTrackIndex < 0 || activeTrackIndex >= numTracks) return nullptr;
-    return loopTracks[activeTrackIndex].get();
+    return loopTracks[(size_t) activeTrackIndex].get();
 }
 
 void LooperEngine::setOverdubGainsForTrack (const int trackIndex, const double oldGain, const double newGain)
@@ -309,30 +311,30 @@ void LooperEngine::setOverdubGainsForTrack (const int trackIndex, const double o
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return;
 
-    auto& track = loopTracks[trackIndex];
+    auto& track = loopTracks[(size_t) trackIndex];
     if (track) track->setOverdubGains (oldGain, newGain);
 }
 
-void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, size_t trackIndex)
+void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex)
 {
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return;
 
-    auto& track = loopTracks[trackIndex];
+    auto& track = loopTracks[(size_t) trackIndex];
     if (track)
     {
         track->loadBackingTrack (backingTrack);
-        uiBridges[trackIndex]->signalWaveformChanged();
+        uiBridges[(size_t) trackIndex]->signalWaveformChanged();
         startPlaying();
     }
 }
 
-void LooperEngine::loadWaveFileToTrack (const juce::File& audioFile, size_t trackIndex)
+void LooperEngine::loadWaveFileToTrack (const juce::File& audioFile, int trackIndex)
 {
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return;
 
-    auto& track = loopTracks[trackIndex];
+    auto& track = loopTracks[(size_t) trackIndex];
     if (track)
     {
         juce::AudioFormatManager formatManager;
@@ -352,7 +354,7 @@ void LooperEngine::setTrackVolume (int trackIndex, float volume)
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return;
 
-    auto& track = loopTracks[trackIndex];
+    auto& track = loopTracks[(size_t) trackIndex];
     if (track)
     {
         track->setTrackVolume (volume);
@@ -364,7 +366,7 @@ void LooperEngine::setTrackMuted (int trackIndex, bool muted)
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return;
 
-    auto& track = loopTracks[trackIndex];
+    auto& track = loopTracks[(size_t) trackIndex];
     if (track)
     {
         track->setMuted (muted);
@@ -378,7 +380,7 @@ void LooperEngine::setTrackSoloed (int trackIndex, bool soloed)
 
     for (int i = 0; i < numTracks; ++i)
     {
-        auto& track = loopTracks[i];
+        auto& track = loopTracks[(size_t) i];
         if (track)
         {
             if (i == trackIndex)
@@ -397,7 +399,7 @@ float LooperEngine::getTrackVolume (int trackIndex) const
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return 1.0f;
 
-    auto& track = loopTracks[trackIndex];
+    auto& track = loopTracks[(size_t) trackIndex];
     if (track) return track->getTrackVolume();
     return 1.0f;
 }
@@ -407,7 +409,7 @@ bool LooperEngine::isTrackMuted (int trackIndex) const
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return false;
 
-    auto& track = loopTracks[trackIndex];
+    auto& track = loopTracks[(size_t) trackIndex];
     if (track) return track->isMuted();
     return false;
 }
@@ -417,7 +419,7 @@ void LooperEngine::setKeepPitchWhenChangingSpeed (int trackIndex, bool shouldKee
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return;
 
-    auto& track = loopTracks[trackIndex];
+    auto& track = loopTracks[(size_t) trackIndex];
     if (track) track->setKeepPitchWhenChangingSpeed (shouldKeepPitch);
 }
 
@@ -426,7 +428,7 @@ bool LooperEngine::getKeepPitchWhenChangingSpeed (int trackIndex) const
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return false;
 
-    auto& track = loopTracks[trackIndex];
+    auto& track = loopTracks[(size_t) trackIndex];
     if (track) return track->shouldKeepPitchWhenChangingSpeed();
     return false;
 }

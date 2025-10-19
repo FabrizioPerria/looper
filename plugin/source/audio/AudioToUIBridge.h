@@ -8,8 +8,8 @@ class AudioToUIBridge
 public:
     struct AudioState
     {
-        std::atomic<size_t> loopLength { 0 };
-        std::atomic<size_t> readPosition { 0 };
+        std::atomic<int> loopLength { 0 };
+        std::atomic<int> readPosition { 0 };
         std::atomic<bool> isRecording { false };
         std::atomic<bool> isPlaying { false };
         std::atomic<int> stateVersion { 0 }; // Increment when waveform changes
@@ -76,7 +76,7 @@ public:
     }
 
     // Called from AUDIO THREAD - must be lock-free and fast
-    void updateFromAudioThread (const juce::AudioBuffer<float>* audioBuffer, size_t length, size_t readPos, bool recording, bool playing)
+    void updateFromAudioThread (const juce::AudioBuffer<float>* audioBuffer, int length, int readPos, bool recording, bool playing)
     {
         PERFETTO_FUNCTION();
         // Update lightweight state (always)
@@ -115,7 +115,7 @@ public:
     }
 
     // Called from UI THREAD - get latest playback position
-    void getPlaybackState (size_t& length, size_t& readPos, bool& recording, bool& playing)
+    void getPlaybackState (int& length, int& readPos, bool& recording, bool& playing)
     {
         PERFETTO_FUNCTION();
         length = state.loopLength.load (std::memory_order_relaxed);

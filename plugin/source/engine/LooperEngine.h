@@ -3,6 +3,7 @@
 #include "audio/AudioToUIBridge.h"
 #include "engine/LoopTrack.h"
 #include <JuceHeader.h>
+#include <cstddef>
 
 enum class TransportState
 {
@@ -23,107 +24,81 @@ public:
     void addTrack();
     void selectTrack (const int trackIndex);
     void removeTrack (const int trackIndex);
+
     LoopTrack* getActiveTrack();
-    void selectNextTrack()
-    {
-        PERFETTO_FUNCTION();
-        selectTrack ((activeTrackIndex + 1) % numTracks);
-    }
 
-    void selectPreviousTrack()
-    {
-        PERFETTO_FUNCTION();
-        selectTrack ((activeTrackIndex - 1 + numTracks) % numTracks);
-    }
+    void selectNextTrack() { selectTrack ((activeTrackIndex + 1) % numTracks); }
+    void selectPreviousTrack() { selectTrack ((activeTrackIndex - 1 + numTracks) % numTracks); }
 
-    int getActiveTrackIndex() const
-    {
-        PERFETTO_FUNCTION();
-        return activeTrackIndex;
-    }
-    int getNumTracks() const
-    {
-        PERFETTO_FUNCTION();
-        return numTracks;
-    }
+    int getActiveTrackIndex() const { return activeTrackIndex; }
+    int getNumTracks() const { return numTracks; }
 
     void processBlock (const juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages);
 
     void setOverdubGainsForTrack (const int trackIndex, const double oldGain, const double newGain);
 
-    TransportState getTransportState() const
-    {
-        PERFETTO_FUNCTION();
-        return transportState;
-    }
+    TransportState getTransportState() const { return transportState; }
 
     void startRecording();
     void startPlaying();
     void stop();
-    void undo (size_t trackIndex);
-    void redo (size_t trackIndex);
-    void clear (size_t trackIndex);
+    void undo (int trackIndex);
+    void redo (int trackIndex);
+    void clear (int trackIndex);
 
-    void loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, size_t trackIndex);
-    void loadWaveFileToTrack (const juce::File& audioFile, size_t trackIndex);
+    void loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex);
+    void loadWaveFileToTrack (const juce::File& audioFile, int trackIndex);
 
     AudioToUIBridge* getUIBridgeByIndex (int trackIndex)
     {
-        PERFETTO_FUNCTION();
-        if (trackIndex >= 0 && trackIndex < (int) uiBridges.size()) return uiBridges[trackIndex].get();
+        if (trackIndex >= 0 && trackIndex < (int) uiBridges.size()) return uiBridges[(size_t) trackIndex].get();
         return nullptr;
     }
 
     LoopTrack* getTrackByIndex (int trackIndex)
     {
-        PERFETTO_FUNCTION();
-        if (trackIndex >= 0 && trackIndex < (int) loopTracks.size()) return loopTracks[trackIndex].get();
+        if (trackIndex >= 0 && trackIndex < (int) loopTracks.size()) return loopTracks[(size_t) trackIndex].get();
         return nullptr;
     }
 
     void setTrackPlaybackSpeed (int trackIndex, float speed)
     {
-        PERFETTO_FUNCTION();
         if (trackIndex < 0 || trackIndex >= numTracks) return;
 
-        auto& track = loopTracks[trackIndex];
+        auto& track = loopTracks[(size_t) trackIndex];
         if (track) track->setPlaybackSpeed (speed);
     }
 
     void setTrackPlaybackDirectionForward (int trackIndex)
     {
-        PERFETTO_FUNCTION();
         if (trackIndex < 0 || trackIndex >= numTracks) return;
 
-        auto& track = loopTracks[trackIndex];
+        auto& track = loopTracks[(size_t) trackIndex];
         if (track) track->setPlaybackDirectionForward();
     }
 
     void setTrackPlaybackDirectionBackward (int trackIndex)
     {
-        PERFETTO_FUNCTION();
         if (trackIndex < 0 || trackIndex >= numTracks) return;
 
-        auto& track = loopTracks[trackIndex];
+        auto& track = loopTracks[(size_t) trackIndex];
         if (track) track->setPlaybackDirectionBackward();
     }
 
     float getTrackPlaybackSpeed (int trackIndex) const
     {
-        PERFETTO_FUNCTION();
         if (trackIndex < 0 || trackIndex >= numTracks) return 1.0f;
 
-        auto& track = loopTracks[trackIndex];
+        auto& track = loopTracks[(size_t) trackIndex];
         if (track) return track->getPlaybackSpeed();
         return 1.0f;
     }
 
     bool isTrackPlaybackForward (int trackIndex) const
     {
-        PERFETTO_FUNCTION();
         if (trackIndex < 0 || trackIndex >= numTracks) return true;
 
-        auto& track = loopTracks[trackIndex];
+        auto& track = loopTracks[(size_t) trackIndex];
         if (track) return track->isPlaybackDirectionForward();
         return true;
     }
@@ -151,21 +126,9 @@ private:
         std::size_t operator() (const MidiKey& k) const { return std::hash<int>() (k.noteNumber) ^ std::hash<bool>() (k.isNoteOn); }
     };
 
-    bool isRecording() const
-    {
-        PERFETTO_FUNCTION();
-        return transportState == TransportState::Recording;
-    }
-    bool isPlaying() const
-    {
-        PERFETTO_FUNCTION();
-        return transportState == TransportState::Playing;
-    }
-    bool isStopped() const
-    {
-        PERFETTO_FUNCTION();
-        return transportState == TransportState::Stopped;
-    }
+    bool isRecording() const { return transportState == TransportState::Recording; }
+    bool isPlaying() const { return transportState == TransportState::Playing; }
+    bool isStopped() const { return transportState == TransportState::Stopped; }
 
     std::unordered_map<MidiKey, std::function<void (LooperEngine&, int)>, MidiKeyHash> midiCommandMap;
     void setupMidiCommands();
@@ -175,8 +138,8 @@ private:
     int maxBlockSize;
     int numChannels;
     int numTracks;
-    int activeTrackIndex { 0 };
-    int nextTrackIndex { -1 };
+    int activeTrackIndex;
+    int nextTrackIndex;
 
     std::vector<std::unique_ptr<LoopTrack>> loopTracks;
     std::vector<std::unique_ptr<AudioToUIBridge>> uiBridges;

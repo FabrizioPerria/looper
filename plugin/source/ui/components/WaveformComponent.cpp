@@ -19,7 +19,7 @@ void WaveformComponent::timerCallback()
     PERFETTO_FUNCTION();
     if (! bridge) return;
 
-    size_t length, readPos;
+    int length, readPos;
     bool recording, playing;
     bridge->getPlaybackState (length, readPos, recording, playing);
 
@@ -57,7 +57,7 @@ void WaveformComponent::paint (juce::Graphics& g)
         return;
     }
 
-    size_t length, readPos;
+    int length, readPos;
     bool recording, playing;
     bridge->getPlaybackState (length, readPos, recording, playing);
 
@@ -79,9 +79,9 @@ void WaveformComponent::handleAsyncUpdate()
         lastProcessedVersion = snapshot.version;
 
         backgroundProcessor.addJob (
-            [this, snapshot = std::move (snapshot), targetWidth]() mutable
+            [this, capturedSnapshot = std::move (snapshot), targetWidth]() mutable
             {
-                cache.updateFromBuffer (snapshot.buffer, snapshot.length, targetWidth);
+                cache.updateFromBuffer (capturedSnapshot.buffer, capturedSnapshot.length, targetWidth);
                 juce::MessageManager::callAsync ([this]() { repaint(); });
             });
     }

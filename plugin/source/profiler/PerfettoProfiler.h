@@ -27,14 +27,14 @@ public:
 
     void beginEvent (const std::string& name)
     {
-        uint64_t ts = getMicroseconds();
+        uint64_t ts = (uint) getMicroseconds();
         juce::ScopedLock lock (mutex);
         events.push_back ({ name, 'B', ts, getThreadId(), getProcessId() });
     }
 
     void endEvent (const std::string& name)
     {
-        uint64_t ts = getMicroseconds();
+        uint64_t ts = (uint) getMicroseconds();
         juce::ScopedLock lock (mutex);
         events.push_back ({ name, 'E', ts, getThreadId(), getProcessId() });
     }
@@ -82,7 +82,7 @@ public:
 private:
     PerfettoProfiler() = default;
 
-    uint64_t getMicroseconds()
+    int64_t getMicroseconds()
     {
         auto now = std::chrono::high_resolution_clock::now();
         return std::chrono::time_point_cast<std::chrono::microseconds> (now).time_since_epoch().count();
@@ -104,7 +104,7 @@ private:
 class PerfettoScope
 {
 public:
-    explicit PerfettoScope (const std::string& name) : name (name) { PerfettoProfiler::getInstance().beginEvent (name); }
+    explicit PerfettoScope (const std::string& scopeName) : name (scopeName) { PerfettoProfiler::getInstance().beginEvent (name); }
 
     ~PerfettoScope() { PerfettoProfiler::getInstance().endEvent (name); }
 
