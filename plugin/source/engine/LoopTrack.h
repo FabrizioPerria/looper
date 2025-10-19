@@ -151,6 +151,7 @@ private:
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> interpolationBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::vector<std::unique_ptr<soundtouch::SoundTouch>> soundTouchProcessors;
+    std::vector<float> zeroBuffer;
 
     bool keepPitchWhenChangingSpeed = false;
     double previousReadPos = 0.0;
@@ -165,7 +166,7 @@ private:
     double sampleRate = 0.0;
     int blockSize = 0;
     int channels = 0;
-    int alignedBufferSize = 0;
+    size_t alignedBufferSize = 0;
 
     LoopFifo fifo;
 

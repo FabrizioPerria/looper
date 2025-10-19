@@ -26,12 +26,11 @@ public:
         if (samplesPerPixel < 1) return;
 
         juce::ScopedLock sl (lock);
-        std::vector<std::vector<std::pair<float, float>>> newData;
-        newData.resize ((size_t) source.getNumChannels());
+        scratchBuffer.resize ((size_t) numChannels);
 
         for (int ch = 0; ch < source.getNumChannels(); ++ch)
         {
-            newData[(size_t) ch].resize ((size_t) targetWidth);
+            scratchBuffer[(size_t) ch].resize ((size_t) targetWidth);
             const float* data = source.getReadPointer (ch);
 
             for (int pixel = 0; pixel < targetWidth; ++pixel)
@@ -45,11 +44,11 @@ public:
                     min = std::min (min, data[i]);
                     max = std::max (max, data[i]);
                 }
-                newData[(size_t) ch][(size_t) pixel] = { min, max };
+                scratchBuffer[(size_t) ch][(size_t) pixel] = { min, max };
             }
         }
 
-        minMaxData.swap (newData);
+        minMaxData.swap (scratchBuffer);
         width = targetWidth;
         numChannels = source.getNumChannels();
     }
@@ -86,6 +85,7 @@ public:
     }
 
 private:
+    std::vector<std::vector<std::pair<float, float>>> scratchBuffer;
     std::vector<std::vector<std::pair<float, float>>> minMaxData; // [channel][pixel]
     std::atomic<int> width { 0 };
     std::atomic<int> numChannels { 0 };

@@ -52,8 +52,12 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
         soundTouchProcessor->setSetting (SETTING_OVERLAP_MS, 12);
     }
 
+    zeroBuffer.resize ((size_t) blockSize);
+    std::fill (zeroBuffer.begin(), zeroBuffer.end(), 0.0f);
+
     setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
 
+    previousReadPos = -1.0;
     alreadyPrepared = true;
 }
 
@@ -73,6 +77,7 @@ void LoopTrack::releaseResources()
 
     sampleRate = 0.0;
     alreadyPrepared = false;
+    zeroBuffer.clear();
 }
 
 //==============================================================================
@@ -261,10 +266,16 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
         }
 
         // Read from FIRST HALF
+        int attempts = 10;
         st->putSamples (interpolationBuffer->getReadPointer (ch), (uint) maxSourceSamples);
-        while (st->numSamples() < (uint) numSamples)
+        while (st->numSamples() < (uint) numSamples && attempts-- > 0)
         {
             st->putSamples (interpolationBuffer->getReadPointer (ch), (uint) maxSourceSamples);
+        }
+
+        if (st->numSamples() < (uint) numSamples)
+        {
+            st->putSamples (zeroBuffer.data(), (uint) numSamples - st->numSamples());
         }
 
         uint received = st->receiveSamples (interpolationBuffer->getWritePointer (ch) + outputOffset, (uint) numSamples);
@@ -307,9 +318,9 @@ void LoopTrack::processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& out
         float* outPtr = output.getWritePointer (ch);
         const float* loopPtr = audioBuffer->getReadPointer (ch);
 
-        if (samplesBeforeWrap > 0) juce::FloatVectorOperations::copy (outPtr, loopPtr + readPosBeforeWrap, samplesBeforeWrap);
+        if (samplesBeforeWrap > 0) juce::FloatVectorOperations::add (outPtr, loopPtr + readPosBeforeWrap, samplesBeforeWrap);
         if (samplesAfterWrap > 0)
-            juce::FloatVectorOperations::copy (outPtr + samplesBeforeWrap, loopPtr + readPosAfterWrap, samplesAfterWrap);
+            juce::FloatVectorOperations::add (outPtr + samplesBeforeWrap, loopPtr + readPosAfterWrap, samplesAfterWrap);
     }
 
     fifo.finishedRead (actualRead, shouldOverdub());
@@ -330,7 +341,6 @@ void LoopTrack::clear()
     for (auto& st : soundTouchProcessors)
     {
         st->clear();
-        st->flush();
     }
 }
 
