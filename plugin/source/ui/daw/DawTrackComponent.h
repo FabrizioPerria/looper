@@ -175,6 +175,7 @@ private:
     {
     public:
         std::function<void()> onClick;
+        AccentBar() {}
 
         void paint (juce::Graphics& g) override
         {
@@ -182,7 +183,19 @@ private:
             auto* track = dynamic_cast<DawTrackComponent*> (getParentComponent());
             bool isTrackActive = track ? track->isActive : false;
 
-            g.setColour (isTrackActive ? LooperTheme::Colors::cyan.withAlpha (0.8f) : LooperTheme::Colors::primary.withAlpha (0.3f));
+            if (isTrackActive)
+            {
+                g.setColour (LooperTheme::Colors::cyan.withAlpha (0.8f));
+            }
+            // else if (pendingTrackChange)
+            // {
+            //     g.setColour (LooperTheme::Colors::yellow.withAlpha (0.8f));
+            // }
+            else
+            {
+                g.setColour (LooperTheme::Colors::primary.withAlpha (0.3f));
+            }
+
             g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
 
             g.setColour (isTrackActive ? LooperTheme::Colors::backgroundDark : LooperTheme::Colors::cyan);
@@ -202,6 +215,9 @@ private:
         void mouseEnter (const juce::MouseEvent&) override { setMouseCursor (juce::MouseCursor::PointingHandCursor); }
 
         void mouseExit (const juce::MouseEvent&) override { setMouseCursor (juce::MouseCursor::NormalCursor); }
+
+    private:
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AccentBar)
     };
 
     int trackIndex;

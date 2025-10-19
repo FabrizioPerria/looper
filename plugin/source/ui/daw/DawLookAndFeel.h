@@ -174,7 +174,6 @@ public:
             else
                 colour = LooperTheme::Colors::cyan;
         }
-        // if (shouldDrawButtonAsHighlighted)
         else if (shouldDrawButtonAsHighlighted)
         {
             if (componentId == "mute")

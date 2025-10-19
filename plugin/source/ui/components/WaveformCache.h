@@ -26,7 +26,7 @@ public:
         if (samplesPerPixel < 1) return;
 
         juce::ScopedLock sl (lock);
-        scratchBuffer.resize ((size_t) numChannels);
+        scratchBuffer.resize ((size_t) source.getNumChannels());
 
         for (int ch = 0; ch < source.getNumChannels(); ++ch)
         {
