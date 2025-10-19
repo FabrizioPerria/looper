@@ -321,6 +321,7 @@ void LoopTrack::clear()
     audioBuffer->clear();
     undoBuffer.clear();
     tmpBuffer->clear();
+    interpolationBuffer->clear();
     length = 0;
     provisionalLength = 0;
     playbackSpeed = 1.0f;
@@ -329,6 +330,7 @@ void LoopTrack::clear()
     for (auto& st : soundTouchProcessors)
     {
         st->clear();
+        st->flush();
     }
 }
 
