@@ -221,6 +221,7 @@ private:
         juce::MidiMessage msg = isNoteOn ? juce::MidiMessage::noteOn (1, noteNumber, (juce::uint8) 100)
                                          : juce::MidiMessage::noteOff (1, noteNumber);
 
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (msg, 0);
         looperEngine.handleMidiCommand (midiBuffer);
     }
@@ -228,6 +229,7 @@ private:
     void sendMidiMessageToEngine (const int controllerNumber, const int value)
     {
         juce::MidiBuffer midiBuffer;
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, value), 0);
         looperEngine.handleMidiCommand (midiBuffer);
     }
@@ -236,10 +238,9 @@ private:
     {
         juce::MidiBuffer midiBuffer;
 
-        // Normalize speed from 0.2-2.0 range to 0-1 range
-        double normalized = (value - 0.2) / 1.8; // 1.06 → (1.06-0.2)/1.8 = 0.477
-        int ccValue = (int) std::clamp (normalized * 127.0, 0.0, 127.0);
+        int ccValue = (int) std::clamp (value * 127.0, 0.0, 127.0);
 
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, ccValue), 0);
         looperEngine.handleMidiCommand (midiBuffer);
     }
