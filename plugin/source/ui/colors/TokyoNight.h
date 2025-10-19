@@ -1,4 +1,5 @@
 #pragma once
+#include "juce_graphics/juce_graphics.h"
 #include <JuceHeader.h>
 
 namespace LooperTheme
@@ -61,17 +62,20 @@ namespace Fonts
 {
     inline juce::Font getRegularFont (float size = 14.0f)
     {
-        return juce::Font (juce::Font::getDefaultMonospacedFontName(), size, juce::Font::plain);
+        juce::FontOptions options = juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), size, juce::Font::plain);
+        return juce::Font (options);
     }
 
     inline juce::Font getBoldFont (float size = 14.0f)
     {
-        return juce::Font (juce::Font::getDefaultMonospacedFontName(), size, juce::Font::bold);
+        juce::FontOptions options = juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), size, juce::Font::bold);
+        return juce::Font (options);
     }
 
     inline juce::Font getTitleFont (float size = 18.0f)
     {
-        return juce::Font (juce::Font::getDefaultSansSerifFontName(), size, juce::Font::bold);
+        juce::FontOptions options = juce::FontOptions (juce::Font::getDefaultSansSerifFontName(), size, juce::Font::bold);
+        return juce::Font (options);
     }
 } // namespace Fonts
 } // namespace LooperTheme
