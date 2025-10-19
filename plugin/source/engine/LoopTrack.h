@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LoopFifo.h"
+#include "SoundTouch.h"
 #include "UndoBuffer.h"
 #include "juce_audio_basics/juce_audio_basics.h"
 #include "profiler/PerfettoProfiler.h"
@@ -139,6 +140,10 @@ private:
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> interpolationBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::vector<juce::LagrangeInterpolator> interpolationFilters;
+
+    // std::unique_ptr<soundtouch::SoundTouch> soundTouchProcessor = std::make_unique<soundtouch::SoundTouch>();
+    std::vector<soundtouch::SoundTouch> soundTouchProcessors;
+
     float playbackSpeed = 1.0f;
     int playheadDirection = 1; // 1 = forward, -1 = backward
     float playbackSpeedBeforeRecording = 1.0f;
@@ -183,6 +188,7 @@ private:
 
     void processPlaybackChannel (juce::AudioBuffer<float>& output, const uint numSamples, const uint ch);
 
+    void processPlaybackInterpolatedSpeedWithPitchCorrection (juce::AudioBuffer<float>& output, const uint numSamples);
     void processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output, const uint numSamples);
     void processPlaybackApplyVolume (juce::AudioBuffer<float>& output, const uint numSamples);
     void processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output, const uint numSamples);
