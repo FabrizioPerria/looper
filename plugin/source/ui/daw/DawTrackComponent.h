@@ -114,11 +114,6 @@ public:
         }
     }
 
-    void mouseDown (const juce::MouseEvent& event) override
-    {
-        // Removed - now handled by accent bar button
-    }
-
     void paint (juce::Graphics& g) override
     {
         auto bounds = getLocalBounds();
@@ -181,12 +176,12 @@ private:
         {
             auto bounds = getLocalBounds();
             auto* track = dynamic_cast<DawTrackComponent*> (getParentComponent());
-            bool isActive = track ? track->isActive : false;
+            bool isTrackActive = track ? track->isActive : false;
 
-            g.setColour (isActive ? LooperTheme::Colors::cyan.withAlpha (0.8f) : LooperTheme::Colors::primary.withAlpha (0.3f));
+            g.setColour (isTrackActive ? LooperTheme::Colors::cyan.withAlpha (0.8f) : LooperTheme::Colors::primary.withAlpha (0.3f));
             g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
 
-            g.setColour (isActive ? LooperTheme::Colors::backgroundDark : LooperTheme::Colors::cyan);
+            g.setColour (isTrackActive ? LooperTheme::Colors::backgroundDark : LooperTheme::Colors::cyan);
             g.setFont (LooperTheme::Fonts::getBoldFont (14.0f)); // Bigger font
 
             // Just draw the track number, centered vertically and horizontally

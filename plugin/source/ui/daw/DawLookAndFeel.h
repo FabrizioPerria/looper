@@ -8,7 +8,7 @@ class DawLookAndFeel : public juce::LookAndFeel_V4
 public:
     DawLookAndFeel() { setColour (juce::ResizableWindow::backgroundColourId, LooperTheme::Colors::backgroundDark); }
 
-    juce::Label* createSliderTextBox (juce::Slider& slider) override
+    juce::Label* createSliderTextBox (juce::Slider& /**/) override
     {
         auto* label = new juce::Label();
 
@@ -22,8 +22,7 @@ public:
         return label;
     }
 
-    juce::Rectangle<int>
-        getTooltipBounds (const juce::String& tipText, juce::Point<int> screenPos, juce::Rectangle<int> parentArea) override
+    juce::Rectangle<int> getTooltipBounds (const juce::String& /**/, juce::Point<int> screenPos, juce::Rectangle<int> /**/) override
     {
         const int tooltipWidth = 60;
         const int tooltipHeight = 24;
@@ -45,16 +44,16 @@ public:
         if (style == juce::Slider::LinearHorizontal)
         {
             slider.setPopupDisplayEnabled (true, true, nullptr);
-            auto bounds = juce::Rectangle<float> (x, y, width, height);
+            auto bounds = juce::Rectangle<int> (x, y, width, height);
 
             // Check if this is a PlaybackSpeedSlider
             bool isSpeedSlider = (dynamic_cast<PlaybackSpeedSlider*> (&slider) != nullptr);
 
             // Reserve space for tick marks if speed slider
-            float bottomSpace = isSpeedSlider ? 18.0f : 0.0f;
+            int bottomSpace = isSpeedSlider ? 18 : 0;
             auto sliderBounds = bounds.withHeight (bounds.getHeight() - bottomSpace);
 
-            auto trackHeight = juce::jmin (6.0f, sliderBounds.getHeight() * 0.5f);
+            auto trackHeight = juce::jmin (6, sliderBounds.getHeight() / 2);
             auto trackBounds = sliderBounds.withSizeKeepingCentre (sliderBounds.getWidth(), trackHeight);
 
             // Save original for tick marks
@@ -62,11 +61,12 @@ public:
 
             // Draw track background
             g.setColour (LooperTheme::Colors::backgroundDark);
-            g.fillRoundedRectangle (trackBounds, trackHeight / 2.0f);
+            auto trackBoundsF = trackBounds.toFloat();
+            g.fillRoundedRectangle (trackBoundsF, (float) trackHeight / 2.0f);
 
             // Draw filled portion
-            auto filledWidth = sliderPos - trackBounds.getX();
-            auto filledBounds = trackBounds.removeFromLeft (filledWidth); // This modifies trackBounds!
+            auto filledWidth = sliderPos - trackBoundsF.getX();
+            auto filledBounds = trackBoundsF.removeFromLeft (filledWidth); // This modifies trackBounds!
 
             juce::ColourGradient gradient (LooperTheme::Colors::primary,
                                            filledBounds.getX(),
@@ -76,19 +76,20 @@ public:
                                            filledBounds.getCentreY(),
                                            false);
             g.setGradientFill (gradient);
-            g.fillRoundedRectangle (filledBounds, trackHeight / 2.0f);
+            g.fillRoundedRectangle (filledBounds, (float) trackHeight / 2.0f);
 
             // Draw tick marks using the ORIGINAL trackBounds
             if (isSpeedSlider)
             {
-                drawSpeedTickMarks (g, originalTrackBounds, slider);
+                drawSpeedTickMarks (g, originalTrackBounds.toFloat(), slider);
             }
 
             // Draw thumb
             auto thumbWidth = 16.0f;
-            auto thumbHeight = juce::jmin (sliderBounds.getHeight() - 4.0f, 20.0f);
+            auto sliderBoundsF = sliderBounds.toFloat();
+            auto thumbHeight = juce::jmin (sliderBoundsF.getHeight() - 4.0f, 20.0f);
             auto thumbBounds = juce::Rectangle<float> (thumbWidth, thumbHeight)
-                                   .withCentre (juce::Point<float> (sliderPos, sliderBounds.getCentreY()));
+                                   .withCentre (juce::Point<float> (sliderPos, sliderBoundsF.getCentreY()));
 
             g.setColour (juce::Colours::black.withAlpha (0.3f));
             g.fillRoundedRectangle (thumbBounds.translated (0, 1), 2.0f);
@@ -107,7 +108,7 @@ public:
 
     void drawButtonBackground (juce::Graphics& g,
                                juce::Button& button,
-                               const juce::Colour& backgroundColour,
+                               const juce::Colour& /**/,
                                bool shouldDrawButtonAsHighlighted,
                                bool shouldDrawButtonAsDown) override
     {
@@ -155,10 +156,7 @@ public:
         }
     }
 
-    void drawButtonText (juce::Graphics& g,
-                         juce::TextButton& button,
-                         bool shouldDrawButtonAsHighlighted,
-                         bool shouldDrawButtonAsDown) override
+    void drawButtonText (juce::Graphics& g, juce::TextButton& button, bool shouldDrawButtonAsHighlighted, bool /**/) override
     {
         auto componentId = button.getComponentID();
 
@@ -263,16 +261,16 @@ private:
 
     void drawSpeedTickMarks (juce::Graphics& g, juce::Rectangle<float> trackBounds, juce::Slider& slider)
     {
-        auto drawTickMark = [&] (float value, const juce::String& label, bool isMajor)
+        auto drawTickMark = [&] (double value, const juce::String& label, bool isMajor)
         {
             // Calculate position based on slider's value range
-            float proportion = (value - slider.getMinimum()) / (slider.getMaximum() - slider.getMinimum());
+            double proportion = (value - slider.getMinimum()) / (slider.getMaximum() - slider.getMinimum());
 
             // Apply the same skew that the slider uses
             proportion = slider.proportionOfLengthToValue (proportion);
             proportion = slider.valueToProportionOfLength (value);
 
-            float tickX = trackBounds.getX() + proportion * trackBounds.getWidth();
+            float tickX = trackBounds.getX() + (float) proportion * trackBounds.getWidth();
 
             // Draw tick line
             g.setColour (isMajor ? LooperTheme::Colors::cyan.withAlpha (0.6f) : LooperTheme::Colors::textDim.withAlpha (0.3f));

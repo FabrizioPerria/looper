@@ -50,7 +50,7 @@ public:
 
         // Bottom border for top bar
         g.setColour (LooperTheme::Colors::border);
-        g.drawLine (0, 50, getWidth(), 50, 1.0f);
+        g.drawLine (0, 50, (float) getWidth(), 50, 1.0f);
 
         // Draw title text
         g.setColour (LooperTheme::Colors::cyan);
