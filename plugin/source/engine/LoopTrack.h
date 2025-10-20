@@ -156,7 +156,14 @@ private:
     bool keepPitchWhenChangingSpeed = false;
     double previousReadPos = 0.0;
 
+    float previousSpeedMultiplier = 1.0f;
+
+    float previousPlaybackSpeed = 1.0f;
     float playbackSpeed = 1.0f;
+
+    bool previousKeepPitch = false;
+    bool wasUsingFastPath = true;
+
     int playheadDirection = 1; // 1 = forward, -1 = backward
     float playbackSpeedBeforeRecording = 1.0f;
     int playheadDirectionBeforeRecording = 1;
@@ -182,8 +189,8 @@ private:
 
     bool shouldNormalizeOutput = true;
 
-    float trackVolume = 1.0f;
     float previousTrackVolume = 1.0f;
+    float trackVolume = 1.0f;
 
     bool muted = false;
     bool soloed = false;
