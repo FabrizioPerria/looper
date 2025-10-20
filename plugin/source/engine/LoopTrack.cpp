@@ -52,8 +52,12 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
         soundTouchProcessor->setSetting (SETTING_OVERLAP_MS, 12);
     }
 
+    zeroBuffer.resize ((size_t) blockSize);
+    std::fill (zeroBuffer.begin(), zeroBuffer.end(), 0.0f);
+
     setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
 
+    previousReadPos = -1.0;
     alreadyPrepared = true;
 }
 
@@ -73,6 +77,7 @@ void LoopTrack::releaseResources()
 
     sampleRate = 0.0;
     alreadyPrepared = false;
+    zeroBuffer.clear();
 }
 
 //==============================================================================
@@ -197,20 +202,30 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int num
 
     bool useFastPath = (std::abs (playbackSpeed - 1.0f) < 0.01f && isPlaybackDirectionForward());
 
-    static bool wasUsingFastPath = true;
-
-    if (useFastPath && ! wasUsingFastPath)
-    {
-        for (auto& st : soundTouchProcessors)
-        {
-            st->clear();
-        }
-        fifo.setPlaybackRate (1.0, 1);
-    }
-
-    wasUsingFastPath = useFastPath;
     if (useFastPath)
     {
+        if (! wasUsingFastPath)
+        {
+            for (auto& st : soundTouchProcessors)
+            {
+                st->setRate (1.0);
+                st->setTempo (1.0);
+                st->setPitchSemiTones (0);
+            }
+            fifo.setPlaybackRate (1.0f, 1);
+        }
+
+        int channelsToFeed = std::min ((int) soundTouchProcessors.size(), output.getNumChannels());
+        for (int ch = 0; ch < channelsToFeed; ++ch)
+        {
+            soundTouchProcessors[ch]->putSamples (zeroBuffer.data(), (uint) numSamples);
+
+            while (soundTouchProcessors[ch]->numSamples() > (uint) (numSamples * 2))
+            {
+                soundTouchProcessors[ch]->receiveSamples (zeroBuffer.data(), (uint) numSamples);
+            }
+        }
+
         processPlaybackNormalSpeedForward (output, numSamples);
     }
     else
@@ -218,6 +233,7 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int num
         processPlaybackInterpolatedSpeed (output, numSamples);
     }
 
+    wasUsingFastPath = useFastPath;
     processPlaybackApplyVolume (output, numSamples);
 }
 
@@ -232,32 +248,39 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
     int startPos = (int) currentPos;
     int maxSourceSamples = (int) ((float) numSamples * std::abs (speedMultiplier));
 
-    // Copy source samples to FIRST HALF of interpolationBuffer
     copyCircularDataLinearized (startPos, maxSourceSamples, speedMultiplier, 0);
 
-    // Calculate offset for SECOND HALF (output section)
-    int outputOffset = maxSourceSamples + 100; // Add some padding between sections
+    int outputOffset = maxSourceSamples + 100;
 
     int channelsToProcess = (int) std::min ({ output.getNumChannels(),
                                               audioBuffer->getNumChannels(),
                                               interpolationBuffer->getNumChannels(),
                                               (int) soundTouchProcessors.size() });
 
-    bool speedChanged = false;
-    static float previousSpeedMultiplier = 1.0f;
-    speedChanged = std::abs (speedMultiplier - previousSpeedMultiplier) > 0.001f;
-    previousSpeedMultiplier = speedMultiplier;
+    bool speedChanged = std::abs (speedMultiplier - previousPlaybackSpeed) > 0.001f;
+    bool modeChanged = (shouldKeepPitchWhenChangingSpeed() != previousKeepPitch);
+
+    previousPlaybackSpeed = speedMultiplier;
+    previousKeepPitch = shouldKeepPitchWhenChangingSpeed();
 
     for (int ch = 0; ch < channelsToProcess; ++ch)
     {
         auto& st = soundTouchProcessors[(size_t) ch];
 
-        if (speedChanged)
+        if (speedChanged || modeChanged)
         {
             if (shouldKeepPitchWhenChangingSpeed())
-                st->setTempo (playbackSpeed);
+            {
+                st->setRate (1.0);            // Reset rate to neutral
+                st->setTempo (playbackSpeed); // Control speed via tempo
+                st->setPitchSemiTones (0);    // Ensure no pitch shift
+            }
             else
-                st->setRate (playbackSpeed);
+            {
+                st->setTempo (1.0);          // Reset tempo to neutral
+                st->setRate (playbackSpeed); // Control speed via rate
+                st->setPitchSemiTones (0);   // Ensure no pitch shift
+            }
         }
 
         // Read from FIRST HALF
@@ -270,10 +293,9 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
         uint received = st->receiveSamples (interpolationBuffer->getWritePointer (ch) + outputOffset, (uint) numSamples);
 
         if (received < (uint) numSamples)
-            juce::FloatVectorOperations::clear (received + interpolationBuffer->getWritePointer (ch) + outputOffset,
+            juce::FloatVectorOperations::clear (interpolationBuffer->getWritePointer (ch) + outputOffset + received,
                                                 (int) ((uint) numSamples - received));
 
-        // ADD from second half to output
         output.addFrom (ch, 0, *interpolationBuffer, ch, outputOffset, (int) numSamples);
     }
 
@@ -307,9 +329,9 @@ void LoopTrack::processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& out
         float* outPtr = output.getWritePointer (ch);
         const float* loopPtr = audioBuffer->getReadPointer (ch);
 
-        if (samplesBeforeWrap > 0) juce::FloatVectorOperations::copy (outPtr, loopPtr + readPosBeforeWrap, samplesBeforeWrap);
+        if (samplesBeforeWrap > 0) juce::FloatVectorOperations::add (outPtr, loopPtr + readPosBeforeWrap, samplesBeforeWrap);
         if (samplesAfterWrap > 0)
-            juce::FloatVectorOperations::copy (outPtr + samplesBeforeWrap, loopPtr + readPosAfterWrap, samplesAfterWrap);
+            juce::FloatVectorOperations::add (outPtr + samplesBeforeWrap, loopPtr + readPosAfterWrap, samplesAfterWrap);
     }
 
     fifo.finishedRead (actualRead, shouldOverdub());
@@ -321,6 +343,7 @@ void LoopTrack::clear()
     audioBuffer->clear();
     undoBuffer.clear();
     tmpBuffer->clear();
+    interpolationBuffer->clear();
     length = 0;
     provisionalLength = 0;
     playbackSpeed = 1.0f;

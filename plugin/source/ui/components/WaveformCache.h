@@ -9,6 +9,14 @@ public:
     WaveformCache() = default;
     ~WaveformCache() = default;
 
+    void clear()
+    {
+        juce::ScopedLock sl (lock);
+        minMaxData.clear();
+        width.store (0, std::memory_order_relaxed);
+        numChannels.store (0, std::memory_order_relaxed);
+    }
+
     void updateFromBuffer (const juce::AudioBuffer<float>& source, int sourceLength, int targetWidth)
     {
         PERFETTO_FUNCTION();
@@ -17,12 +25,12 @@ public:
         int samplesPerPixel = sourceLength / targetWidth;
         if (samplesPerPixel < 1) return;
 
-        std::vector<std::vector<std::pair<float, float>>> newData;
-        newData.resize ((size_t) source.getNumChannels());
+        juce::ScopedLock sl (lock);
+        scratchBuffer.resize ((size_t) source.getNumChannels());
 
         for (int ch = 0; ch < source.getNumChannels(); ++ch)
         {
-            newData[(size_t) ch].resize ((size_t) targetWidth);
+            scratchBuffer[(size_t) ch].resize ((size_t) targetWidth);
             const float* data = source.getReadPointer (ch);
 
             for (int pixel = 0; pixel < targetWidth; ++pixel)
@@ -36,12 +44,11 @@ public:
                     min = std::min (min, data[i]);
                     max = std::max (max, data[i]);
                 }
-                newData[(size_t) ch][(size_t) pixel] = { min, max };
+                scratchBuffer[(size_t) ch][(size_t) pixel] = { min, max };
             }
         }
 
-        juce::ScopedLock sl (lock);
-        minMaxData.swap (newData);
+        minMaxData.swap (scratchBuffer);
         width = targetWidth;
         numChannels = source.getNumChannels();
     }
@@ -78,6 +85,7 @@ public:
     }
 
 private:
+    std::vector<std::vector<std::pair<float, float>>> scratchBuffer;
     std::vector<std::vector<std::pair<float, float>>> minMaxData; // [channel][pixel]
     std::atomic<int> width { 0 };
     std::atomic<int> numChannels { 0 };

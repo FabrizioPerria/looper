@@ -25,6 +25,8 @@ public:
     void selectTrack (const int trackIndex);
     void removeTrack (const int trackIndex);
 
+    int trackBeingChanged() const { return nextTrackIndex; }
+
     LoopTrack* getActiveTrack();
 
     void selectNextTrack() { selectTrack ((activeTrackIndex + 1) % numTracks); }

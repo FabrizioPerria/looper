@@ -46,6 +46,8 @@ void LooperEngine::releaseResources()
     numTracks = 0;
     activeTrackIndex = 0;
     transportState = TransportState::Stopped;
+    nextTrackIndex = -1;
+    midiCommandMap.clear();
 }
 
 void LooperEngine::addTrack()
@@ -111,6 +113,8 @@ void LooperEngine::clear (int trackIndex)
     if (trackIndex >= numTracks || trackIndex < 0) trackIndex = activeTrackIndex;
     loopTracks[(size_t) trackIndex]->clear();
     transportState = TransportState::Stopped;
+    uiBridges[(size_t) trackIndex]->clear();
+    bridgeInitialized[(size_t) trackIndex] = false;
     uiBridges[(size_t) trackIndex]->signalWaveformChanged();
 }
 
@@ -243,6 +247,7 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
 
     bool wasRecording = activeTrack->isCurrentlyRecording();
 
+    bool pendingTrackChange = (nextTrackIndex >= 0 && nextTrackIndex != activeTrackIndex);
     switch (transportState)
     {
         case TransportState::Recording:
@@ -250,7 +255,7 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
             // Note: do not break here, we want to also play back while recording
         case TransportState::Playing:
             // Handle track switching. If we are switching, we wait until the current track has finished its loop
-            if (nextTrackIndex >= 0 && nextTrackIndex != activeTrackIndex && activeTrack->hasWrappedAround())
+            if (pendingTrackChange && activeTrack->hasWrappedAround())
             {
                 stop();
                 transportState = TransportState::Playing; //ensure we are not in recording state when switching

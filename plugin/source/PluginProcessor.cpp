@@ -22,10 +22,7 @@ AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 }
 
 //==============================================================================
-const juce::String AudioPluginAudioProcessor::getName() const
-{
-    return JucePlugin_Name;
-}
+const juce::String AudioPluginAudioProcessor::getName() const { return JucePlugin_Name; }
 
 bool AudioPluginAudioProcessor::acceptsMidi() const
 {
@@ -54,10 +51,7 @@ bool AudioPluginAudioProcessor::isMidiEffect() const
 #endif
 }
 
-double AudioPluginAudioProcessor::getTailLengthSeconds() const
-{
-    return 0.0;
-}
+double AudioPluginAudioProcessor::getTailLengthSeconds() const { return 0.0; }
 
 int AudioPluginAudioProcessor::getNumPrograms()
 {
@@ -65,15 +59,9 @@ int AudioPluginAudioProcessor::getNumPrograms()
               // so this should be at least 1, even if you're not really implementing programs.
 }
 
-int AudioPluginAudioProcessor::getCurrentProgram()
-{
-    return 0;
-}
+int AudioPluginAudioProcessor::getCurrentProgram() { return 0; }
 
-void AudioPluginAudioProcessor::setCurrentProgram (int index)
-{
-    juce::ignoreUnused (index);
-}
+void AudioPluginAudioProcessor::setCurrentProgram (int index) { juce::ignoreUnused (index); }
 
 const juce::String AudioPluginAudioProcessor::getProgramName (int index)
 {
@@ -81,21 +69,15 @@ const juce::String AudioPluginAudioProcessor::getProgramName (int index)
     return {};
 }
 
-void AudioPluginAudioProcessor::changeProgramName (int index, const juce::String& newName)
-{
-    juce::ignoreUnused (index, newName);
-}
+void AudioPluginAudioProcessor::changeProgramName (int index, const juce::String& newName) { juce::ignoreUnused (index, newName); }
 
 //==============================================================================
 void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    looperEngine.prepareToPlay (sampleRate, samplesPerBlock, 4, getTotalNumInputChannels());
+    looperEngine->prepareToPlay (sampleRate, samplesPerBlock, 4, getTotalNumInputChannels());
 }
 
-void AudioPluginAudioProcessor::releaseResources()
-{
-    looperEngine.releaseResources();
-}
+void AudioPluginAudioProcessor::releaseResources() { looperEngine->releaseResources(); }
 
 bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
@@ -136,13 +118,7 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    looperEngine.processBlock (buffer, midiMessages);
-    // static int blockCounter = 0;
-    // if (++blockCounter > (int) (getSampleRate() * 5.0 / buffer.getNumSamples()))
-    // {
-    //     blockCounter = 0;
-    //     PerfettoProfiler::getInstance().writeTraceFile (juce::File ("/tmp/trace.json"));
-    // }
+    looperEngine->processBlock (buffer, midiMessages);
 
     midiMessages.clear();
 }
@@ -153,10 +129,7 @@ bool AudioPluginAudioProcessor::hasEditor() const
     return true; // (change this to false if you choose to not supply an editor)
 }
 
-juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor()
-{
-    return new AudioPluginAudioProcessorEditor (*this);
-}
+juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor() { return new AudioPluginAudioProcessorEditor (*this); }
 
 //==============================================================================
 void AudioPluginAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
@@ -176,7 +149,4 @@ void AudioPluginAudioProcessor::setStateInformation (const void* data, int sizeI
 
 //==============================================================================
 // This creates new instances of the plugin..
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
-{
-    return new AudioPluginAudioProcessor();
-}
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new AudioPluginAudioProcessor(); }

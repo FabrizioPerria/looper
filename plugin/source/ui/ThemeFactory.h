@@ -13,7 +13,7 @@ struct Theme
 class ThemeFactory
 {
 public:
-    static std::unique_ptr<Theme> createTheme (const juce::String& themeName, LooperEngine& engine)
+    static std::unique_ptr<Theme> createTheme (const juce::String& themeName, LooperEngine* engine)
     {
         auto theme = std::make_unique<Theme>();
 
