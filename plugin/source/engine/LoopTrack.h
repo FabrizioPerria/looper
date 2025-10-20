@@ -132,6 +132,7 @@ public:
     {
         for (auto& st : soundTouchProcessors)
         {
+            st->flush();
             st->clear();
         }
 

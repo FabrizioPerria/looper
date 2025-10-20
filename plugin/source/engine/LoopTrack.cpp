@@ -202,22 +202,30 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int num
 
     bool useFastPath = (std::abs (playbackSpeed - 1.0f) < 0.01f && isPlaybackDirectionForward());
 
-    if (useFastPath && ! wasUsingFastPath)
-    {
-        for (auto& st : soundTouchProcessors)
-        {
-            st->clear();
-
-            st->setRate (1.0);
-            st->setTempo (1.0);
-            st->setPitchSemiTones (0);
-        }
-        fifo.setPlaybackRate (1.0, 1);
-    }
-
-    wasUsingFastPath = useFastPath;
     if (useFastPath)
     {
+        if (! wasUsingFastPath)
+        {
+            for (auto& st : soundTouchProcessors)
+            {
+                st->setRate (1.0);
+                st->setTempo (1.0);
+                st->setPitchSemiTones (0);
+            }
+            fifo.setPlaybackRate (1.0f, 1);
+        }
+
+        int channelsToFeed = std::min ((int) soundTouchProcessors.size(), output.getNumChannels());
+        for (int ch = 0; ch < channelsToFeed; ++ch)
+        {
+            soundTouchProcessors[ch]->putSamples (zeroBuffer.data(), (uint) numSamples);
+
+            while (soundTouchProcessors[ch]->numSamples() > (uint) (numSamples * 2))
+            {
+                soundTouchProcessors[ch]->receiveSamples (zeroBuffer.data(), (uint) numSamples);
+            }
+        }
+
         processPlaybackNormalSpeedForward (output, numSamples);
     }
     else
@@ -225,6 +233,7 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int num
         processPlaybackInterpolatedSpeed (output, numSamples);
     }
 
+    wasUsingFastPath = useFastPath;
     processPlaybackApplyVolume (output, numSamples);
 }
 
