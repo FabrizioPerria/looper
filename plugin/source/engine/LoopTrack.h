@@ -1,12 +1,10 @@
 #pragma once
 
-#include "LoopFifo.h"
-#include "SoundTouch.h"
 #include "UndoManager.h"
 #include "engine/BufferManager.h"
+#include "engine/PlaybackEngine.h"
 #include "engine/VolumeProcessor.h"
 #include "juce_audio_basics/juce_audio_basics.h"
-#include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 
 class LoopTrack
@@ -32,9 +30,7 @@ public:
 
     int getCurrentReadPosition() const { return bufferManager.getReadPosition(); }
     int getCurrentWritePosition() const { return bufferManager.getWritePosition(); }
-    double getExactReadPosition() const { return bufferManager.getExactReadPosition(); }
 
-    double getSampleRate() const { return sampleRate; }
     int getLoopDurationSeconds() const { return (int) (bufferManager.getLength() / sampleRate); }
 
     void setCrossFadeLength (const int newCrossFadeLength) { volumeProcessor.setCrossFadeLength (newCrossFadeLength); }
@@ -46,45 +42,15 @@ public:
 
     bool isCurrentlyRecording() const { return isRecording; }
 
-    bool isPlaybackDirectionForward() const { return playheadDirection > 0; }
-    void setPlaybackDirectionForward()
-    {
-        if (! isPlaybackDirectionForward())
-        {
-            playheadDirection = 1;
-        }
-    }
-    void setPlaybackDirectionBackward()
-    {
-        if (isPlaybackDirectionForward())
-        {
-            playheadDirection = -1;
-        }
-    }
+    bool isPlaybackDirectionForward() const { return playbackEngine.isPlaybackDirectionForward(); }
+    void setPlaybackDirectionForward() { playbackEngine.setPlaybackDirectionForward(); }
+    void setPlaybackDirectionBackward() { playbackEngine.setPlaybackDirectionBackward(); }
 
-    void setPlaybackSpeed (float speed)
-    {
-        PERFETTO_FUNCTION();
-        float newSpeed = std::clamp (speed, 0.2f, 2.0f);
+    void setPlaybackSpeed (float speed) { playbackEngine.setPlaybackSpeed (speed); }
+    float getPlaybackSpeed() const { return playbackEngine.getPlaybackSpeed(); }
 
-        if (std::abs (playbackSpeed - newSpeed) > 0.001f)
-        {
-            playbackSpeed = newSpeed;
-        }
-    }
-    float getPlaybackSpeed() const { return playbackSpeed; }
-
-    bool shouldKeepPitchWhenChangingSpeed() const { return keepPitchWhenChangingSpeed; }
-    void setKeepPitchWhenChangingSpeed (const bool shouldKeepPitch)
-    {
-        for (auto& st : soundTouchProcessors)
-        {
-            st->flush();
-            st->clear();
-        }
-
-        keepPitchWhenChangingSpeed = shouldKeepPitch;
-    }
+    bool shouldKeepPitchWhenChangingSpeed() const { return playbackEngine.shouldKeepPitchWhenChangingSpeed(); }
+    void setKeepPitchWhenChangingSpeed (const bool shouldKeepPitch) { playbackEngine.setKeepPitchWhenChangingSpeed (shouldKeepPitch); }
 
     bool hasWrappedAround() { return bufferManager.hasWrappedAround(); }
 
@@ -105,24 +71,7 @@ private:
     VolumeProcessor volumeProcessor;
     BufferManager bufferManager;
     UndoStackManager undoManager;
-
-    std::unique_ptr<juce::AudioBuffer<float>> interpolationBuffer = std::make_unique<juce::AudioBuffer<float>>();
-    std::vector<std::unique_ptr<soundtouch::SoundTouch>> soundTouchProcessors;
-    std::vector<float> zeroBuffer;
-
-    bool keepPitchWhenChangingSpeed = false;
-
-    float previousSpeedMultiplier = 1.0f;
-
-    float previousPlaybackSpeed = 1.0f;
-    float playbackSpeed = 1.0f;
-
-    bool previousKeepPitch = false;
-    bool wasUsingFastPath = true;
-
-    int playheadDirection = 1; // 1 = forward, -1 = backward
-    float playbackSpeedBeforeRecording = 1.0f;
-    int playheadDirectionBeforeRecording = 1;
+    PlaybackEngine playbackEngine;
 
     double sampleRate = 0.0;
     int blockSize = 0;
@@ -132,21 +81,10 @@ private:
     bool isRecording = false;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
-
-    void copyCircularDataLinearized (int startPos, int numSamples, float speedMultiplier, int destOffset = 0);
-
-    void advanceWritePos (const int numSamples, const int bufferSamples);
-    void advanceReadPos (const int numSamples, const int bufferSamples);
-
-    void processPlaybackChannel (juce::AudioBuffer<float>& output, const int numSamples, const int ch);
-
-    void processPlaybackInterpolatedSpeedWithPitchCorrection (juce::AudioBuffer<float>& output, const int numSamples);
-    void processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output, const int numSamples);
-    void processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output, const int numSamples);
-
-    bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const int numSamples) const;
-
-    bool shouldNotPlayback (const int numSamples) const { return bufferManager.getLength() == 0 || numSamples <= 0; }
+    bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const int numSamples) const
+    {
+        return numSamples == 0 || (int) input.getNumSamples() < numSamples || input.getNumChannels() != bufferManager.getNumChannels();
+    }
 
     static const int MAX_SECONDS_HARD_LIMIT = 10 * 60; // 10 minutes
     static const int MAX_UNDO_LAYERS = 5;
