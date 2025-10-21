@@ -30,8 +30,10 @@ public:
     void undo();
     void redo();
 
-    int getCurrentReadPosition() const { return bufferManager.getFifo().getReadPos(); }
-    int getCurrentWritePosition() const { return bufferManager.getFifo().getWritePos(); }
+    int getCurrentReadPosition() const { return bufferManager.getReadPosition(); }
+    int getCurrentWritePosition() const { return bufferManager.getWritePosition(); }
+    double getExactReadPosition() const { return bufferManager.getExactReadPosition(); }
+
     double getSampleRate() const { return sampleRate; }
     int getLoopDurationSeconds() const { return (int) (bufferManager.getLength() / sampleRate); }
 
@@ -50,7 +52,6 @@ public:
         if (! isPlaybackDirectionForward())
         {
             playheadDirection = 1;
-            bufferManager.getFifo().setPlaybackRate (playbackSpeed, playheadDirection);
         }
     }
     void setPlaybackDirectionBackward()
@@ -58,7 +59,6 @@ public:
         if (isPlaybackDirectionForward())
         {
             playheadDirection = -1;
-            bufferManager.getFifo().setPlaybackRate (playbackSpeed, playheadDirection);
         }
     }
 
@@ -70,12 +70,9 @@ public:
         if (std::abs (playbackSpeed - newSpeed) > 0.001f)
         {
             playbackSpeed = newSpeed;
-            bufferManager.getFifo().setPlaybackRate (playbackSpeed, playheadDirection);
         }
     }
     float getPlaybackSpeed() const { return playbackSpeed; }
-
-    double getExactReadPosition() const { return bufferManager.getFifo().getExactReadPos(); }
 
     bool shouldKeepPitchWhenChangingSpeed() const { return keepPitchWhenChangingSpeed; }
     void setKeepPitchWhenChangingSpeed (const bool shouldKeepPitch)

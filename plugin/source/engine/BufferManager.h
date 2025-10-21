@@ -73,9 +73,6 @@ public:
         return wrapped;
     }
 
-    LoopFifo& getFifo() { return fifo; }
-    const LoopFifo& getFifo() const { return fifo; }
-
     bool writeToAudioBuffer (std::function<void (float* destination, const float* source, const int numSamples, const bool shouldOverdub)>
                                  writeFunc,
                              const juce::AudioBuffer<float>& sourceBuffer,
@@ -106,6 +103,87 @@ public:
 
         return fifoPreventedWrap;
     }
+
+    bool readFromAudioBuffer (std::function<void (float* destination, const float* source, const int numSamples)> readFunc,
+                              juce::AudioBuffer<float>& destBuffer,
+                              const int numSamples)
+    {
+        int readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap;
+        fifo.prepareToRead (numSamples, readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap);
+
+        for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+        {
+            if (samplesBeforeWrap > 0)
+            {
+                const float* src = getReadPointer (ch) + readPosBeforeWrap;
+                readFunc (destBuffer.getWritePointer (ch), src, samplesBeforeWrap);
+            }
+            if (samplesAfterWrap > 0)
+            {
+                const float* src = getReadPointer (ch) + readPosAfterWrap;
+                readFunc (destBuffer.getWritePointer (ch) + samplesBeforeWrap, src, samplesAfterWrap);
+            }
+        }
+
+        int actualRead = samplesBeforeWrap + samplesAfterWrap;
+        fifo.finishedRead (actualRead, 1.0f, shouldOverdub());
+        return true;
+    }
+
+    bool linearizeAndReadFromAudioBuffer (juce::AudioBuffer<float>& destBuffer,
+                                          int sourceSamples, // How much to linearize
+                                          int outputSamples, // How much to advance fifo
+                                          float speedMultiplier)
+    {
+        PERFETTO_FUNCTION();
+
+        if (length == 0) return false;
+
+        bool isReverse = speedMultiplier < 0.0f;
+
+        if (! isReverse)
+        {
+            int start1, size1, start2, size2;
+            fifo.prepareToRead (sourceSamples, start1, size1, start2, size2);
+
+            for (int ch = 0; ch < getNumChannels(); ++ch)
+            {
+                float* destPtr = destBuffer.getWritePointer (ch);
+                const float* srcPtr = audioBuffer->getReadPointer (ch);
+
+                if (size1 > 0) juce::FloatVectorOperations::copy (destPtr, srcPtr + start1, size1);
+
+                if (size2 > 0) juce::FloatVectorOperations::copy (destPtr + size1, srcPtr + start2, size2);
+            }
+        }
+        else
+        {
+            // Reverse: still manual (fifo doesn't handle backward wrapping)
+            int startPos = (int) fifo.getExactReadPos();
+            int loopLen = getLength();
+
+            for (int ch = 0; ch < getNumChannels(); ++ch)
+            {
+                float* destPtr = destBuffer.getWritePointer (ch);
+                const float* loopPtr = audioBuffer->getReadPointer (ch);
+
+                for (int i = 0; i < sourceSamples; ++i)
+                {
+                    int readIdx = startPos - i;
+                    while (readIdx < 0)
+                        readIdx += loopLen;
+                    destPtr[i] = loopPtr[readIdx % loopLen];
+                }
+            }
+        }
+
+        fifo.finishedRead (outputSamples, speedMultiplier, shouldOverdub());
+
+        return true;
+    }
+
+    int getReadPosition() const { return fifo.getReadPos(); }
+    int getWritePosition() const { return fifo.getWritePos(); }
 
 private:
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();

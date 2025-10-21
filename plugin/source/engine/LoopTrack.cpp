@@ -21,7 +21,7 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     blockSize = (int) maxBlockSize;
     channels = (int) numChannels;
     auto requestedSamples = std::max ((int) currentSampleRate * maxSeconds, 1); // at least 1 block will be allocated
-    alignedBufferSize = ((requestedSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
+    alignedBufferSize = (size_t) ((requestedSamples + maxBlockSize - 1) / maxBlockSize) * (size_t) maxBlockSize;
 
     bufferManager.prepareToPlay ((int) numChannels, (int) alignedBufferSize);
     undoManager.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
@@ -29,7 +29,7 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
 
     clear();
 
-    interpolationBuffer->setSize ((int) numChannels, alignedBufferSize, false, true, true);
+    interpolationBuffer->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
     soundTouchProcessors.clear();
     for (int ch = 0; ch < numChannels; ++ch)
     {
@@ -82,7 +82,6 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
 
     setPlaybackDirectionForward();
     setPlaybackSpeed (1.0f);
-    bufferManager.getFifo().setPlaybackRate (playbackSpeed, playheadDirection);
 
     if (! isRecording)
     {
@@ -138,17 +137,16 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int num
                 st->setTempo (1.0);
                 st->setPitchSemiTones (0);
             }
-            bufferManager.getFifo().setPlaybackRate (1.0f, 1);
         }
 
         int channelsToFeed = std::min ((int) soundTouchProcessors.size(), output.getNumChannels());
         for (int ch = 0; ch < channelsToFeed; ++ch)
         {
-            soundTouchProcessors[ch]->putSamples (zeroBuffer.data(), (uint) numSamples);
+            soundTouchProcessors[(size_t) ch]->putSamples (zeroBuffer.data(), (uint) numSamples);
 
-            while (soundTouchProcessors[ch]->numSamples() > (uint) (numSamples * 2))
+            while (soundTouchProcessors[(size_t) ch]->numSamples() > (uint) (numSamples * 2))
             {
-                soundTouchProcessors[ch]->receiveSamples (zeroBuffer.data(), (uint) numSamples);
+                soundTouchProcessors[(size_t) ch]->receiveSamples (zeroBuffer.data(), (uint) numSamples);
             }
         }
 
@@ -168,13 +166,10 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
     PERFETTO_FUNCTION();
 
     float speedMultiplier = playbackSpeed * (float) playheadDirection;
-    bufferManager.getFifo().setPlaybackRate (playbackSpeed, playheadDirection);
 
-    double currentPos = bufferManager.getFifo().getExactReadPos();
-    int startPos = (int) currentPos;
     int maxSourceSamples = (int) ((float) numSamples * std::abs (speedMultiplier));
 
-    copyCircularDataLinearized (startPos, maxSourceSamples, speedMultiplier, 0);
+    bufferManager.linearizeAndReadFromAudioBuffer (*interpolationBuffer, maxSourceSamples, numSamples, speedMultiplier);
 
     int outputOffset = maxSourceSamples + 100;
 
@@ -224,29 +219,15 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
 
         output.addFrom (ch, 0, *interpolationBuffer, ch, outputOffset, (int) numSamples);
     }
-
-    bufferManager.getFifo().finishedRead (numSamples, bufferManager.shouldOverdub());
 }
 
 void LoopTrack::processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output, const int numSamples)
 {
     PERFETTO_FUNCTION();
-
-    int readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap;
-    bufferManager.getFifo().prepareToRead ((int) numSamples, readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap);
-    const int actualRead = samplesBeforeWrap + samplesAfterWrap;
-
-    for (int ch = 0; ch < output.getNumChannels(); ++ch)
-    {
-        float* outPtr = output.getWritePointer (ch);
-        const float* loopPtr = bufferManager.getReadPointer (ch);
-
-        if (samplesBeforeWrap > 0) juce::FloatVectorOperations::add (outPtr, loopPtr + readPosBeforeWrap, samplesBeforeWrap);
-        if (samplesAfterWrap > 0)
-            juce::FloatVectorOperations::add (outPtr + samplesBeforeWrap, loopPtr + readPosAfterWrap, samplesAfterWrap);
-    }
-
-    bufferManager.getFifo().finishedRead (actualRead, bufferManager.shouldOverdub());
+    bufferManager.readFromAudioBuffer ([&] (float* dest, const float* source, const int samples)
+                                       { juce::FloatVectorOperations::add (dest, source, samples); },
+                                       output,
+                                       numSamples);
 }
 
 void LoopTrack::clear()
