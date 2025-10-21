@@ -5,11 +5,11 @@
 #include <JuceHeader.h>
 #include <vector>
 
-class UndoBuffer
+class UndoStackManager
 {
 public:
-    UndoBuffer() {}
-    ~UndoBuffer() { releaseResources(); }
+    UndoStackManager() {}
+    ~UndoStackManager() { releaseResources(); }
 
     void prepareToPlay (int numLayers, int numChannels, int bufferSamples)
     {
@@ -150,5 +150,5 @@ private:
     int length { 0 };
     std::unique_ptr<juce::AudioBuffer<float>> undoStaging = std::make_unique<juce::AudioBuffer<float>>();
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (UndoBuffer)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (UndoStackManager)
 };

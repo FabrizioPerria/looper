@@ -39,6 +39,7 @@ public:
     std::unique_ptr<juce::AudioBuffer<float>>& getAudioBuffer() { return audioBuffer; }
 
     const int getNumChannels() const { return audioBuffer->getNumChannels(); }
+    const int getNumSamples() const { return audioBuffer->getNumSamples(); }
 
     void updateLoopLength (const int numSamples)
     {

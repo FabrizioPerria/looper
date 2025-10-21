@@ -15,7 +15,7 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
                                const int maxUndoLayers)
 {
     PERFETTO_FUNCTION();
-    if (isPrepared() || currentSampleRate <= 0.0 || ! maxBlockSize || ! numChannels || ! maxSeconds) return;
+    if (currentSampleRate <= 0.0 || ! maxBlockSize || ! numChannels || ! maxSeconds) return;
 
     sampleRate = currentSampleRate;
     blockSize = (int) maxBlockSize;
@@ -24,14 +24,12 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     alignedBufferSize = ((requestedSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
 
     bufferManager.prepareToPlay ((int) numChannels, (int) alignedBufferSize);
-
-    interpolationBuffer->setSize ((int) numChannels, alignedBufferSize, false, true, true);
-
-    undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
-
+    undoManager.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
     volumeProcessor.prepareToPlay (sampleRate, blockSize);
+
     clear();
 
+    interpolationBuffer->setSize ((int) numChannels, alignedBufferSize, false, true, true);
     soundTouchProcessors.clear();
     for (int ch = 0; ch < numChannels; ++ch)
     {
@@ -52,23 +50,18 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
 
     zeroBuffer.resize ((size_t) blockSize);
     std::fill (zeroBuffer.begin(), zeroBuffer.end(), 0.0f);
-
-    alreadyPrepared = true;
 }
 
 void LoopTrack::releaseResources()
 {
     PERFETTO_FUNCTION();
-    if (! isPrepared()) return;
-
-    undoBuffer.releaseResources();
     clear();
+    undoManager.releaseResources();
     interpolationBuffer->setSize (0, 0, false, false, true);
 
     soundTouchProcessors.clear();
 
     sampleRate = 0.0;
-    alreadyPrepared = false;
     zeroBuffer.clear();
 
     volumeProcessor.releaseResources();
@@ -94,7 +87,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
     if (! isRecording)
     {
         isRecording = true;
-        saveToUndoBuffer();
+        if (bufferManager.shouldOverdub()) undoManager.finalizeCopyAndPush (bufferManager.getLength());
     }
 
     bool fifoPreventedWrap = bufferManager
@@ -108,14 +101,6 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
     }
 }
 
-void LoopTrack::saveToUndoBuffer()
-{
-    PERFETTO_FUNCTION();
-    if (! isPrepared() || ! bufferManager.shouldOverdub()) return;
-
-    undoBuffer.finalizeCopyAndPush (bufferManager.getLength());
-}
-
 void LoopTrack::finalizeLayer()
 {
     PERFETTO_FUNCTION();
@@ -127,7 +112,7 @@ void LoopTrack::finalizeLayer()
     volumeProcessor.normalizeOutput (audioBuffer, length);
     volumeProcessor.applyCrossfade (audioBuffer, length);
 
-    undoBuffer.stageCurrentBuffer (audioBuffer, length);
+    undoManager.stageCurrentBuffer (audioBuffer, length);
 
     setPlaybackSpeed (playbackSpeedBeforeRecording);
     if (playheadDirectionBeforeRecording == 1)
@@ -267,7 +252,7 @@ void LoopTrack::processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& out
 void LoopTrack::clear()
 {
     PERFETTO_FUNCTION();
-    undoBuffer.clear();
+    undoManager.clear();
     interpolationBuffer->clear();
     playbackSpeed = 1.0f;
     playheadDirection = 1;
@@ -284,9 +269,9 @@ void LoopTrack::clear()
 void LoopTrack::undo()
 {
     PERFETTO_FUNCTION();
-    if (! bufferManager.shouldOverdub() || ! isPrepared()) return;
+    if (! bufferManager.shouldOverdub()) return;
 
-    if (undoBuffer.undo (bufferManager.getAudioBuffer()))
+    if (undoManager.undo (bufferManager.getAudioBuffer()))
     {
         finalizeLayer();
     }
@@ -295,42 +280,38 @@ void LoopTrack::undo()
 void LoopTrack::redo()
 {
     PERFETTO_FUNCTION();
-    if (! bufferManager.shouldOverdub() || ! isPrepared()) return;
+    if (! bufferManager.shouldOverdub()) return;
 
-    if (undoBuffer.redo (bufferManager.getAudioBuffer()))
+    if (undoManager.redo (bufferManager.getAudioBuffer()))
     {
         finalizeLayer();
     }
 }
 
-// void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
-// {
-//     PERFETTO_FUNCTION();
-//     if (! isPrepared() || backingTrack.getNumChannels() != audioBuffer->getNumChannels() || backingTrack.getNumSamples() == 0) return;
-//
-//     auto prevSampleRate = sampleRate;
-//     auto prevBlockSize = blockSize;
-//     auto prevChannels = channels;
-//     releaseResources();
-//     prepareToPlay (prevSampleRate, (int) prevBlockSize, (int) prevChannels);
-//
-//     const int copySamples = std::min ((int) backingTrack.getNumSamples(), (int) MAX_SECONDS_HARD_LIMIT * (int) sampleRate);
-//
-//     for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
-//     {
-//         juce::FloatVectorOperations::copy (audioBuffer->getWritePointer (ch), backingTrack.getReadPointer (ch), copySamples);
-//     }
-//
-//     provisionalLength = (int) copySamples;
-//
-//     finalizeLayer();
-// }
+void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
+{
+    PERFETTO_FUNCTION();
+    if (backingTrack.getNumChannels() != bufferManager.getNumChannels() || backingTrack.getNumSamples() == 0) return;
+
+    auto prevSampleRate = sampleRate;
+    auto prevBlockSize = blockSize;
+    auto prevChannels = channels;
+    releaseResources();
+    prepareToPlay (prevSampleRate, (int) prevBlockSize, (int) prevChannels);
+
+    const int copySamples = std::min ((int) backingTrack.getNumSamples(), (int) MAX_SECONDS_HARD_LIMIT * (int) sampleRate);
+
+    bufferManager.writeToAudioBuffer ([&] (float* dest, const float* source, const int samples, const bool /*shouldOverdub*/)
+                                      { juce::FloatVectorOperations::copy (dest, source, samples); },
+                                      backingTrack,
+                                      copySamples);
+
+    finalizeLayer();
+}
 
 bool LoopTrack::shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const int numSamples) const
 {
-    PERFETTO_FUNCTION();
-    return numSamples == 0 || (int) input.getNumSamples() < numSamples || ! isPrepared()
-           || input.getNumChannels() != bufferManager.getNumChannels();
+    return numSamples == 0 || (int) input.getNumSamples() < numSamples || input.getNumChannels() != bufferManager.getNumChannels();
 }
 
 void LoopTrack::copyCircularDataLinearized (int startPos, int numSamples, float speedMultiplier, int destOffset)

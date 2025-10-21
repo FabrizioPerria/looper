@@ -69,7 +69,7 @@ void LooperEngine::selectTrack (const int trackIndex)
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return;
 
-    if (transportState == TransportState::Stopped || loopTracks[(size_t) activeTrackIndex]->getLength() == 0)
+    if (transportState == TransportState::Stopped || loopTracks[(size_t) activeTrackIndex]->getTrackLengthSamples() == 0)
         activeTrackIndex = trackIndex;
     else
         //we do not switch the track here. The actual switching happens in processBlock so we finish the loop cycle before switching. Here, we signal the swap.
@@ -273,7 +273,7 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     bool nowRecording = activeTrack->isCurrentlyRecording();
 
     // Handle waveform update signals
-    if (! bridgeInitialized[(size_t) activeTrackIndex] && activeTrack->getLength() > 0)
+    if (! bridgeInitialized[(size_t) activeTrackIndex] && activeTrack->getTrackLengthSamples() > 0)
     {
         bridge->signalWaveformChanged();
         bridgeInitialized[(size_t) activeTrackIndex] = true;
@@ -292,12 +292,12 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     }
 
     // Determine length to show
-    int lengthToShow = activeTrack->getLength();
+    int lengthToShow = activeTrack->getTrackLengthSamples();
     if (lengthToShow == 0 && nowRecording)
-        lengthToShow = std::min (activeTrack->getCurrentWritePosition() + 200, (int) activeTrack->getAudioBuffer().getNumSamples());
+        lengthToShow = std::min (activeTrack->getCurrentWritePosition() + 200, (int) activeTrack->getAvailableTrackSizeSamples());
 
     // Update bridge
-    bridge->updateFromAudioThread (&activeTrack->getAudioBuffer(),
+    bridge->updateFromAudioThread (activeTrack->getAudioBuffer(),
                                    lengthToShow,
                                    activeTrack->getCurrentReadPosition(),
                                    nowRecording,
