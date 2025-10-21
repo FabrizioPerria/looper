@@ -3,6 +3,7 @@
 #include "LoopFifo.h"
 #include "SoundTouch.h"
 #include "UndoBuffer.h"
+#include "engine/VolumeProcessor.h"
 #include "juce_audio_basics/juce_audio_basics.h"
 #include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
@@ -71,29 +72,6 @@ public:
 
     bool isCurrentlyRecording() const { return isRecording; }
 
-    bool isMuted() const { return muted; }
-    void setMuted (const bool shouldBeMuted)
-    {
-        PERFETTO_FUNCTION();
-        static float volumeBeforeMute = 1.0f;
-        if (shouldBeMuted)
-        {
-            if (trackVolume > 0.001f && ! muted) volumeBeforeMute = trackVolume;
-            trackVolume = 0.0f;
-            muted = true;
-        }
-        else
-        {
-            trackVolume = volumeBeforeMute;
-            muted = false;
-        }
-    }
-
-    bool isSoloed() const { return soloed; }
-    void setSoloed (const bool shouldBeSoloed) { soloed = shouldBeSoloed; }
-
-    float getTrackVolume() const { return trackVolume; }
-    void setTrackVolume (const float newVolume) { trackVolume = std::clamp (newVolume, 0.0f, 1.0f); }
     bool isPlaybackDirectionForward() const { return playheadDirection > 0; }
     void setPlaybackDirectionForward()
     {
@@ -147,7 +125,18 @@ public:
         return wrapped;
     }
 
+    float getTrackVolume() const { return volumeProcessor.getTrackVolume(); }
+    void setTrackVolume (const float newVolume) { volumeProcessor.setTrackVolume (newVolume); }
+
+    bool isSoloed() const { return volumeProcessor.isSoloed(); }
+    void setSoloed (const bool shouldBeSoloed) { volumeProcessor.setSoloed (shouldBeSoloed); }
+
+    bool isMuted() const { return volumeProcessor.isMuted(); }
+    void setMuted (const bool shouldBeMuted) { volumeProcessor.setMuted (shouldBeMuted); }
+
 private:
+    VolumeProcessor volumeProcessor;
+
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> interpolationBuffer = std::make_unique<juce::AudioBuffer<float>>();
@@ -191,10 +180,6 @@ private:
     bool shouldNormalizeOutput = true;
 
     float previousTrackVolume = 1.0f;
-    float trackVolume = 1.0f;
-
-    bool muted = false;
-    bool soloed = false;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
     void updateLoopLength (const int numSamples, const int bufferSamples);
@@ -210,7 +195,6 @@ private:
 
     void processPlaybackInterpolatedSpeedWithPitchCorrection (juce::AudioBuffer<float>& output, const int numSamples);
     void processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output, const int numSamples);
-    void processPlaybackApplyVolume (juce::AudioBuffer<float>& output, const int numSamples);
     void processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output, const int numSamples);
 
     bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const int numSamples) const;

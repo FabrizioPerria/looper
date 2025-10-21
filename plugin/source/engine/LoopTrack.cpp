@@ -32,6 +32,7 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
 
     undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
 
+    volumeProcessor.prepareToPlay (sampleRate, blockSize);
     clear();
 
     soundTouchProcessors.clear();
@@ -78,6 +79,8 @@ void LoopTrack::releaseResources()
     sampleRate = 0.0;
     alreadyPrepared = false;
     zeroBuffer.clear();
+
+    volumeProcessor.releaseResources();
 }
 
 //==============================================================================
@@ -233,8 +236,8 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int num
         processPlaybackInterpolatedSpeed (output, numSamples);
     }
 
+    volumeProcessor.applyVolume (output, numSamples);
     wasUsingFastPath = useFastPath;
-    processPlaybackApplyVolume (output, numSamples);
 }
 
 void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output, const int numSamples)
@@ -302,20 +305,6 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
     fifo.finishedRead (numSamples, shouldOverdub());
 }
 
-void LoopTrack::processPlaybackApplyVolume (juce::AudioBuffer<float>& output, const int numSamples)
-{
-    PERFETTO_FUNCTION();
-    if (std::abs (trackVolume - previousTrackVolume) > 0.001f)
-    {
-        output.applyGainRamp (0, (int) numSamples, previousTrackVolume, trackVolume);
-        previousTrackVolume = trackVolume;
-    }
-    else
-    {
-        output.applyGain (trackVolume);
-    }
-}
-
 void LoopTrack::processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output, const int numSamples)
 {
     PERFETTO_FUNCTION();
@@ -349,10 +338,13 @@ void LoopTrack::clear()
     playbackSpeed = 1.0f;
     playheadDirection = 1;
     fifo.prepareToPlay ((int) alignedBufferSize);
+
     for (auto& st : soundTouchProcessors)
     {
         st->clear();
     }
+
+    volumeProcessor.clear();
 }
 
 void LoopTrack::undo()
