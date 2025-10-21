@@ -39,29 +39,6 @@ public:
         length = 0;
     }
 
-    void pushLayer (std::unique_ptr<juce::AudioBuffer<float>>& source, int loopLength)
-    {
-        PERFETTO_FUNCTION();
-        for (int ch = 0; ch < source->getNumChannels(); ++ch)
-        {
-            juce::FloatVectorOperations::copy (undoStaging->getWritePointer (ch), source->getReadPointer (ch), (int) length);
-        }
-
-        int start1, size1, start2, size2;
-        undoLifo.prepareToWrite (1, start1, size1, start2, size2);
-
-        if (loopLength > 0 && loopLength < (int) source->getNumSamples())
-            length = loopLength;
-        else
-            length = (int) source->getNumSamples();
-
-        std::swap (undoBuffers[(size_t) start1], source);
-
-        undoLifo.finishedWrite (size1, false);
-
-        redoLifo.clear();
-    }
-
     bool undo (std::unique_ptr<juce::AudioBuffer<float>>& destination)
     {
         PERFETTO_FUNCTION();
@@ -140,17 +117,27 @@ public:
         redoBuffers.clear();
     }
 
-    void finalizeCopyAndPush (std::unique_ptr<juce::AudioBuffer<float>>& tmpBuffer, int loopLength)
+    void finalizeCopyAndPush (int loopLength)
     {
         PERFETTO_FUNCTION();
         int start1, size1, start2, size2;
         undoLifo.prepareToWrite (1, start1, size1, start2, size2);
 
         length = loopLength;
-        std::swap (undoBuffers[(size_t) start1], tmpBuffer);
+        std::swap (undoBuffers[(size_t) start1], undoStaging);
 
         undoLifo.finishedWrite (size1, false);
         redoLifo.clear();
+    }
+
+    void stageCurrentBuffer (const juce::AudioBuffer<float>& sourceBuffer, int numSamples)
+    {
+        PERFETTO_FUNCTION();
+        undoStaging->setSize (sourceBuffer.getNumChannels(), numSamples, false, true, true);
+        for (int ch = 0; ch < sourceBuffer.getNumChannels(); ++ch)
+        {
+            juce::FloatVectorOperations::copy (undoStaging->getWritePointer (ch), sourceBuffer.getReadPointer (ch), numSamples);
+        }
     }
 
 private:

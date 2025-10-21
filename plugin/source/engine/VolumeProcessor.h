@@ -7,7 +7,12 @@ class VolumeProcessor
 public:
     VolumeProcessor() {}
 
-    void prepareToPlay (const double /*sampleRate*/, const int /*blockSize*/) { clear(); }
+    void prepareToPlay (const double currentSampleRate, const int /*blockSize*/)
+    {
+        clear();
+        sampleRate = currentSampleRate;
+        setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
+    }
 
     void releaseResources() { clear(); }
 
@@ -74,6 +79,40 @@ public:
     double getOverdubNewGain() const { return overdubNewGain; }
     double getOverdubOldGain() const { return overdubOldGain; }
 
+    void normalizeOutput (juce::AudioBuffer<float>& audioBuffer, const int length)
+    {
+        PERFETTO_FUNCTION();
+        if (shouldNormalizeOutput)
+        {
+            float maxSample = 0.0f;
+            for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
+                maxSample = std::max (maxSample, audioBuffer.getMagnitude (ch, 0, length));
+
+            if (maxSample > 0.001f) // If not silent
+                audioBuffer.applyGain (0, length, 0.9f / maxSample);
+        }
+    }
+
+    void applyCrossfade (juce::AudioBuffer<float>& audioBuffer, const int length)
+    {
+        PERFETTO_FUNCTION();
+        const int fadeSamples = std::min (crossFadeLength, length / 4);
+        if (fadeSamples > 0)
+        {
+            audioBuffer.applyGainRamp (0, fadeSamples, 0.0f, 1.0f);                    // fade in
+            audioBuffer.applyGainRamp (length - fadeSamples, fadeSamples, 1.0f, 0.0f); // fade out
+        }
+    }
+
+    void setCrossFadeLength (const int newLength) { crossFadeLength = newLength; }
+
+    void saveBalancedLayers (float* dest, const float* source, int numSamples, bool shouldOverdub)
+    {
+        PERFETTO_FUNCTION();
+        juce::FloatVectorOperations::multiply (dest, shouldOverdub ? (float) overdubOldGain : 0, (int) numSamples);
+        juce::FloatVectorOperations::addWithMultiply (dest, source, (float) overdubNewGain, (int) numSamples);
+    }
+
 private:
     float trackVolume = 1.0f;
     double overdubNewGain = 1.0;
@@ -84,6 +123,10 @@ private:
     float previousTrackVolume = 1.0f;
     bool soloed = false;
     bool muted = false;
+
+    int crossFadeLength = 0;
+
+    double sampleRate = 0.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VolumeProcessor)
 };

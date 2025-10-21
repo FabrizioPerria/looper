@@ -3,6 +3,7 @@
 #include "LoopFifo.h"
 #include "SoundTouch.h"
 #include "UndoBuffer.h"
+#include "engine/BufferManager.h"
 #include "engine/VolumeProcessor.h"
 #include "juce_audio_basics/juce_audio_basics.h"
 #include "profiler/PerfettoProfiler.h"
@@ -29,46 +30,24 @@ public:
     void undo();
     void redo();
 
-    const juce::AudioBuffer<float>& getAudioBuffer() const { return *audioBuffer; }
+    const juce::AudioBuffer<float>& getAudioBuffer() const { return bufferManager.getAudioBuffer(); }
 
-    int getCurrentReadPosition() const { return fifo.getReadPos(); }
-    int getCurrentWritePosition() const { return fifo.getWritePos(); }
-
-    int getLength() const { return length; }
-    void setLength (const int newLength) { length = newLength; }
-
+    int getCurrentReadPosition() const { return bufferManager.getFifo().getReadPos(); }
+    int getCurrentWritePosition() const { return bufferManager.getFifo().getWritePos(); }
     double getSampleRate() const { return sampleRate; }
-    int getLoopDurationSeconds() const { return (int) (length / sampleRate); }
+    int getLoopDurationSeconds() const { return (int) (bufferManager.getLength() / sampleRate); }
 
-    void setCrossFadeLength (const int newLength) { crossFadeLength = newLength; }
-
+    void setCrossFadeLength (const int newCrossFadeLength) { volumeProcessor.setCrossFadeLength (newCrossFadeLength); }
     bool isPrepared() const { return alreadyPrepared; }
-
-    void setOverdubGains (const double oldGain, const double newGain)
-    {
-        PERFETTO_FUNCTION();
-        overdubNewGain = std::clamp (newGain, 0.0, 2.0);
-        overdubOldGain = std::clamp (oldGain, 0.0, 2.0);
-        shouldNormalizeOutput = false;
-    }
-
-    void enableOutputNormalization()
-    {
-        PERFETTO_FUNCTION();
-        overdubNewGain = 1.0f;
-        overdubOldGain = 1.0f;
-        shouldNormalizeOutput = true;
-    }
-
-    double getOverdubNewGain() const { return overdubNewGain; }
-    double getOverdubOldGain() const { return overdubOldGain; }
 
     const UndoBuffer& getUndoBuffer() const { return undoBuffer; }
 
     void loadBackingTrack (const juce::AudioBuffer<float>& backingTrack);
 
-    void allowWrapAround() { fifo.setWrapAround (true); }
-    void preventWrapAround() { fifo.setWrapAround (false); }
+    // TEST DEPS
+    // void allowWrapAround() { fifo.setWrapAround (true); }
+    // void preventWrapAround() { fifo.setWrapAround (false); }
+    ///////////
 
     bool isCurrentlyRecording() const { return isRecording; }
 
@@ -78,7 +57,7 @@ public:
         if (! isPlaybackDirectionForward())
         {
             playheadDirection = 1;
-            fifo.setPlaybackRate (playbackSpeed, playheadDirection);
+            bufferManager.getFifo().setPlaybackRate (playbackSpeed, playheadDirection);
         }
     }
     void setPlaybackDirectionBackward()
@@ -86,7 +65,7 @@ public:
         if (isPlaybackDirectionForward())
         {
             playheadDirection = -1;
-            fifo.setPlaybackRate (playbackSpeed, playheadDirection);
+            bufferManager.getFifo().setPlaybackRate (playbackSpeed, playheadDirection);
         }
     }
 
@@ -98,12 +77,12 @@ public:
         if (std::abs (playbackSpeed - newSpeed) > 0.001f)
         {
             playbackSpeed = newSpeed;
-            fifo.setPlaybackRate (playbackSpeed, playheadDirection);
+            bufferManager.getFifo().setPlaybackRate (playbackSpeed, playheadDirection);
         }
     }
     float getPlaybackSpeed() const { return playbackSpeed; }
 
-    double getExactReadPosition() const { return fifo.getExactReadPos(); }
+    double getExactReadPosition() const { return bufferManager.getFifo().getExactReadPos(); }
 
     bool shouldKeepPitchWhenChangingSpeed() const { return keepPitchWhenChangingSpeed; }
     void setKeepPitchWhenChangingSpeed (const bool shouldKeepPitch)
@@ -117,13 +96,7 @@ public:
         keepPitchWhenChangingSpeed = shouldKeepPitch;
     }
 
-    bool hasWrappedAround()
-    {
-        double current = fifo.getExactReadPos();
-        bool wrapped = current < previousReadPos;
-        previousReadPos = current;
-        return wrapped;
-    }
+    bool hasWrappedAround() { return bufferManager.hasWrappedAround(); }
 
     float getTrackVolume() const { return volumeProcessor.getTrackVolume(); }
     void setTrackVolume (const float newVolume) { volumeProcessor.setTrackVolume (newVolume); }
@@ -136,15 +109,14 @@ public:
 
 private:
     VolumeProcessor volumeProcessor;
+    BufferManager bufferManager;
 
-    std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
-    std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
+    // std::unique_ptr<juce::AudioBuffer<float>> tmpBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> interpolationBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::vector<std::unique_ptr<soundtouch::SoundTouch>> soundTouchProcessors;
     std::vector<float> zeroBuffer;
 
     bool keepPitchWhenChangingSpeed = false;
-    double previousReadPos = 0.0;
 
     float previousSpeedMultiplier = 1.0f;
 
@@ -165,21 +137,8 @@ private:
     int channels = 0;
     size_t alignedBufferSize = 0;
 
-    LoopFifo fifo;
-
-    int length = 0;
-    int provisionalLength = 0;
-    int crossFadeLength = 0;
-
     bool isRecording = false;
     bool alreadyPrepared = false;
-
-    double overdubNewGain = 1.0;
-    double overdubOldGain = 1.0;
-
-    bool shouldNormalizeOutput = true;
-
-    float previousTrackVolume = 1.0f;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
     void updateLoopLength (const int numSamples, const int bufferSamples);
@@ -199,9 +158,7 @@ private:
 
     bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const int numSamples) const;
 
-    bool shouldNotPlayback (const int numSamples) const { return ! isPrepared() || length == 0 || numSamples == 0; }
-
-    bool shouldOverdub() const { return length > 0; }
+    bool shouldNotPlayback (const int numSamples) const { return ! isPrepared() || bufferManager.getLength() == 0 || numSamples == 0; }
 
     void copyAudioToTmpBuffer();
 

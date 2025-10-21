@@ -23,12 +23,9 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     auto requestedSamples = std::max ((int) currentSampleRate * maxSeconds, 1); // at least 1 block will be allocated
     alignedBufferSize = ((requestedSamples + maxBlockSize - 1) / maxBlockSize) * maxBlockSize;
 
-    if (alignedBufferSize > (int) audioBuffer->getNumSamples())
-    {
-        audioBuffer->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
-        tmpBuffer->setSize ((int) numChannels, (int) alignedBufferSize, false, true, true);
-        interpolationBuffer->setSize ((int) numChannels, alignedBufferSize, false, true, true);
-    }
+    bufferManager.prepareToPlay ((int) numChannels, (int) alignedBufferSize);
+
+    interpolationBuffer->setSize ((int) numChannels, alignedBufferSize, false, true, true);
 
     undoBuffer.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
 
@@ -56,9 +53,6 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     zeroBuffer.resize ((size_t) blockSize);
     std::fill (zeroBuffer.begin(), zeroBuffer.end(), 0.0f);
 
-    setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
-
-    previousReadPos = -1.0;
     alreadyPrepared = true;
 }
 
@@ -69,11 +63,8 @@ void LoopTrack::releaseResources()
 
     undoBuffer.releaseResources();
     clear();
-    audioBuffer->setSize (0, 0, false, false, true);
-    tmpBuffer->setSize (0, 0, false, false, true);
     interpolationBuffer->setSize (0, 0, false, false, true);
 
-    fifo.clear();
     soundTouchProcessors.clear();
 
     sampleRate = 0.0;
@@ -81,6 +72,7 @@ void LoopTrack::releaseResources()
     zeroBuffer.clear();
 
     volumeProcessor.releaseResources();
+    bufferManager.releaseResources();
 }
 
 //==============================================================================
@@ -97,7 +89,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
 
     setPlaybackDirectionForward();
     setPlaybackSpeed (1.0f);
-    fifo.setPlaybackRate (playbackSpeed, playheadDirection);
+    bufferManager.getFifo().setPlaybackRate (playbackSpeed, playheadDirection);
 
     if (! isRecording)
     {
@@ -105,91 +97,37 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
         saveToUndoBuffer();
     }
 
-    int writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap;
-    fifo.prepareToWrite ((int) numSamples, writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap);
-
-    for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
-    {
-        if (samplesBeforeWrap > 0)
-        {
-            copyInputToLoopBuffer ((int) ch, input.getReadPointer (ch), (int) writePosBeforeWrap, (int) samplesBeforeWrap);
-        }
-        if (samplesAfterWrap > 0 && shouldOverdub())
-        {
-            copyInputToLoopBuffer ((int) ch,
-                                   input.getReadPointer (ch) + samplesBeforeWrap,
-                                   (int) writePosAfterWrap,
-                                   (int) samplesAfterWrap);
-        }
-    }
-
-    int actualWritten = samplesBeforeWrap + samplesAfterWrap;
-    fifo.finishedWrite (actualWritten, shouldOverdub());
-
-    bool fifoPreventedWrap = ! fifo.getWrapAround() && samplesAfterWrap == 0 && numSamples > samplesBeforeWrap;
+    bool fifoPreventedWrap = bufferManager
+                                 .writeToAudioBuffer ([&] (float* dest, const float* source, const int samples, const bool shouldOverdub)
+                                                      { volumeProcessor.saveBalancedLayers (dest, source, samples, shouldOverdub); },
+                                                      input,
+                                                      numSamples);
     if (fifoPreventedWrap)
     {
         finalizeLayer();
-        return;
     }
-
-    updateLoopLength ((int) samplesBeforeWrap, shouldOverdub() ? length : (int) audioBuffer->getNumSamples());
 }
 
 void LoopTrack::saveToUndoBuffer()
 {
     PERFETTO_FUNCTION();
-    if (! isPrepared() || ! shouldOverdub()) return;
+    if (! isPrepared() || ! bufferManager.shouldOverdub()) return;
 
-    undoBuffer.finalizeCopyAndPush (tmpBuffer, length);
-}
-
-void LoopTrack::copyInputToLoopBuffer (const int ch, const float* bufPtr, const int offset, const int numSamples)
-{
-    if (! isRecording) return;
-
-    auto* dest = audioBuffer->getWritePointer ((int) ch) + offset;
-
-    juce::FloatVectorOperations::multiply (dest, shouldOverdub() ? (float) overdubOldGain : 0, (int) numSamples);
-    juce::FloatVectorOperations::addWithMultiply (dest, bufPtr, (float) overdubNewGain, (int) numSamples);
-}
-
-void LoopTrack::updateLoopLength (const int numSamples, const int bufferSamples)
-{
-    provisionalLength = std::min (provisionalLength + numSamples, bufferSamples);
+    undoBuffer.finalizeCopyAndPush (bufferManager.getLength());
 }
 
 void LoopTrack::finalizeLayer()
 {
     PERFETTO_FUNCTION();
-    const int currentLength = std::max ({ (int) length, (int) provisionalLength, 1 });
-    if (length == 0)
-    {
-        fifo.setMusicalLength ((int) currentLength);
-        length = currentLength;
-    }
-    provisionalLength = 0;
+    bufferManager.finalizeLayer();
     isRecording = false;
 
-    if (shouldNormalizeOutput)
-    {
-        float maxSample = 0.0f;
-        for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
-            maxSample = std::max (maxSample, audioBuffer->getMagnitude (ch, 0, length));
+    auto audioBuffer = *bufferManager.getAudioBuffer();
+    auto length = bufferManager.getLength();
+    volumeProcessor.normalizeOutput (audioBuffer, length);
+    volumeProcessor.applyCrossfade (audioBuffer, length);
 
-        if (maxSample > 0.001f) // If not silent
-            audioBuffer->applyGain (0, length, 0.9f / maxSample);
-    }
-
-    const int fadeSamples = std::min (crossFadeLength, length / 4);
-    if (fadeSamples > 0)
-    {
-        audioBuffer->applyGainRamp (0, fadeSamples, 0.0f, 1.0f);                    // fade in
-        audioBuffer->applyGainRamp (length - fadeSamples, fadeSamples, 1.0f, 0.0f); // fade out
-    }
-
-    // sync full loop copy at end of recording
-    copyAudioToTmpBuffer();
+    undoBuffer.stageCurrentBuffer (audioBuffer, length);
 
     setPlaybackSpeed (playbackSpeedBeforeRecording);
     if (playheadDirectionBeforeRecording == 1)
@@ -215,7 +153,7 @@ void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int num
                 st->setTempo (1.0);
                 st->setPitchSemiTones (0);
             }
-            fifo.setPlaybackRate (1.0f, 1);
+            bufferManager.getFifo().setPlaybackRate (1.0f, 1);
         }
 
         int channelsToFeed = std::min ((int) soundTouchProcessors.size(), output.getNumChannels());
@@ -245,9 +183,9 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
     PERFETTO_FUNCTION();
 
     float speedMultiplier = playbackSpeed * (float) playheadDirection;
-    fifo.setPlaybackRate (playbackSpeed, playheadDirection);
+    bufferManager.getFifo().setPlaybackRate (playbackSpeed, playheadDirection);
 
-    double currentPos = fifo.getExactReadPos();
+    double currentPos = bufferManager.getFifo().getExactReadPos();
     int startPos = (int) currentPos;
     int maxSourceSamples = (int) ((float) numSamples * std::abs (speedMultiplier));
 
@@ -256,7 +194,7 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
     int outputOffset = maxSourceSamples + 100;
 
     int channelsToProcess = (int) std::min ({ output.getNumChannels(),
-                                              audioBuffer->getNumChannels(),
+                                              bufferManager.getNumChannels(),
                                               interpolationBuffer->getNumChannels(),
                                               (int) soundTouchProcessors.size() });
 
@@ -302,7 +240,7 @@ void LoopTrack::processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& outp
         output.addFrom (ch, 0, *interpolationBuffer, ch, outputOffset, (int) numSamples);
     }
 
-    fifo.finishedRead (numSamples, shouldOverdub());
+    bufferManager.getFifo().finishedRead (numSamples, bufferManager.shouldOverdub());
 }
 
 void LoopTrack::processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output, const int numSamples)
@@ -310,34 +248,29 @@ void LoopTrack::processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& out
     PERFETTO_FUNCTION();
 
     int readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap;
-    fifo.prepareToRead ((int) numSamples, readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap);
+    bufferManager.getFifo().prepareToRead ((int) numSamples, readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap);
     const int actualRead = samplesBeforeWrap + samplesAfterWrap;
 
     for (int ch = 0; ch < output.getNumChannels(); ++ch)
     {
         float* outPtr = output.getWritePointer (ch);
-        const float* loopPtr = audioBuffer->getReadPointer (ch);
+        const float* loopPtr = bufferManager.getReadPointer (ch);
 
         if (samplesBeforeWrap > 0) juce::FloatVectorOperations::add (outPtr, loopPtr + readPosBeforeWrap, samplesBeforeWrap);
         if (samplesAfterWrap > 0)
             juce::FloatVectorOperations::add (outPtr + samplesBeforeWrap, loopPtr + readPosAfterWrap, samplesAfterWrap);
     }
 
-    fifo.finishedRead (actualRead, shouldOverdub());
+    bufferManager.getFifo().finishedRead (actualRead, bufferManager.shouldOverdub());
 }
 
 void LoopTrack::clear()
 {
     PERFETTO_FUNCTION();
-    audioBuffer->clear();
     undoBuffer.clear();
-    tmpBuffer->clear();
     interpolationBuffer->clear();
-    length = 0;
-    provisionalLength = 0;
     playbackSpeed = 1.0f;
     playheadDirection = 1;
-    fifo.prepareToPlay ((int) alignedBufferSize);
 
     for (auto& st : soundTouchProcessors)
     {
@@ -345,14 +278,15 @@ void LoopTrack::clear()
     }
 
     volumeProcessor.clear();
+    bufferManager.clear();
 }
 
 void LoopTrack::undo()
 {
     PERFETTO_FUNCTION();
-    if (! shouldOverdub() || ! isPrepared()) return;
+    if (! bufferManager.shouldOverdub() || ! isPrepared()) return;
 
-    if (undoBuffer.undo (audioBuffer))
+    if (undoBuffer.undo (bufferManager.getAudioBuffer()))
     {
         finalizeLayer();
     }
@@ -361,53 +295,42 @@ void LoopTrack::undo()
 void LoopTrack::redo()
 {
     PERFETTO_FUNCTION();
-    if (! shouldOverdub() || ! isPrepared()) return;
+    if (! bufferManager.shouldOverdub() || ! isPrepared()) return;
 
-    if (undoBuffer.redo (audioBuffer))
+    if (undoBuffer.redo (bufferManager.getAudioBuffer()))
     {
         finalizeLayer();
     }
 }
 
-void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
-{
-    PERFETTO_FUNCTION();
-    if (! isPrepared() || backingTrack.getNumChannels() != audioBuffer->getNumChannels() || backingTrack.getNumSamples() == 0) return;
-
-    auto prevSampleRate = sampleRate;
-    auto prevBlockSize = blockSize;
-    auto prevChannels = channels;
-    releaseResources();
-    prepareToPlay (prevSampleRate, (int) prevBlockSize, (int) prevChannels);
-
-    const int copySamples = std::min ((int) backingTrack.getNumSamples(), (int) MAX_SECONDS_HARD_LIMIT * (int) sampleRate);
-
-    for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
-    {
-        juce::FloatVectorOperations::copy (audioBuffer->getWritePointer (ch), backingTrack.getReadPointer (ch), copySamples);
-    }
-
-    provisionalLength = (int) copySamples;
-
-    finalizeLayer();
-}
+// void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
+// {
+//     PERFETTO_FUNCTION();
+//     if (! isPrepared() || backingTrack.getNumChannels() != audioBuffer->getNumChannels() || backingTrack.getNumSamples() == 0) return;
+//
+//     auto prevSampleRate = sampleRate;
+//     auto prevBlockSize = blockSize;
+//     auto prevChannels = channels;
+//     releaseResources();
+//     prepareToPlay (prevSampleRate, (int) prevBlockSize, (int) prevChannels);
+//
+//     const int copySamples = std::min ((int) backingTrack.getNumSamples(), (int) MAX_SECONDS_HARD_LIMIT * (int) sampleRate);
+//
+//     for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+//     {
+//         juce::FloatVectorOperations::copy (audioBuffer->getWritePointer (ch), backingTrack.getReadPointer (ch), copySamples);
+//     }
+//
+//     provisionalLength = (int) copySamples;
+//
+//     finalizeLayer();
+// }
 
 bool LoopTrack::shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const int numSamples) const
 {
     PERFETTO_FUNCTION();
     return numSamples == 0 || (int) input.getNumSamples() < numSamples || ! isPrepared()
-           || input.getNumChannels() != audioBuffer->getNumChannels();
-}
-
-void LoopTrack::copyAudioToTmpBuffer()
-{
-    PERFETTO_FUNCTION();
-    // Copy current audioBuffer state to tmpBuffer
-    // This prepares tmpBuffer to be pushed to undo stack on next overdub
-    for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
-    {
-        juce::FloatVectorOperations::copy (tmpBuffer->getWritePointer (ch), audioBuffer->getReadPointer (ch), (int) length);
-    }
+           || input.getNumChannels() != bufferManager.getNumChannels();
 }
 
 void LoopTrack::copyCircularDataLinearized (int startPos, int numSamples, float speedMultiplier, int destOffset)
@@ -415,12 +338,12 @@ void LoopTrack::copyCircularDataLinearized (int startPos, int numSamples, float 
     PERFETTO_FUNCTION();
 
     bool isReverse = speedMultiplier < 0;
-    int loopLen = (int) length;
+    int loopLen = bufferManager.getLength();
 
-    for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+    for (int ch = 0; ch < bufferManager.getNumChannels(); ++ch)
     {
         float* destPtr = interpolationBuffer->getWritePointer (ch) + destOffset;
-        const float* loopPtr = audioBuffer->getReadPointer (ch);
+        const float* loopPtr = bufferManager.getReadPointer (ch);
 
         if (! isReverse)
         {
