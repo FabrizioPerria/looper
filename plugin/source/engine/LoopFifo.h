@@ -58,6 +58,13 @@ public:
         size2 = std::max (0, numToRead - remaining);
     }
 
+    int getReverseReadIndex (int offset) const
+    {
+        PERFETTO_FUNCTION();
+        int idx = (int) readPos - offset;
+        return ((idx % musicalLength) + musicalLength) % musicalLength; // Handles negative indices in one step
+    }
+
     void finishedRead (int numRead, float playbackRate, bool overdub)
     {
         PERFETTO_FUNCTION();

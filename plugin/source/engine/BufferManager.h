@@ -179,9 +179,6 @@ public:
         else
         {
             // Reverse: read backward manually
-            int startPos = (int) fifo.getExactReadPos();
-            int loopLen = getLength();
-
             for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
             {
                 float* destPtr = destBuffer.getWritePointer (ch);
@@ -189,10 +186,7 @@ public:
 
                 for (int i = 0; i < numSamples; ++i)
                 {
-                    int readIdx = startPos - i;
-                    while (readIdx < 0)
-                        readIdx += loopLen;
-                    destPtr[i] = srcPtr[readIdx % loopLen];
+                    destPtr[i] = srcPtr[fifo.getReverseReadIndex (i)];
                 }
             }
         }
