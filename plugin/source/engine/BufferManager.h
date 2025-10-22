@@ -63,7 +63,10 @@ public:
             length = currentLength;
         }
         provisionalLength = 0;
+        // fifo.finishedWrite (0, shouldOverdub(), true);
     }
+
+    void syncReadPositionToWritePosition() { fifo.finishedWrite (0, shouldOverdub(), true); }
 
     bool hasWrappedAround()
     {
@@ -76,7 +79,8 @@ public:
     bool writeToAudioBuffer (std::function<void (float* destination, const float* source, const int numSamples, const bool shouldOverdub)>
                                  writeFunc,
                              const juce::AudioBuffer<float>& sourceBuffer,
-                             const int numSamples)
+                             const int numSamples,
+                             const bool syncWriteWithRead = true)
     {
         int writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap;
         fifo.prepareToWrite (numSamples, writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap);
@@ -96,7 +100,7 @@ public:
         }
 
         int actualWritten = samplesBeforeWrap + samplesAfterWrap;
-        fifo.finishedWrite (actualWritten, shouldOverdub());
+        fifo.finishedWrite (actualWritten, shouldOverdub(), syncWriteWithRead);
         bool fifoPreventedWrap = ! fifo.getWrapAround() && samplesAfterWrap == 0 && numSamples > samplesBeforeWrap;
 
         if (! fifoPreventedWrap) updateLoopLength ((int) samplesBeforeWrap);
@@ -106,7 +110,8 @@ public:
 
     bool readFromAudioBuffer (std::function<void (float* destination, const float* source, const int numSamples)> readFunc,
                               juce::AudioBuffer<float>& destBuffer,
-                              const int numSamples)
+                              const int numSamples,
+                              const float speedMultiplier)
     {
         int readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap;
         fifo.prepareToRead (numSamples, readPosBeforeWrap, samplesBeforeWrap, readPosAfterWrap, samplesAfterWrap);
@@ -126,7 +131,7 @@ public:
         }
 
         int actualRead = samplesBeforeWrap + samplesAfterWrap;
-        fifo.finishedRead (actualRead, 1.0f, shouldOverdub());
+        fifo.finishedRead (actualRead, speedMultiplier, shouldOverdub());
         return true;
     }
 

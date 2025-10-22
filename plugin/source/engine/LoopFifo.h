@@ -37,12 +37,12 @@ public:
         size2 = shouldWrapAround ? std::max (0, numToWrite - remaining) : 0;
     }
 
-    void finishedWrite (int numWritten, bool overdub)
+    void finishedWrite (int numWritten, bool overdub, bool syncWithRead = true)
     {
         PERFETTO_FUNCTION();
         jassert (numWritten > 0);
         writePos = (writePos + numWritten) % musicalLength;
-        if (overdub) writePos = (int) readPos;
+        if (overdub && syncWithRead) writePos = (int) readPos;
     }
 
     void prepareToRead (int numToRead, int& start1, int& size1, int& start2, int& size2)

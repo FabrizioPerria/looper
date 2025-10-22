@@ -56,12 +56,13 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
     // playbackSpeedBeforeRecording = playbackSpeed;
     // playheadDirectionBeforeRecording = playheadDirection;
 
-    setPlaybackDirectionForward();
-    setPlaybackSpeed (1.0f);
+    // setPlaybackDirectionForward();
+    // setPlaybackSpeed (1.0f);
 
     if (! isRecording)
     {
         isRecording = true;
+        bufferManager.syncReadPositionToWritePosition();
         if (bufferManager.shouldOverdub()) undoManager.finalizeCopyAndPush (bufferManager.getLength());
     }
 
@@ -69,7 +70,8 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
                                  .writeToAudioBuffer ([&] (float* dest, const float* source, const int samples, const bool shouldOverdub)
                                                       { volumeProcessor.saveBalancedLayers (dest, source, samples, shouldOverdub); },
                                                       input,
-                                                      numSamples);
+                                                      numSamples,
+                                                      false);
     if (fifoPreventedWrap)
     {
         finalizeLayer();
