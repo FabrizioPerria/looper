@@ -62,7 +62,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
     if (! isRecording)
     {
         isRecording = true;
-        bufferManager.syncReadPositionToWritePosition();
+        // bufferManager.syncReadPositionToWritePosition();
         if (bufferManager.shouldOverdub()) undoManager.finalizeCopyAndPush (bufferManager.getLength());
     }
 

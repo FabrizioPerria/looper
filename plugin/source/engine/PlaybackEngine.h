@@ -139,8 +139,6 @@ private:
     bool keepPitchWhenChangingSpeed = false;
 
     float previousSpeedMultiplier = 1.0f;
-
-    float previousPlaybackSpeed = 1.0f;
     float playbackSpeed = 1.0f;
 
     bool previousKeepPitch = false;
@@ -159,9 +157,9 @@ private:
         float speedMultiplier = playbackSpeed * (float) playheadDirection;
         int maxSourceSamples = (int) ((float) numSamples * std::abs (speedMultiplier));
         int outputOffset = maxSourceSamples + 100;
-        bool speedChanged = std::abs (speedMultiplier - previousPlaybackSpeed) > 0.001f;
+        bool speedChanged = std::abs (speedMultiplier - previousSpeedMultiplier) > 0.001f;
         bool modeChanged = (shouldKeepPitchWhenChangingSpeed() != previousKeepPitch);
-        previousPlaybackSpeed = speedMultiplier;
+        previousSpeedMultiplier = speedMultiplier;
         previousKeepPitch = shouldKeepPitchWhenChangingSpeed();
 
         audioBufferManager.linearizeAndReadFromAudioBuffer (*interpolationBuffer, maxSourceSamples, numSamples, speedMultiplier);
@@ -191,7 +189,6 @@ private:
                 }
             }
 
-            // Read from FIRST HALF
             st->putSamples (interpolationBuffer->getReadPointer (ch), (uint) maxSourceSamples);
             while (st->numSamples() < (uint) numSamples)
             {
@@ -214,7 +211,8 @@ private:
         audioBufferManager.readFromAudioBuffer ([&] (float* dest, const float* source, const int samples)
                                                 { juce::FloatVectorOperations::add (dest, source, samples); },
                                                 output,
-                                                numSamples);
+                                                numSamples,
+                                                playbackSpeed * (float) playheadDirection);
     }
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PlaybackEngine)
 };

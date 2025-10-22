@@ -62,6 +62,7 @@ public:
     {
         PERFETTO_FUNCTION();
         jassert (numRead > 0);
+        lastPlaybackRate = playbackRate;
         readPos += playbackRate * (float) numRead;
 
         if (musicalLength > 0)
@@ -78,7 +79,10 @@ public:
 
     double getExactReadPos() const { return readPos; }
 
+    float getLastPlaybackRate() const { return lastPlaybackRate; }
+
 private:
+    float lastPlaybackRate = 1.0f;
     int bufferSize;
     int musicalLength;
     int writePos;
