@@ -210,47 +210,16 @@ public:
 
         if (length == 0) return false;
 
-        bool isReverse = speedMultiplier < 0.0f;
+        int readResult = readFromAudioBuffer ([=] (float* destination, const float* source, const int numSamples)
+                                              { juce::FloatVectorOperations::copy (destination, source, numSamples); },
+                                              destBuffer,
+                                              sourceSamples,
+                                              speedMultiplier);
 
-        if (! isReverse)
-        {
-            int start1, size1, start2, size2;
-            fifo.prepareToRead (sourceSamples, start1, size1, start2, size2);
+        // Advance the fifo accounting for the difference between sourceSamples and outputSamples
+        fifo.finishedRead (outputSamples - sourceSamples, speedMultiplier, shouldOverdub());
 
-            for (int ch = 0; ch < getNumChannels(); ++ch)
-            {
-                float* destPtr = destBuffer.getWritePointer (ch);
-                const float* srcPtr = audioBuffer->getReadPointer (ch);
-
-                if (size1 > 0) juce::FloatVectorOperations::copy (destPtr, srcPtr + start1, size1);
-
-                if (size2 > 0) juce::FloatVectorOperations::copy (destPtr + size1, srcPtr + start2, size2);
-            }
-        }
-        else
-        {
-            // Reverse: still manual (fifo doesn't handle backward wrapping)
-            int startPos = (int) fifo.getExactReadPos();
-            int loopLen = getLength();
-
-            for (int ch = 0; ch < getNumChannels(); ++ch)
-            {
-                float* destPtr = destBuffer.getWritePointer (ch);
-                const float* loopPtr = audioBuffer->getReadPointer (ch);
-
-                for (int i = 0; i < sourceSamples; ++i)
-                {
-                    int readIdx = startPos - i;
-                    while (readIdx < 0)
-                        readIdx += loopLen;
-                    destPtr[i] = loopPtr[readIdx % loopLen];
-                }
-            }
-        }
-
-        fifo.finishedRead (outputSamples, speedMultiplier, shouldOverdub());
-
-        return true;
+        return readResult;
     }
 
     int getReadPosition() const { return fifo.getReadPos(); }
