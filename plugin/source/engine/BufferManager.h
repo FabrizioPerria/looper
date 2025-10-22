@@ -12,6 +12,7 @@ public:
     {
         PERFETTO_FUNCTION();
         audioBuffer->setSize (numChannels, bufferSize, false, true, true);
+        scratchBuffer->setSize (numChannels, bufferSize, false, true, true);
         clear();
     }
 
@@ -82,71 +83,55 @@ public:
                              const int numSamples,
                              const bool syncWriteWithRead = true)
     {
-        // Get the current playback direction from the FIFO's last read operation
+        int writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap;
+        fifo.prepareToWrite (numSamples, writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap);
         bool isReverse = fifo.getLastPlaybackRate() < 0.0f;
 
-        if (! isReverse)
+        for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
         {
-            int writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap;
-            fifo.prepareToWrite (numSamples, writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap);
-
-            for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+            if (samplesBeforeWrap > 0)
             {
-                if (samplesBeforeWrap > 0)
+                float* dest = getWritePointer (ch) + writePosBeforeWrap;
+                const float* src = sourceBuffer.getReadPointer (ch);
+
+                if (! isReverse)
                 {
-                    float* dest = getWritePointer (ch) + writePosBeforeWrap;
-                    writeFunc (dest, sourceBuffer.getReadPointer (ch), samplesBeforeWrap, shouldOverdub());
+                    writeFunc (dest, src, samplesBeforeWrap, shouldOverdub());
                 }
-                if (samplesAfterWrap > 0 && shouldOverdub())
+                else
                 {
-                    float* dest = getWritePointer (ch) + writePosAfterWrap;
-                    writeFunc (dest, sourceBuffer.getReadPointer (ch) + samplesBeforeWrap, samplesAfterWrap, shouldOverdub());
+                    juce::FloatVectorOperations::copy (scratchBuffer->getWritePointer (ch), src, samplesBeforeWrap);
+                    scratchBuffer->reverse (0, samplesBeforeWrap);
+                    writeFunc (dest, scratchBuffer->getReadPointer (ch), samplesBeforeWrap, shouldOverdub());
                 }
             }
 
-            int actualWritten = samplesBeforeWrap + samplesAfterWrap;
-            fifo.finishedWrite (actualWritten, shouldOverdub(), syncWriteWithRead);
-            bool fifoPreventedWrap = ! fifo.getWrapAround() && samplesAfterWrap == 0 && numSamples > samplesBeforeWrap;
-
-            if (! fifoPreventedWrap) updateLoopLength (samplesBeforeWrap);
-
-            return fifoPreventedWrap;
-        }
-        else
-        {
-            // In reverse mode, use FIFO's write positions but reverse the sample order
-            int writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap;
-            fifo.prepareToWrite (numSamples, writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap);
-
-            for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+            if (samplesAfterWrap > 0 && shouldOverdub())
             {
-                if (samplesBeforeWrap > 0)
+                float* dest = getWritePointer (ch) + writePosAfterWrap;
+                const float* src = sourceBuffer.getReadPointer (ch) + samplesBeforeWrap;
+
+                if (! isReverse)
                 {
-                    float* dest = getWritePointer (ch) + writePosBeforeWrap;
-                    // Write in reverse order within each block
-                    for (int i = 0; i < samplesBeforeWrap; ++i)
-                    {
-                        writeFunc (dest + i, sourceBuffer.getReadPointer (ch) + (samplesBeforeWrap - 1 - i), 1, shouldOverdub());
-                    }
+                    writeFunc (dest, src, samplesAfterWrap, shouldOverdub());
                 }
-                if (samplesAfterWrap > 0 && shouldOverdub())
+                else
                 {
-                    float* dest = getWritePointer (ch) + writePosAfterWrap;
-                    for (int i = 0; i < samplesAfterWrap; ++i)
-                    {
-                        writeFunc (dest + i, sourceBuffer.getReadPointer (ch) + (numSamples - 1 - i), 1, shouldOverdub());
-                    }
+                    juce::FloatVectorOperations::copy (scratchBuffer->getWritePointer (ch), src, samplesAfterWrap);
+                    scratchBuffer->reverse (0, samplesAfterWrap);
+                    writeFunc (dest, scratchBuffer->getReadPointer (ch), samplesAfterWrap, shouldOverdub());
                 }
             }
-
-            int actualWritten = samplesBeforeWrap + samplesAfterWrap;
-            fifo.finishedWrite (actualWritten, shouldOverdub(), syncWriteWithRead);
-            bool fifoPreventedWrap = ! fifo.getWrapAround() && samplesAfterWrap == 0 && numSamples > samplesBeforeWrap;
-
-            if (! fifoPreventedWrap) updateLoopLength (samplesBeforeWrap);
-
-            return fifoPreventedWrap;
+            scratchBuffer->clear();
         }
+
+        int actualWritten = samplesBeforeWrap + samplesAfterWrap;
+        fifo.finishedWrite (actualWritten, shouldOverdub(), syncWriteWithRead);
+        bool fifoPreventedWrap = ! fifo.getWrapAround() && samplesAfterWrap == 0 && numSamples > samplesBeforeWrap;
+
+        if (! fifoPreventedWrap) updateLoopLength (samplesBeforeWrap);
+
+        return fifoPreventedWrap;
     }
 
     bool readFromAudioBuffer (std::function<void (float* destination, const float* source, const int numSamples)> readFunc,
@@ -221,6 +206,7 @@ public:
 
 private:
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
+    std::unique_ptr<juce::AudioBuffer<float>> scratchBuffer = std::make_unique<juce::AudioBuffer<float>>();
     int length;
     int provisionalLength;
 
