@@ -5,7 +5,7 @@
 class LoopFifo
 {
 public:
-    LoopFifo() : bufferSize (0), musicalLength (0), writePos (0), readPos (0.0), shouldWrapAround (true), playbackRate (1.0) {}
+    LoopFifo() : bufferSize (0), musicalLength (0), writePos (0), readPos (0.0), shouldWrapAround (true) /*, playbackRate (1.0)*/ {}
 
     void prepareToPlay (int totalSize)
     {
@@ -15,7 +15,6 @@ public:
         bufferSize = musicalLength = totalSize;
         writePos = 0;
         readPos = 0.0;
-        playbackRate = 1.0;
     }
 
     void clear() { prepareToPlay (0); }
@@ -25,9 +24,6 @@ public:
 
     void setWrapAround (bool shouldWrap) { shouldWrapAround = shouldWrap; }
     bool getWrapAround() const { return shouldWrapAround; }
-
-    void setPlaybackRate (double speed, int direction) { playbackRate = speed * direction; }
-    double getPlaybackRate() const { return playbackRate; }
 
     void prepareToWrite (int numToWrite, int& start1, int& size1, int& start2, int& size2)
     {
@@ -41,12 +37,12 @@ public:
         size2 = shouldWrapAround ? std::max (0, numToWrite - remaining) : 0;
     }
 
-    void finishedWrite (int numWritten, bool overdub)
+    void finishedWrite (int numWritten, bool overdub, bool syncWithRead = true)
     {
         PERFETTO_FUNCTION();
         jassert (numWritten > 0);
         writePos = (writePos + numWritten) % musicalLength;
-        if (overdub) writePos = (int) readPos;
+        if (overdub && syncWithRead) writePos = (int) readPos;
     }
 
     void prepareToRead (int numToRead, int& start1, int& size1, int& start2, int& size2)
@@ -55,25 +51,26 @@ public:
         jassert (numToRead > 0);
         start1 = (int) readPos;
 
-        int samplesToTraverse = numToRead;
-        if (std::abs (playbackRate - 1.0) > 0.001) // Not normal speed
-        {
-            // Calculate samples we might traverse (for variable speed)
-            samplesToTraverse = (int) (numToRead * std::abs (playbackRate)) + 10;
-        }
-
         int remaining = musicalLength - start1;
 
-        size1 = std::min (samplesToTraverse, remaining);
+        size1 = std::min (numToRead, remaining);
         start2 = 0;
-        size2 = std::max (0, samplesToTraverse - remaining);
+        size2 = std::max (0, numToRead - remaining);
     }
 
-    void finishedRead (int numRead, bool overdub)
+    int getReverseReadIndex (int offset) const
+    {
+        PERFETTO_FUNCTION();
+        int idx = (int) readPos - offset;
+        return ((idx % musicalLength) + musicalLength) % musicalLength; // Handles negative indices in one step
+    }
+
+    void finishedRead (int numRead, float playbackRate, bool overdub)
     {
         PERFETTO_FUNCTION();
         jassert (numRead > 0);
-        readPos += playbackRate * numRead;
+        lastPlaybackRate = playbackRate;
+        readPos += playbackRate * (float) numRead;
 
         if (musicalLength > 0)
         {
@@ -89,13 +86,15 @@ public:
 
     double getExactReadPos() const { return readPos; }
 
+    float getLastPlaybackRate() const { return lastPlaybackRate; }
+
 private:
+    float lastPlaybackRate = 1.0f;
     int bufferSize;
     int musicalLength;
     int writePos;
     double readPos;
     bool shouldWrapAround;
-    double playbackRate;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopFifo)
 };
