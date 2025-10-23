@@ -118,8 +118,34 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
+    auto startTime = juce::Time::getHighResolutionTicks();
+
     looperEngine->processBlock (buffer, midiMessages);
 
+    auto endTime = juce::Time::getHighResolutionTicks();
+    auto elapsedSeconds = juce::Time::highResolutionTicksToSeconds (endTime - startTime);
+    auto bufferDuration = buffer.getNumSamples() / getSampleRate();
+
+    // Calculate CPU load as percentage
+    double instantLoad = (elapsedSeconds / bufferDuration) * 100.0;
+
+    // Smooth the value
+    const double smoothingFactor = 0.95;
+    double smoothedLoad = smoothingFactor * currentCPULoad.load() + (1.0 - smoothingFactor) * instantLoad;
+    currentCPULoad.store (smoothedLoad);
+
+    // Check for overruns
+    if (instantLoad > 100.0)
+    {
+        underrunCount++;
+
+        auto currentTime = juce::Time::currentTimeMillis();
+        if (currentTime - lastWarningTime > 1000)
+        {
+            DBG ("Buffer overrun! CPU: " << instantLoad << "%");
+            lastWarningTime = currentTime;
+        }
+    }
     midiMessages.clear();
 }
 
