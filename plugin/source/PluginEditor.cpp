@@ -11,12 +11,24 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
 
     addAndMakeVisible (theme->editorComponent.get());
 
+    cpuMonitorButton.setButtonText ("CPU Monitor");
+    cpuMonitorButton.onClick = [this] { openCPUMonitor(); };
+    addAndMakeVisible (cpuMonitorButton);
+
     setSize (1200, 900); // Make it bigger to see
 }
 
-AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor() { setLookAndFeel (nullptr); }
+AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
+{
+    setLookAndFeel (nullptr);
+    cpuMonitorWindow.reset();
+}
 
 //==============================================================================
 void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g) { g.fillAll (LooperTheme::Colors::backgroundDark); }
 
-void AudioPluginAudioProcessorEditor::resized() { theme->editorComponent->setBounds (getLocalBounds()); }
+void AudioPluginAudioProcessorEditor::resized()
+{
+    theme->editorComponent->setBounds (getLocalBounds());
+    cpuMonitorButton.setBounds (10, 10, 120, 30);
+}

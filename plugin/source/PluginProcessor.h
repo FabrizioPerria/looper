@@ -48,7 +48,14 @@ public:
 
     AudioToUIBridge& getUIBridge() { return uiBridge; }
 
+    double getCPULoad() const { return currentCPULoad.load(); }
+    int getUnderrunCount() const { return underrunCount.load(); }
+    void resetUnderrunCount() { underrunCount = 0; }
+
 private:
+    std::atomic<double> currentCPULoad { 0.0 };
+    std::atomic<int> underrunCount { 0 };
+    juce::int64 lastWarningTime = 0;
     std::unique_ptr<LooperEngine> looperEngine = std::make_unique<LooperEngine>();
     AudioToUIBridge uiBridge;
     //==============================================================================
