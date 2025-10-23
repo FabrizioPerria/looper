@@ -40,7 +40,6 @@ public:
     void finishedWrite (int numWritten, bool overdub, bool syncWithRead = true)
     {
         PERFETTO_FUNCTION();
-        jassert (numWritten > 0);
         writePos = (writePos + numWritten) % musicalLength;
         if (overdub && syncWithRead) writePos = (int) readPos;
     }
@@ -68,7 +67,6 @@ public:
     void finishedRead (int numRead, float playbackRate, bool overdub)
     {
         PERFETTO_FUNCTION();
-        jassert (numRead > 0);
         lastPlaybackRate = playbackRate;
         readPos += playbackRate * (float) numRead;
 

@@ -18,8 +18,17 @@ get_target_property(JUCE_HEADER looper JUCE_LIBRARY_CODE)
 get_target_property(JUCE_BINARY_DATA_FOLDER looper JUCE_BINARY_DATA_FOLDER)
 target_sources(
   ${PROJECT_NAME}
-  PRIVATE source/LoopLifo_test.cpp source/LoopFifo_test.cpp
-          source/LoopTrack_test.cpp source/LooperEngine_test.cpp)
+  PRIVATE source/LooperEngine_test.cpp
+          source/LoopFifo_test.cpp
+          source/LoopLifo_test.cpp
+          source/LoopTrack_Backing_test.cpp
+          source/LoopTrack_Playback_test.cpp
+          source/LoopTrack_Recording_test.cpp
+          source/LoopTrack_Setup_test.cpp
+          source/LoopTrack_StateManagement_test.cpp
+          source/LoopTrack_test.cpp
+          source/LoopTrack_TimeManagement_test.cpp)
+
 add_prefix_to_list(LIBS_TO_TEST "${CMAKE_CURRENT_SOURCE_DIR}/include"
                    INCLUDE_LIB_DIRS)
 target_include_directories(
