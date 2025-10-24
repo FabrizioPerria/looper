@@ -165,16 +165,16 @@ TEST_F (LoopLifoTest, WrapAroundPushAndPop)
     int start1, size1, start2, size2;
 
     // Fill stack completely
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 5; ++i)
     {
         lifo->prepareToWrite (1, start1, size1, start2, size2);
         lifo->finishedWrite (1, false);
     }
 
-    EXPECT_EQ (lifo->getActiveLayers(), 3);
+    EXPECT_EQ (lifo->getActiveLayers(), 5);
 
     // Pop all layers
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 5; ++i)
     {
         lifo->prepareToRead (1, start1, size1, start2, size2);
         lifo->finishedRead (1, false);
@@ -182,4 +182,26 @@ TEST_F (LoopLifoTest, WrapAroundPushAndPop)
 
     EXPECT_EQ (lifo->getActiveLayers(), 0);
     EXPECT_EQ (lifo->getSlotToPush(), 0);
+}
+
+TEST_F (LoopLifoTest, ClearResetsState)
+{
+    // Push some layers
+    for (int i = 0; i < 3; ++i)
+        lifo->finishedWrite (1, false);
+
+    lifo->clear();
+
+    EXPECT_EQ (lifo->getSlotToPush(), 0);
+    EXPECT_EQ (lifo->getActiveLayers(), 0);
+}
+
+TEST_F (LoopLifoTest, MaxCapacityEnforced)
+{
+    // Push more than capacity
+    for (int i = 0; i < 10; ++i)
+        lifo->finishedWrite (1, false);
+
+    // Should not exceed capacity
+    EXPECT_EQ (lifo->getActiveLayers(), 5);
 }

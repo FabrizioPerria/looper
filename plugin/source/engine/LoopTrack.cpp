@@ -15,13 +15,15 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
                                const int maxUndoLayers)
 {
     PERFETTO_FUNCTION();
-    if (currentSampleRate <= 0.0 || ! maxBlockSize || ! numChannels || ! maxSeconds) return;
+    if (currentSampleRate <= 0.0 || maxBlockSize <= 0 || numChannels <= 0 || maxSeconds <= 0) return;
+
+    if (sampleRate > 0.0) releaseResources();
 
     sampleRate = currentSampleRate;
-    blockSize = (int) maxBlockSize;
+    blockSize = std::max (blockSize, maxBlockSize);
     channels = (int) numChannels;
     auto requestedSamples = std::max ((int) currentSampleRate * maxSeconds, 1); // at least 1 block will be allocated
-    alignedBufferSize = (size_t) ((requestedSamples + maxBlockSize - 1) / maxBlockSize) * (size_t) maxBlockSize;
+    alignedBufferSize = (size_t) ((requestedSamples + blockSize - 1) / blockSize) * (size_t) blockSize;
 
     bufferManager.prepareToPlay ((int) numChannels, (int) alignedBufferSize);
     undoManager.prepareToPlay ((int) maxUndoLayers, (int) numChannels, (int) alignedBufferSize);
@@ -84,7 +86,7 @@ void LoopTrack::finalizeLayer()
     bufferManager.finalizeLayer();
     isRecording = false;
 
-    auto audioBuffer = *bufferManager.getAudioBuffer();
+    auto& audioBuffer = *bufferManager.getAudioBuffer();
     auto length = bufferManager.getLength();
     volumeProcessor.normalizeOutput (audioBuffer, length);
     volumeProcessor.applyCrossfade (audioBuffer, length);
