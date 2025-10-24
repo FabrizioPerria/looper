@@ -22,13 +22,10 @@ TEST_F (LooperEngineTest, InitialState)
 
 TEST_F (LooperEngineTest, TransportStateTransitions)
 {
-    engine.record();
+    engine.toggleRecord();
     EXPECT_EQ (engine.getState(), LooperState::Recording);
 
-    engine.stop();
-    EXPECT_EQ (engine.getState(), LooperState::Playing);
-
-    engine.stop();
+    engine.toggleRecord();
     EXPECT_EQ (engine.getState(), LooperState::Stopped);
 }
 
@@ -273,7 +270,7 @@ TEST_F (LooperEngineTest, ReleaseResources)
 
     EXPECT_EQ (engine.getNumTracks(), 0);
     EXPECT_EQ (engine.getActiveTrackIndex(), 0);
-    EXPECT_EQ (engine.getTransportState(), TransportState::Stopped);
+    EXPECT_EQ (engine.getState(), LooperState::Idle);
 }
 
 TEST_F (LooperEngineTest, UIBridgeAccess)

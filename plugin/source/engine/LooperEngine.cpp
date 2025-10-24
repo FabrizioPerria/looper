@@ -48,6 +48,7 @@ void LooperEngine::releaseResources()
     activeTrackIndex = 0;
     nextTrackIndex = -1;
     midiCommandMap.clear();
+    looperState = LooperState::Idle;
 }
 
 void LooperEngine::addTrack()
@@ -195,7 +196,7 @@ void LooperEngine::clear (int trackIndex)
     // If we cleared the active track, update state
     if (trackIndex == activeTrackIndex)
     {
-        transitionTo (LooperState::Idle);
+        transitionTo (LooperState::Stopped);
     }
 }
 
