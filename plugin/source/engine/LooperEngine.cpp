@@ -1,8 +1,9 @@
 #include "LooperEngine.h"
 #include "engine/midiMappings.h"
+#include <algorithm>
 
 LooperEngine::LooperEngine()
-    : transportState (TransportState::Stopped)
+    : looperState (LooperState::Idle)
     , sampleRate (0.0)
     , maxBlockSize (0)
     , numChannels (0)
@@ -45,9 +46,9 @@ void LooperEngine::releaseResources()
     numChannels = 0;
     numTracks = 0;
     activeTrackIndex = 0;
-    transportState = TransportState::Stopped;
     nextTrackIndex = -1;
     midiCommandMap.clear();
+    looperState = LooperState::Idle;
 }
 
 void LooperEngine::addTrack()
@@ -68,12 +69,52 @@ void LooperEngine::selectTrack (const int trackIndex)
 {
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) return;
+    if (trackIndex == activeTrackIndex) return;
 
-    if (transportState == TransportState::Stopped || loopTracks[(size_t) activeTrackIndex]->getTrackLengthSamples() == 0)
+    // If recording, cancel and switch immediately
+    if (looperState == LooperState::Recording || looperState == LooperState::Overdubbing)
+    {
+        auto* track = getActiveTrack();
+        if (track && track->isCurrentlyRecording())
+        {
+            track->cancelCurrentRecording();
+        }
+
         activeTrackIndex = trackIndex;
-    else
-        //we do not switch the track here. The actual switching happens in processBlock so we finish the loop cycle before switching. Here, we signal the swap.
-        nextTrackIndex = trackIndex;
+        auto* newTrack = getActiveTrack();
+
+        if (newTrack && newTrack->getTrackLengthSamples() > 0)
+        {
+            transitionTo (LooperState::Stopped);
+        }
+        else
+        {
+            transitionTo (LooperState::Idle);
+        }
+        return;
+    }
+
+    // If idle/stopped or current track is empty, switch immediately
+    if (looperState == LooperState::Idle || looperState == LooperState::Stopped || getActiveTrack()->getTrackLengthSamples() == 0)
+    {
+        activeTrackIndex = trackIndex;
+        nextTrackIndex = -1;
+
+        auto* newTrack = getActiveTrack();
+        if (newTrack && newTrack->getTrackLengthSamples() > 0)
+        {
+            transitionTo (LooperState::Stopped);
+        }
+        else
+        {
+            transitionTo (LooperState::Idle);
+        }
+        return;
+    }
+
+    // Otherwise, defer until wrap around
+    setPendingAction (PendingAction::Type::SwitchTrack, trackIndex, true);
+    nextTrackIndex = trackIndex;
 }
 
 void LooperEngine::removeTrack (const int trackIndex)
@@ -93,74 +134,190 @@ void LooperEngine::undo (int trackIndex)
 {
     PERFETTO_FUNCTION();
     if (trackIndex >= numTracks || trackIndex < 0) trackIndex = activeTrackIndex;
-    loopTracks[(size_t) trackIndex]->undo();
-    transportState = TransportState::Playing;
-    uiBridges[(size_t) trackIndex]->signalWaveformChanged();
+
+    // Don't allow undo during recording
+    if (isRecording()) return;
+
+    auto* track = loopTracks[(size_t) trackIndex].get();
+    if (track && track->undo())
+    {
+        uiBridges[(size_t) trackIndex]->signalWaveformChanged();
+
+        // Update state if we undid the last layer
+        if (track->getTrackLengthSamples() == 0)
+        {
+            if (trackIndex == activeTrackIndex)
+            {
+                transitionTo (LooperState::Idle);
+            }
+        }
+        else
+        {
+            // Ensure we're in a playing-capable state
+            if (looperState == LooperState::Idle && trackIndex == activeTrackIndex)
+            {
+                transitionTo (LooperState::Stopped);
+            }
+        }
+    }
 }
 
 void LooperEngine::redo (int trackIndex)
 {
     PERFETTO_FUNCTION();
     if (trackIndex >= numTracks || trackIndex < 0) trackIndex = activeTrackIndex;
-    loopTracks[(size_t) trackIndex]->redo();
-    transportState = TransportState::Playing;
-    uiBridges[(size_t) trackIndex]->signalWaveformChanged();
+
+    // Don't allow redo during recording
+    if (isRecording()) return;
+
+    auto* track = loopTracks[(size_t) trackIndex].get();
+    if (track && track->redo())
+    {
+        uiBridges[(size_t) trackIndex]->signalWaveformChanged();
+
+        // Update state if we now have content
+        if (trackIndex == activeTrackIndex && looperState == LooperState::Idle && track->getTrackLengthSamples() > 0)
+        {
+            transitionTo (LooperState::Stopped);
+        }
+    }
 }
 
 void LooperEngine::clear (int trackIndex)
 {
     PERFETTO_FUNCTION();
     if (trackIndex >= numTracks || trackIndex < 0) trackIndex = activeTrackIndex;
+
     loopTracks[(size_t) trackIndex]->clear();
-    transportState = TransportState::Stopped;
     uiBridges[(size_t) trackIndex]->clear();
     bridgeInitialized[(size_t) trackIndex] = false;
     uiBridges[(size_t) trackIndex]->signalWaveformChanged();
+
+    // If we cleared the active track, update state
+    if (trackIndex == activeTrackIndex)
+    {
+        transitionTo (LooperState::Stopped);
+    }
 }
 
-void LooperEngine::startRecording()
+void LooperEngine::record()
 {
     PERFETTO_FUNCTION();
-    transportState = TransportState::Recording;
+
+    auto* activeTrack = getActiveTrack();
+    if (! activeTrack) return;
+
+    // Determine which recording state to enter
+    bool hasContent = activeTrack->getTrackLengthSamples() > 0;
+
+    if (hasContent)
+    {
+        // Recording on existing loop = overdubbing
+        if (looperState == LooperState::Playing || looperState == LooperState::Stopped)
+        {
+            transitionTo (LooperState::Overdubbing);
+        }
+    }
+    else
+    {
+        // Recording on empty track = recording
+        if (looperState == LooperState::Idle || looperState == LooperState::Stopped)
+        {
+            transitionTo (LooperState::Recording);
+        }
+    }
 }
 
-void LooperEngine::startPlaying()
+void LooperEngine::play()
 {
     PERFETTO_FUNCTION();
-    transportState = TransportState::Playing;
+
+    auto* activeTrack = getActiveTrack();
+    if (! activeTrack) return;
+
+    // Can only play if we have content
+    if (activeTrack->getTrackLengthSamples() > 0)
+    {
+        if (looperState == LooperState::Stopped || looperState == LooperState::Idle)
+        {
+            transitionTo (LooperState::Playing);
+        }
+    }
 }
 
 void LooperEngine::stop()
 {
     PERFETTO_FUNCTION();
-    if (isRecording())
+
+    auto* activeTrack = getActiveTrack();
+    if (! activeTrack) return;
+
+    switch (looperState)
     {
-        loopTracks[(size_t) activeTrackIndex]->finalizeLayer();
-        uiBridges[(size_t) activeTrackIndex]->signalWaveformChanged();
-        transportState = TransportState::Playing;
+        case LooperState::Idle:
+        case LooperState::Stopped:
+            break;
+        case LooperState::Recording:
+        case LooperState::Overdubbing:
+        {
+            // Finalize the recording
+            if (activeTrack->isCurrentlyRecording())
+            {
+                activeTrack->finalizeLayer();
+                uiBridges[(size_t) activeTrackIndex]->signalWaveformChanged();
+            }
+
+            // Move to appropriate state
+            if (activeTrack->getTrackLengthSamples() > 0)
+                transitionTo (LooperState::Playing);
+            else
+                transitionTo (LooperState::Stopped);
+            break;
+        }
+
+        case LooperState::Playing:
+        case LooperState::PendingTrackChange:
+        {
+            // Stop playback
+            if (activeTrack->getTrackLengthSamples() > 0)
+                transitionTo (LooperState::Stopped);
+            else
+                transitionTo (LooperState::Idle);
+            break;
+        }
+
+        case LooperState::Transitioning:
+            transitionTo (LooperState::Stopped);
+            break;
+
+        default:
+            // Already stopped/idle
+            break;
     }
+}
+
+void LooperEngine::toggleRecord()
+{
+    if (isRecording())
+        stop();
     else
-        transportState = TransportState::Stopped;
+        record();
+}
+
+void LooperEngine::togglePlay()
+{
+    if (isPlaying())
+        stop();
+    else
+        play();
 }
 
 void LooperEngine::setupMidiCommands()
 {
     PERFETTO_FUNCTION();
 
-    midiCommandMap[{ RECORD_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int /**/)
-    {
-        if (engine.getTransportState() != TransportState::Recording)
-            engine.startRecording();
-        else
-            engine.stop();
-    };
-    midiCommandMap[{ TOGGLE_PLAY_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int /**/)
-    {
-        if (engine.getTransportState() == TransportState::Stopped)
-            engine.startPlaying();
-        else
-            engine.stop();
-    };
+    midiCommandMap[{ RECORD_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int /**/) { engine.toggleRecord(); };
+    midiCommandMap[{ TOGGLE_PLAY_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int /**/) { engine.togglePlay(); };
     midiCommandMap[{ UNDO_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int trackIndex) { engine.undo (trackIndex); };
     midiCommandMap[{ REDO_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int trackIndex) { engine.redo (trackIndex); };
     midiCommandMap[{ CLEAR_BUTTON_MIDI_NOTE, NOTE_ON }] = [] (LooperEngine& engine, int trackIndex) { engine.clear (trackIndex); };
@@ -247,32 +404,36 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
 
     bool wasRecording = activeTrack->isCurrentlyRecording();
 
-    bool pendingTrackChange = (nextTrackIndex >= 0 && nextTrackIndex != activeTrackIndex);
-    switch (transportState)
+    // Process any pending actions
+    processPendingActions();
+
+    // Process based on current looperState - CLEAN switch statement
+    switch (looperState)
     {
-        case TransportState::Recording:
+        case LooperState::Recording:
             activeTrack->processRecord (buffer, buffer.getNumSamples());
-            // Note: do not break here, we want to also play back while recording
-        case TransportState::Playing:
-            // Handle track switching. If we are switching, we wait until the current track has finished its loop
-            if (pendingTrackChange && activeTrack->hasWrappedAround())
-            {
-                stop();
-                transportState = TransportState::Playing; //ensure we are not in recording state when switching
-                activeTrackIndex = nextTrackIndex;
-                activeTrack = getActiveTrack();
-                bridge = getUIBridgeByIndex (activeTrackIndex);
-                nextTrackIndex = -1;
-            }
+            break;
+
+        case LooperState::Overdubbing:
+            activeTrack->processRecord (buffer, buffer.getNumSamples());
+            // Fall through to also play
+            [[fallthrough]];
+
+        case LooperState::Playing:
+        case LooperState::PendingTrackChange:
+        case LooperState::Transitioning:
             activeTrack->processPlayback (const_cast<juce::AudioBuffer<float>&> (buffer), buffer.getNumSamples());
             break;
-        case TransportState::Stopped:
+
+        case LooperState::Idle:
+        case LooperState::Stopped:
+            // No audio processing
             break;
     }
 
     bool nowRecording = activeTrack->isCurrentlyRecording();
 
-    // Handle waveform update signals
+    // Handle waveform updates
     if (! bridgeInitialized[(size_t) activeTrackIndex] && activeTrack->getTrackLengthSamples() > 0)
     {
         bridge->signalWaveformChanged();
@@ -291,17 +452,21 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
         bridge->signalWaveformChanged();
     }
 
-    // Determine length to show
+    // Update UI bridge
     int lengthToShow = activeTrack->getTrackLengthSamples();
     if (lengthToShow == 0 && nowRecording)
+    {
         lengthToShow = std::min (activeTrack->getCurrentWritePosition() + 200, (int) activeTrack->getAvailableTrackSizeSamples());
+    }
 
-    // Update bridge
+    bool shouldShowPlaying = (looperState == LooperState::Playing || looperState == LooperState::PendingTrackChange
+                              || looperState == LooperState::Overdubbing || looperState == LooperState::Transitioning);
+
     bridge->updateFromAudioThread (activeTrack->getAudioBuffer(),
                                    lengthToShow,
                                    activeTrack->getCurrentReadPosition(),
                                    nowRecording,
-                                   transportState == TransportState::Playing);
+                                   shouldShowPlaying);
 }
 
 LoopTrack* LooperEngine::getActiveTrack()
@@ -330,7 +495,7 @@ void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& back
     {
         track->loadBackingTrack (backingTrack);
         uiBridges[(size_t) trackIndex]->signalWaveformChanged();
-        startPlaying();
+        play();
     }
 }
 
@@ -436,4 +601,138 @@ bool LooperEngine::getKeepPitchWhenChangingSpeed (int trackIndex) const
     auto& track = loopTracks[(size_t) trackIndex];
     if (track) return track->shouldKeepPitchWhenChangingSpeed();
     return false;
+}
+
+bool LooperEngine::canTransitionTo (LooperState newState) const
+{
+    PERFETTO_FUNCTION();
+
+    constexpr static uint32_t allowedTransitions[] = {
+        [(int) LooperState::Idle] = (1 << (int) LooperState::Recording) | (1 << (int) LooperState::Idle)
+                                    | (1 << (int) LooperState::Playing),
+        [(int) LooperState::Stopped] = (1 << (int) LooperState::Playing) | (1 << (int) LooperState::Recording)
+                                       | (1 << (int) LooperState::Idle)
+                                       | (1 << (int) LooperState::Overdubbing), // Allow overdub from stopped
+        [(int) LooperState::Playing] = (1 << (int) LooperState::Stopped) | (1 << (int) LooperState::Overdubbing)
+                                       | (1 << (int) LooperState::PendingTrackChange),
+        [(int) LooperState::Recording] = (1 << (int) LooperState::Playing) | (1 << (int) LooperState::Stopped)
+                                         | (1 << (int) LooperState::Idle) | (1 << (int) LooperState::Overdubbing),
+        [(int) LooperState::Overdubbing] = (1 << (int) LooperState::Playing) | (1 << (int) LooperState::Stopped),
+        [(int) LooperState::PendingTrackChange] = (1 << (int) LooperState::Transitioning) | (1 << (int) LooperState::Playing)
+                                                  | (1 << (int) LooperState::Stopped),
+        [(int) LooperState::Transitioning] = (1 << (int) LooperState::Playing) | (1 << (int) LooperState::Stopped)
+                                             | (1 << (int) LooperState::Idle)
+    };
+
+    uint32_t currentAllowed = allowedTransitions[(int) looperState];
+    return (currentAllowed & (1 << (int) newState)) != 0;
+}
+
+void LooperEngine::transitionTo (LooperState newState)
+{
+    if (! canTransitionTo (newState))
+    {
+        DBG ("Invalid state transition from " << (int) looperState << " to " << (int) newState);
+        return;
+    }
+
+    // Perform cleanup when leaving certain states
+    switch (looperState)
+    {
+        case LooperState::Recording:
+        case LooperState::Overdubbing:
+            // Ensure recording is properly finalized
+            if (newState != LooperState::Stopped && newState != LooperState::Playing)
+            {
+                auto* track = getActiveTrack();
+                if (track && track->isCurrentlyRecording())
+                {
+                    track->finalizeLayer();
+                }
+            }
+            break;
+        case LooperState::Idle:
+        case LooperState::Stopped:
+        case LooperState::Playing:
+        case LooperState::PendingTrackChange:
+        case LooperState::Transitioning:
+        default:
+            break;
+    }
+
+    looperState = newState;
+}
+
+void LooperEngine::setPendingAction (PendingAction::Type type, int trackIndex, bool waitForWrap)
+{
+    pendingAction.type = type;
+    pendingAction.targetTrackIndex = trackIndex;
+    pendingAction.waitForWrapAround = waitForWrap;
+
+    if (type == PendingAction::Type::SwitchTrack && waitForWrap && looperState == LooperState::Playing)
+    {
+        transitionTo (LooperState::PendingTrackChange);
+    }
+}
+
+void LooperEngine::processPendingActions()
+{
+    if (! pendingAction.isActive()) return;
+
+    auto* activeTrack = getActiveTrack();
+    if (! activeTrack) return;
+
+    // Check if we should wait for wrap around
+    if (pendingAction.waitForWrapAround && ! activeTrack->hasWrappedAround())
+    {
+        return; // Not ready yet
+    }
+
+    switch (pendingAction.type)
+    {
+        case PendingAction::Type::SwitchTrack:
+            if (pendingAction.targetTrackIndex >= 0 && pendingAction.targetTrackIndex < numTracks
+                && pendingAction.targetTrackIndex != activeTrackIndex)
+            {
+                transitionTo (LooperState::Transitioning);
+                activeTrackIndex = pendingAction.targetTrackIndex;
+
+                // Determine new state based on new track
+                auto* newTrack = getActiveTrack();
+                if (newTrack && newTrack->getTrackLengthSamples() > 0)
+                {
+                    transitionTo (LooperState::Playing);
+                }
+                else
+                {
+                    transitionTo (LooperState::Stopped);
+                }
+            }
+            break;
+
+        case PendingAction::Type::CancelRecording:
+            if (activeTrack->isCurrentlyRecording())
+            {
+                activeTrack->cancelCurrentRecording();
+            }
+            break;
+
+        case PendingAction::Type::FinalizeRecording:
+            if (activeTrack->isCurrentlyRecording())
+            {
+                activeTrack->finalizeLayer();
+                transitionTo (LooperState::Playing);
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    pendingAction.clear();
+}
+
+int LooperEngine::getPendingTrackIndex() const
+{
+    return (pendingAction.type == PendingAction::Type::SwitchTrack) ? pendingAction.targetTrackIndex : -1;
 }

@@ -107,6 +107,8 @@ public:
         {
             muteButton.setToggleState (currentMuted, juce::dontSendNotification);
         }
+
+        accentBar.repaint();
     }
 
     void setActive (bool shouldBeActive)
@@ -183,28 +185,25 @@ private:
             auto* track = dynamic_cast<DawTrackComponent*> (getParentComponent());
             bool isTrackActive = track ? track->isActive : false;
 
-            if (isTrackActive)
-            {
-                g.setColour (LooperTheme::Colors::cyan.withAlpha (0.8f));
-            }
-            // else if (pendingTrackChange)
-            // {
-            //     g.setColour (LooperTheme::Colors::yellow.withAlpha (0.8f));
-            // }
-            else
-            {
-                g.setColour (LooperTheme::Colors::primary.withAlpha (0.3f));
-            }
+            // Check for pending track change
+            int pendingIndex = track->looperEngine->getPendingTrackIndex();
+            bool isPendingTrack = (pendingIndex == track->getTrackIndex());
 
+            // Choose color
+            if (isPendingTrack && ! isTrackActive)
+                g.setColour (LooperTheme::Colors::yellow.withAlpha (0.8f));
+            else if (isTrackActive)
+                g.setColour (LooperTheme::Colors::cyan.withAlpha (0.8f));
+            else
+                g.setColour (LooperTheme::Colors::primary.withAlpha (0.3f));
+
+            // ACTUALLY DRAW IT!
             g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
 
+            // Draw track number
             g.setColour (isTrackActive ? LooperTheme::Colors::backgroundDark : LooperTheme::Colors::cyan);
-            g.setFont (LooperTheme::Fonts::getBoldFont (14.0f)); // Bigger font
-
-            // Just draw the track number, centered vertically and horizontally
-            g.drawText (juce::String (track->getTrackIndex() + 1),
-                        bounds,
-                        juce::Justification::centred); // Changed from centredBottom to centred
+            g.setFont (LooperTheme::Fonts::getBoldFont (14.0f));
+            g.drawText (juce::String (track->getTrackIndex() + 1), bounds, juce::Justification::centred);
         }
 
         void mouseDown (const juce::MouseEvent&) override

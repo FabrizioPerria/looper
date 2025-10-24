@@ -120,9 +120,14 @@ private:
 
     void timerCallback() override
     {
-        auto state = looperEngine->getTransportState();
-        recordButton.setToggleState (state == TransportState::Recording, juce::dontSendNotification);
-        playButton.setToggleState (state != TransportState::Stopped, juce::dontSendNotification);
+        auto state = looperEngine->getState();
+
+        // Update button states based on new state enum
+        recordButton.setToggleState (state == LooperState::Recording || state == LooperState::Overdubbing, juce::dontSendNotification);
+
+        playButton.setToggleState (state == LooperState::Playing || state == LooperState::PendingTrackChange
+                                       || state == LooperState::Overdubbing,
+                                   juce::dontSendNotification);
 
         // Update active track highlighting
         int activeTrackIndex = looperEngine->getActiveTrackIndex();
