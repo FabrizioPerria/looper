@@ -19,11 +19,11 @@ public:
     void clear()
     {
         PERFETTO_FUNCTION();
+        fifo.prepareToPlay (audioBuffer->getNumSamples());
         audioBuffer->clear();
         length = 0;
         provisionalLength = 0;
         previousReadPos = -1.0;
-        fifo.prepareToPlay (audioBuffer->getNumSamples());
     }
 
     void releaseResources()

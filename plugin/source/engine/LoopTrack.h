@@ -25,8 +25,8 @@ public:
     void processPlayback (juce::AudioBuffer<float>& output, const int numSamples);
 
     void clear();
-    void undo();
-    void redo();
+    bool undo();
+    bool redo();
 
     int getCurrentReadPosition() const { return bufferManager.getReadPosition(); }
     int getCurrentWritePosition() const { return bufferManager.getWritePosition(); }
@@ -66,6 +66,8 @@ public:
     void setMuted (const bool shouldBeMuted) { volumeProcessor.setMuted (shouldBeMuted); }
 
     int getTrackLengthSamples() const { return bufferManager.getLength(); }
+
+    void cancelCurrentRecording();
 
 private:
     VolumeProcessor volumeProcessor;

@@ -5,11 +5,39 @@
 #include <JuceHeader.h>
 #include <cstddef>
 
-enum class TransportState
+enum class LooperState
 {
-    Stopped,
-    Recording,
-    Playing
+    Idle,               // No tracks have content
+    Stopped,            // Tracks exist but not playing
+    Playing,            // Playing back loops
+    Recording,          // Recording on empty track
+    Overdubbing,        // Recording on track with content
+    PendingTrackChange, // Waiting to switch tracks
+    Transitioning       // Actively switching
+};
+
+struct PendingAction
+{
+    enum class Type
+    {
+        None,
+        SwitchTrack,
+        FinalizeRecording,
+        CancelRecording
+    };
+
+    Type type = Type::None;
+    int targetTrackIndex = -1;
+    bool waitForWrapAround = false;
+
+    void clear()
+    {
+        type = Type::None;
+        targetTrackIndex = -1;
+        waitForWrapAround = false;
+    }
+
+    bool isActive() const { return type != Type::None; }
 };
 
 class LooperEngine
@@ -42,15 +70,6 @@ public:
     void processBlock (const juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages);
 
     void setOverdubGainsForTrack (const int trackIndex, const double oldGain, const double newGain);
-
-    TransportState getTransportState() const { return transportState; }
-
-    void startRecording();
-    void startPlaying();
-    void stop();
-    void undo (int trackIndex);
-    void redo (int trackIndex);
-    void clear (int trackIndex);
 
     void loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex);
     void loadWaveFileToTrack (const juce::File& audioFile, int trackIndex);
@@ -119,6 +138,29 @@ public:
     void setKeepPitchWhenChangingSpeed (int trackIndex, bool shouldKeepPitch);
     bool getKeepPitchWhenChangingSpeed (int trackIndex) const;
 
+    LooperState getState() const { return looperState; }
+    bool hasPendingAction() const { return pendingAction.isActive(); }
+    int getPendingTrackIndex() const;
+
+    // NEW: State query methods (replace old isRecording/isPlaying/isStopped)
+    bool isIdle() const { return looperState == LooperState::Idle; }
+    bool isStopped() const { return looperState == LooperState::Stopped; }
+    bool isPlaying() const
+    {
+        return looperState == LooperState::Playing || looperState == LooperState::PendingTrackChange
+               || looperState == LooperState::Overdubbing;
+    }
+    bool isRecording() const { return looperState == LooperState::Recording || looperState == LooperState::Overdubbing; }
+
+    void record();
+    void play();
+    void stop();
+    void toggleRecord();
+    void togglePlay();
+    void undo (int trackIndex);
+    void redo (int trackIndex);
+    void clear (int trackIndex);
+
 private:
     struct MidiKey
     {
@@ -132,14 +174,10 @@ private:
         std::size_t operator() (const MidiKey& k) const { return std::hash<int>() (k.noteNumber) ^ std::hash<bool>() (k.isNoteOn); }
     };
 
-    bool isRecording() const { return transportState == TransportState::Recording; }
-    bool isPlaying() const { return transportState == TransportState::Playing; }
-    bool isStopped() const { return transportState == TransportState::Stopped; }
+    LooperState looperState = LooperState::Idle;
+    LooperState previousState = LooperState::Idle;
+    PendingAction pendingAction;
 
-    std::unordered_map<MidiKey, std::function<void (LooperEngine&, int)>, MidiKeyHash> midiCommandMap;
-    void setupMidiCommands();
-
-    TransportState transportState;
     double sampleRate;
     int maxBlockSize;
     int numChannels;
@@ -150,6 +188,17 @@ private:
     std::vector<std::unique_ptr<LoopTrack>> loopTracks;
     std::vector<std::unique_ptr<AudioToUIBridge>> uiBridges;
     std::vector<bool> bridgeInitialized;
+
+    // State transition validation
+    bool canTransitionTo (LooperState newState) const;
+    void transitionTo (LooperState newState);
+
+    // Pending action management
+    void setPendingAction (PendingAction::Type type, int trackIndex, bool waitForWrap);
+    void processPendingActions();
+
+    std::unordered_map<MidiKey, std::function<void (LooperEngine&, int)>, MidiKeyHash> midiCommandMap;
+    void setupMidiCommands();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LooperEngine)
 };

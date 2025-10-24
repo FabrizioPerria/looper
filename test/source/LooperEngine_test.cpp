@@ -15,21 +15,21 @@ protected:
 
 TEST_F (LooperEngineTest, InitialState)
 {
-    EXPECT_EQ (engine.getTransportState(), TransportState::Stopped);
+    EXPECT_EQ (engine.getState(), LooperState::Idle);
     EXPECT_EQ (engine.getNumTracks(), 2);
     EXPECT_EQ (engine.getActiveTrackIndex(), 1);
 }
 
 TEST_F (LooperEngineTest, TransportStateTransitions)
 {
-    engine.startRecording();
-    EXPECT_EQ (engine.getTransportState(), TransportState::Recording);
+    engine.record();
+    EXPECT_EQ (engine.getState(), LooperState::Recording);
 
     engine.stop();
-    EXPECT_EQ (engine.getTransportState(), TransportState::Playing);
+    EXPECT_EQ (engine.getState(), LooperState::Playing);
 
     engine.stop();
-    EXPECT_EQ (engine.getTransportState(), TransportState::Stopped);
+    EXPECT_EQ (engine.getState(), LooperState::Stopped);
 }
 
 TEST_F (LooperEngineTest, TrackManagement)
@@ -53,7 +53,7 @@ TEST_F (LooperEngineTest, MidiCommandHandling)
     midi.addEvent (noteOn, 0);
 
     engine.processBlock (audio, midi);
-    EXPECT_EQ (engine.getTransportState(), TransportState::Recording);
+    EXPECT_EQ (engine.getState(), LooperState::Recording);
 }
 
 TEST_F (LooperEngineTest, AudioProcessing)
@@ -72,7 +72,7 @@ TEST_F (LooperEngineTest, AudioProcessing)
     }
 
     // Test recording
-    engine.startRecording();
+    engine.record();
     engine.processBlock (buffer, midiMessages);
 
     // Test playback
@@ -104,7 +104,7 @@ TEST_F (LooperEngineTest, UndoAndClear)
     juce::MidiBuffer midiMessages;
 
     // Record something
-    engine.startRecording();
+    engine.record();
     engine.processBlock (buffer, midiMessages);
     engine.stop();
 
@@ -113,7 +113,7 @@ TEST_F (LooperEngineTest, UndoAndClear)
 
     // Test clear
     engine.clear (-1);
-    EXPECT_EQ (engine.getTransportState(), TransportState::Stopped);
+    EXPECT_EQ (engine.getState(), LooperState::Stopped);
 }
 
 TEST_F (LooperEngineTest, VolumeControl)

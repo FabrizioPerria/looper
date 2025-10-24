@@ -116,26 +116,30 @@ void LoopTrack::clear()
     playbackEngine.clear();
 }
 
-void LoopTrack::undo()
+bool LoopTrack::undo()
 {
     PERFETTO_FUNCTION();
-    if (! bufferManager.shouldOverdub()) return;
+    if (! bufferManager.shouldOverdub()) return false;
 
     if (undoManager.undo (bufferManager.getAudioBuffer()))
     {
         finalizeLayer();
+        return true;
     }
+    return false;
 }
 
-void LoopTrack::redo()
+bool LoopTrack::redo()
 {
     PERFETTO_FUNCTION();
-    if (! bufferManager.shouldOverdub()) return;
+    if (! bufferManager.shouldOverdub()) return false;
 
     if (undoManager.redo (bufferManager.getAudioBuffer()))
     {
         finalizeLayer();
+        return true;
     }
+    return false;
 }
 
 void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
@@ -157,4 +161,15 @@ void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
                                       copySamples);
 
     finalizeLayer();
+}
+
+void LoopTrack::cancelCurrentRecording()
+{
+    PERFETTO_FUNCTION();
+    if (! isRecording) return;
+
+    isRecording = false;
+
+    // Don't finalize - the BufferManager will handle cleanup internally
+    // Just reset the recording flag
 }
