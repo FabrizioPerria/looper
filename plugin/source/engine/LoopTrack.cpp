@@ -86,7 +86,7 @@ void LoopTrack::finalizeLayer()
     bufferManager.finalizeLayer();
     isRecording = false;
 
-    auto audioBuffer = *bufferManager.getAudioBuffer();
+    auto& audioBuffer = *bufferManager.getAudioBuffer();
     auto length = bufferManager.getLength();
     volumeProcessor.normalizeOutput (audioBuffer, length);
     volumeProcessor.applyCrossfade (audioBuffer, length);

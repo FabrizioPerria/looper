@@ -50,6 +50,7 @@ TEST_F (LoopTrackRecordingTest, ProcessFullBlockCopiesInput)
     LoopTrack testTrack;
     testTrack.prepareToPlay (testSampleRate, testBlockSize, testChannels, 10, 1);
     testTrack.setCrossFadeLength (0);
+    testTrack.setOverdubGains (1.0, 1.0); // Disable normalization
 
     juce::AudioBuffer<float> input = createAnotherSquareTestBuffer (testChannels, numSamples, testSampleRate, 440.0f);
     auto* readPtr = input.getReadPointer (0);
