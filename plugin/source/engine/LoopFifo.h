@@ -10,7 +10,6 @@ public:
     void prepareToPlay (int totalSize)
     {
         PERFETTO_FUNCTION();
-        jassert (totalSize > 0);
 
         bufferSize = musicalLength = totalSize;
         writePos = 0;
