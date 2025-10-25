@@ -1,13 +1,22 @@
-# JUCE template
+# Looper
 
-## Usage
+A simple audio looper plugin built with JUCE framework.
 
-Make sure you fix all the TODO items in all the CMakeLists.txt before you start.
+## Features
 
-Just run `doit.sh`. Cmake will:
- - setup cmake package manager
- - pull JUCE framework
- - pull googletest framework
- - pull a simple googletracer
- - build the plugin
- - run a simple test to make sure things work fine
+- Record audio input
+- 4 tracks for looping
+- Infinite overdubs on existing loops
+- Load backing tracks per track
+- Play, stop, and clear loops
+- Undo/redo functionality
+- Adjustable playback speed and reverse playback
+- Mute/Solo per track
+- Simple and intuitive user interface
+- Low latency performance
+
+## Build
+
+1. Clone the repository:
+2. Run ./build.sh
+3. Open your Daw of choice and load the plugin.
