@@ -327,12 +327,7 @@ private:
     {
         auto drawTickMark = [&] (double value, const juce::String& label, bool isMajor)
         {
-            // Calculate position based on slider's value range
-            double proportion = (value - slider.getMinimum()) / (slider.getMaximum() - slider.getMinimum());
-
-            // Apply the same skew that the slider uses
-            proportion = slider.proportionOfLengthToValue (proportion);
-            proportion = slider.valueToProportionOfLength (value);
+            double proportion = slider.proportionOfLengthToValue (value);
 
             float tickX = trackBounds.getX() + (float) proportion * trackBounds.getWidth();
 
@@ -355,12 +350,10 @@ private:
         };
 
         // Draw major tick marks at snap points
-        drawTickMark (0.5f, "0.5x", true);
-        drawTickMark (1.0f, "1.0x", true);
-        drawTickMark (2.0f, "2.0x", true);
-
-        // Optional: Draw minor tick marks
-        drawTickMark (0.75f, "", false);
-        drawTickMark (1.5f, "", false);
+        drawTickMark (0.5, "0.5x", true);
+        drawTickMark (0.75, "0.75x", true);
+        drawTickMark (1.0, "1.0x", true);
+        drawTickMark (1.5, "1.5x", true);
+        drawTickMark (2.0, "2.0x", true);
     }
 };
