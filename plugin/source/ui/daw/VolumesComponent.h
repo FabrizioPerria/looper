@@ -4,80 +4,160 @@
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
-// 1 checkbox button to enable/disable volume normalization
-// if normalization is disabled. show 2 small knobs for overdub levels and existing audio levels
-class VolumesComponent : public juce::Component
+class VolumesComponent : public juce::Component, private juce::Timer
 {
 public:
     VolumesComponent (LooperEngine* engine, int trackIdx, AudioToUIBridge* bridge) : looperEngine (engine), trackIndex (trackIdx)
     {
-        normalizeButton.setButtonText ("Normalize Volumes");
+        normalizeButton.setButtonText ("NORM");
         normalizeButton.setClickingTogglesState (true);
-        normalizeButton.onClick = [this]()
-        {
-            juce::MidiBuffer midiBuffer;
-            midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
-            midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1,
-                                                                     MidiNotes::VOLUME_NORMALIZE_BUTTON,
-                                                                     normalizeButton.getToggleState() ? 127 : 0),
-                                 0);
-            looperEngine->handleMidiCommand (midiBuffer);
-        };
+        normalizeButton.onClick = [this]() { sendCommandToEngine (MidiNotes::VOLUME_NORMALIZE_BUTTON); };
         addAndMakeVisible (normalizeButton);
 
-        overdubLevelKnob.setSliderStyle (juce::Slider::Rotary);
+        overdubLevelKnob.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         overdubLevelKnob.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
         overdubLevelKnob.setRange (0.0, 1.0, 0.01);
         overdubLevelKnob.setValue (0.5);
-        overdubLevelKnob.onValueChange = [this]()
-        {
-            juce::MidiBuffer midiBuffer;
-            midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
-            int ccValue = (int) std::clamp (overdubLevelKnob.getValue() * 127.0, 0.0, 127.0);
-            midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::OVERDUB_LEVEL_CC, ccValue), 0);
-            looperEngine->handleMidiCommand (midiBuffer);
-        };
+        overdubLevelKnob.setPopupDisplayEnabled (true, true, nullptr);
+        overdubLevelKnob.onValueChange = [this]() { sendCommandToEngine (MidiNotes::OVERDUB_LEVEL_CC, overdubLevelKnob.getValue()); };
         addAndMakeVisible (overdubLevelKnob);
 
-        existingAudioLevelKnob.setSliderStyle (juce::Slider::Rotary);
+        existingAudioLevelKnob.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         existingAudioLevelKnob.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
         existingAudioLevelKnob.setRange (0.0, 1.0, 0.01);
         existingAudioLevelKnob.setValue (0.5);
+        existingAudioLevelKnob.setPopupDisplayEnabled (true, true, nullptr);
         existingAudioLevelKnob.onValueChange = [this]()
-        {
-            juce::MidiBuffer midiBuffer;
-            midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
-            int ccValue = (int) std::clamp (existingAudioLevelKnob.getValue() * 127.0, 0.0, 127.0);
-            midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::EXISTING_AUDIO_LEVEL_CC, ccValue), 0);
-            looperEngine->handleMidiCommand (midiBuffer);
-        };
+        { sendCommandToEngine (MidiNotes::EXISTING_AUDIO_LEVEL_CC, existingAudioLevelKnob.getValue()); };
         addAndMakeVisible (existingAudioLevelKnob);
+
+        overdubLabel.setText ("NEXT", juce::dontSendNotification);
+        overdubLabel.setFont (LooperTheme::Fonts::getBoldFont (9.0f));
+        overdubLabel.setJustificationType (juce::Justification::centred);
+        overdubLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
+        addAndMakeVisible (overdubLabel);
+
+        existingLabel.setText ("LOOP", juce::dontSendNotification);
+        existingLabel.setFont (LooperTheme::Fonts::getBoldFont (9.0f));
+        existingLabel.setJustificationType (juce::Justification::centred);
+        existingLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
+        addAndMakeVisible (existingLabel);
+
+        startTimerHz (10);
+    }
+
+    ~VolumesComponent() override { stopTimer(); }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto bounds = getLocalBounds().toFloat();
+        g.setColour (LooperTheme::Colors::backgroundDark.withAlpha (0.3f));
+        g.fillRoundedRectangle (bounds, 3.0f);
     }
 
     void resized() override
     {
-        auto bounds = getLocalBounds().reduced (4);
-        bounds.removeFromLeft (2);
+        auto bounds = getLocalBounds();
 
         juce::FlexBox mainRow;
-        mainRow.flexDirection = juce::FlexBox::Direction::column;
+        mainRow.flexDirection = juce::FlexBox::Direction::row;
         mainRow.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        mainRow.items.add (juce::FlexItem (normalizeButton).withFlex (0.3f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
-        mainRow.items.add (juce::FlexItem (overdubLevelKnob).withFlex (0.35f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
-        mainRow.items.add (juce::FlexItem (existingAudioLevelKnob).withFlex (0.35f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+        juce::FlexBox existingFlex;
+        existingFlex.flexDirection = juce::FlexBox::Direction::column;
+        existingFlex.alignItems = juce::FlexBox::AlignItems::stretch;
+
+        existingFlex.items.add (juce::FlexItem (existingAudioLevelKnob).withFlex (1.0f));
+        existingFlex.items.add (juce::FlexItem (existingLabel).withFlex (0.2f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+
+        mainRow.items.add (juce::FlexItem (existingFlex).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
+
+        mainRow.items.add (juce::FlexItem (normalizeButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
+
+        juce::FlexBox overdubFlex;
+        overdubFlex.flexDirection = juce::FlexBox::Direction::column;
+        overdubFlex.alignItems = juce::FlexBox::AlignItems::stretch;
+
+        overdubFlex.items.add (juce::FlexItem (overdubLevelKnob).withFlex (1.0f));
+        overdubFlex.items.add (juce::FlexItem (overdubLabel).withFlex (0.2f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+
+        mainRow.items.add (juce::FlexItem (overdubFlex).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
 
         mainRow.performLayout (bounds.toFloat());
     }
 
 private:
     int trackIndex;
+    bool isUpdatingFromEngine = false;
 
-    juce::ToggleButton normalizeButton;
+    juce::TextButton normalizeButton;
     juce::Slider overdubLevelKnob;
     juce::Slider existingAudioLevelKnob;
+    juce::Label overdubLabel;
+    juce::Label existingLabel;
 
     LooperEngine* looperEngine;
 
+    void timerCallback() override { updateFromEngine(); }
+
+    void updateFromEngine()
+    {
+        auto* track = looperEngine->getTrackByIndex (trackIndex);
+        if (! track) return;
+
+        isUpdatingFromEngine = true;
+
+        normalizeButton.setToggleState (track->isOutputNormalized(), juce::dontSendNotification);
+
+        double newGain = track->getOverdubGainNew();
+        double oldGain = track->getOverdubGainOld();
+
+        if (std::abs (overdubLevelKnob.getValue() - newGain / 2.0) > 0.01)
+            overdubLevelKnob.setValue (newGain / 2.0, juce::dontSendNotification);
+
+        if (std::abs (existingAudioLevelKnob.getValue() - oldGain / 2.0) > 0.01)
+            existingAudioLevelKnob.setValue (oldGain / 2.0, juce::dontSendNotification);
+
+        isUpdatingFromEngine = false;
+    }
+
+    /// Sends a command to the engine using MIDI protocol.
+    /// This ensures UI commands go through the same validation,
+    /// logging, and dispatch path as external MIDI controllers.
+    void sendCommandToEngine (const int noteNumber, const bool isNoteOn = true)
+    {
+        juce::MidiBuffer midiBuffer;
+        juce::MidiMessage msg = isNoteOn ? juce::MidiMessage::noteOn (1, noteNumber, (juce::uint8) 100)
+                                         : juce::MidiMessage::noteOff (1, noteNumber);
+
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
+        midiBuffer.addEvent (msg, 0);
+        looperEngine->handleMidiCommand (midiBuffer);
+    }
+
+    /// Sends a command to the engine using MIDI protocol.
+    /// This ensures UI commands go through the same validation,
+    /// logging, and dispatch path as external MIDI controllers.
+    void sendCommandToEngine (const int controllerNumber, const int value)
+    {
+        juce::MidiBuffer midiBuffer;
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, value), 0);
+        looperEngine->handleMidiCommand (midiBuffer);
+    }
+
+    /// Sends a command to the engine using MIDI protocol.
+    /// This ensures UI commands go through the same validation,
+    /// logging, and dispatch path as external MIDI controllers.
+    void sendCommandToEngine (const int controllerNumber, const double value)
+    {
+        juce::MidiBuffer midiBuffer;
+
+        int ccValue = (int) std::clamp (value * 127.0, 0.0, 127.0);
+
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, ccValue), 0);
+        looperEngine->handleMidiCommand (midiBuffer);
+    }
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VolumesComponent)
 };

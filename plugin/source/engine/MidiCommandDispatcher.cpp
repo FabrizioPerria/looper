@@ -67,7 +67,7 @@ static void executeSetTrackVolume (LooperEngine& engine, int trackIndex, int val
 static void executeSetPlaybackSpeed (LooperEngine& engine, int trackIndex, int value)
 {
     float normalizedValue = (float) value / 127.0f;
-    float speed = 0.2f + (normalizedValue * 1.8f);
+    float speed = 0.5f + (normalizedValue * 1.5f);
     engine.setTrackPlaybackSpeed (trackIndex, speed);
 }
 static void executeSetOverdubGain (LooperEngine& engine, int trackIndex, int value)

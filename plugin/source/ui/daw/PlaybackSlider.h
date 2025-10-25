@@ -6,7 +6,7 @@ class PlaybackSpeedSlider : public juce::Slider
 public:
     PlaybackSpeedSlider()
     {
-        setRange (0.2, 2.0, 0.01);
+        setRange (0.5, 2.0, 0.01);
         setSkewFactorFromMidPoint (1.0); // Makes 1.0x appear in the middle
         setSliderStyle (juce::Slider::LinearHorizontal);
         setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);

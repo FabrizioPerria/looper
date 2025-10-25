@@ -79,25 +79,21 @@ public:
     bool isPlaybackDirectionForward() const { return playheadDirection > 0; }
     void setPlaybackDirectionForward()
     {
-        if (! isPlaybackDirectionForward())
-        {
-            playheadDirection = 1;
-        }
+        if (! isPlaybackDirectionForward()) playheadDirection = 1;
     }
     void setPlaybackDirectionBackward()
     {
-        if (isPlaybackDirectionForward())
-        {
-            playheadDirection = -1;
-        }
+        if (isPlaybackDirectionForward()) playheadDirection = -1;
     }
+    void setPlaybackPitchSemitones (const int semitones) { playbackPitchSemitones = semitones; }
+    int getPlaybackPitchSemitones() const { return playbackPitchSemitones; }
 
     void processPlayback (juce::AudioBuffer<float>& output, BufferManager& audioBufferManager, const int numSamples)
     {
         PERFETTO_FUNCTION();
         if (shouldNotPlayback (audioBufferManager.getLength(), numSamples)) return;
 
-        bool useFastPath = (std::abs (playbackSpeed - 1.0f) < 0.01f && isPlaybackDirectionForward());
+        bool useFastPath = (std::abs (playbackSpeed - 1.0f) < 0.01f && isPlaybackDirectionForward() && playbackPitchSemitones == 0);
 
         if (useFastPath)
         {
@@ -107,7 +103,7 @@ public:
                 {
                     st->setRate (1.0);
                     st->setTempo (1.0);
-                    st->setPitchSemiTones (0);
+                    st->setPitch (1.0);
                 }
             }
 
@@ -141,6 +137,7 @@ private:
 
     float previousSpeedMultiplier = 1.0f;
     float playbackSpeed = 1.0f;
+    int playbackPitchSemitones = 0;
 
     bool previousKeepPitch = false;
     bool wasUsingFastPath = true;
@@ -174,19 +171,18 @@ private:
         {
             auto& st = soundTouchProcessors[(size_t) ch];
 
+            st->setPitch (1.0);
             if (speedChanged || modeChanged)
             {
                 if (shouldKeepPitchWhenChangingSpeed())
                 {
                     st->setRate (1.0);            // Reset rate to neutral
                     st->setTempo (playbackSpeed); // Control speed via tempo
-                    st->setPitchSemiTones (0);    // Ensure no pitch shift
                 }
                 else
                 {
                     st->setTempo (1.0);          // Reset tempo to neutral
                     st->setRate (playbackSpeed); // Control speed via rate
-                    st->setPitchSemiTones (0);   // Ensure no pitch shift
                 }
             }
 

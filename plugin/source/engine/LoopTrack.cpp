@@ -55,16 +55,9 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
     PERFETTO_FUNCTION();
     if (shouldNotRecordInputBuffer (input, numSamples)) return;
 
-    // playbackSpeedBeforeRecording = playbackSpeed;
-    // playheadDirectionBeforeRecording = playheadDirection;
-
-    // setPlaybackDirectionForward();
-    // setPlaybackSpeed (1.0f);
-
     if (! isRecording)
     {
         isRecording = true;
-        // bufferManager.syncReadPositionToWritePosition();
         if (bufferManager.shouldOverdub()) undoManager.finalizeCopyAndPush (bufferManager.getLength());
     }
 
@@ -74,10 +67,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
                                                       input,
                                                       numSamples,
                                                       false);
-    if (fifoPreventedWrap)
-    {
-        finalizeLayer();
-    }
+    if (fifoPreventedWrap) finalizeLayer();
 }
 
 void LoopTrack::finalizeLayer()
@@ -92,12 +82,6 @@ void LoopTrack::finalizeLayer()
     volumeProcessor.applyCrossfade (audioBuffer, length);
 
     undoManager.stageCurrentBuffer (audioBuffer, length);
-
-    // setPlaybackSpeed (playbackSpeedBeforeRecording);
-    // if (playheadDirectionBeforeRecording == 1)
-    //     setPlaybackDirectionForward();
-    // else
-    //     setPlaybackDirectionBackward();
 }
 
 void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int numSamples)

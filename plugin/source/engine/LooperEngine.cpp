@@ -1,4 +1,5 @@
 #include "LooperEngine.h"
+#include "engine/LooperStateConfig.h"
 #include "engine/MidiCommandConfig.h"
 #include "engine/MidiCommandDispatcher.h"
 #include "profiler/PerfettoProfiler.h"
@@ -79,10 +80,6 @@ bool LooperEngine::trackHasContent() const
     auto* track = getActiveTrack();
     return track && track->getTrackLengthSamples() > 0;
 }
-
-LooperState LooperEngine::determineStateAfterRecording() const { return LooperState::Playing; }
-
-LooperState LooperEngine::determineStateAfterStop() const { return LooperState::Stopped; }
 
 void LooperEngine::switchToTrackImmediately (int trackIndex)
 {
@@ -202,20 +199,14 @@ void LooperEngine::stop()
     if (! activeTrack) return;
 
     if (StateConfig::isRecording (currentState))
-    {
-        transitionTo (determineStateAfterRecording());
-    }
+        transitionTo (LooperState::Playing);
     else if (StateConfig::isPlaying (currentState))
-    {
-        transitionTo (determineStateAfterStop());
-    }
+        transitionTo (LooperState::Stopped);
 }
 
 void LooperEngine::toggleRecord() { isRecording() ? stop() : record(); }
-
 void LooperEngine::togglePlay() { isPlaying() ? stop() : play(); }
 
-// Track selection
 void LooperEngine::selectTrack (int trackIndex)
 {
     PERFETTO_FUNCTION();
@@ -242,7 +233,6 @@ void LooperEngine::selectTrack (int trackIndex)
     scheduleTrackSwitch (trackIndex);
 }
 
-// Undo/Redo/Clear
 void LooperEngine::undo (int trackIndex)
 {
     PERFETTO_FUNCTION();
@@ -307,7 +297,6 @@ void LooperEngine::clear (int trackIndex)
     }
 }
 
-// Process block - THE CORE
 void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     PERFETTO_FUNCTION();
@@ -319,16 +308,9 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
 
     bool wasRecording = activeTrack->isCurrentlyRecording();
 
-    // Process pending actions
     processPendingActions();
-
-    // Create state context
     auto ctx = createStateContext (buffer);
-
-    // SINGLE LINE - delegate to state machine!
     stateMachine.processAudio (currentState, ctx);
-
-    // Update UI
     updateUIBridge (ctx, wasRecording);
 }
 

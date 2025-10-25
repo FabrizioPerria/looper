@@ -105,7 +105,7 @@ TEST_F (LoopTrackTimeManagementTest, ExtendedPlaybackAllSpeeds)
     recordTestLoop (10000, 0.5f);
 
     // Test extended playback at different speeds
-    float testSpeeds[] = { 0.2f, 0.5f, 1.0f, 1.5f, 2.0f };
+    float testSpeeds[] = { 0.5f, 1.0f, 1.5f, 2.0f };
 
     for (float speed : testSpeeds)
     {

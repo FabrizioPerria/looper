@@ -277,7 +277,7 @@ private:
 
         int ccValue = (int) std::clamp (value * 127.0, 0.0, 127.0);
 
-        if (controllerNumber == MidiNotes::PLAYBACK_SPEED_CC) ccValue = (int) (((value - 0.2) / 1.8) * 127.0);
+        if (controllerNumber == MidiNotes::PLAYBACK_SPEED_CC) ccValue = (int) (((value - 0.5) / 1.5) * 127.0);
 
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, ccValue), 0);

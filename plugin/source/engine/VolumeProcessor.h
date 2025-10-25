@@ -103,7 +103,7 @@ public:
         juce::FloatVectorOperations::addWithMultiply (dest, source, (float) overdubNewGain, (int) numSamples);
     }
 
-    void isNormalizingOutput (bool& outShouldNormalize) const { outShouldNormalize = shouldNormalizeOutput; }
+    bool isNormalizingOutput() const { return shouldNormalizeOutput; }
 
 private:
     float trackVolume = 1.0f;
