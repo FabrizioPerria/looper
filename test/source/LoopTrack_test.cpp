@@ -158,7 +158,9 @@ TEST (LoopTrackRecord, ProcessFullBlockCopiesInput)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
     track.setCrossFadeLength (0);
-    track.setOverdubGains (1.0, 1.0); // Disable normalization
+    track.setOverdubGainNew (1.0f);
+    track.setOverdubGainOld (1.0f);
+    track.toggleNormalizingOutput(); // Disable normalization for cleaner testing
 
     const int numSamples = 4;
     juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
@@ -969,7 +971,8 @@ TEST (LoopTrackOverdubGain, SetOverdubGains)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
-    track.setOverdubGains (0.7, 1.0);
+    track.setOverdubGainOld (0.7f);
+    track.setOverdubGainNew (1.0f);
 
     // Just verify it doesn't crash and can be used
     juce::AudioBuffer<float> input (numChannels, maxBlock);

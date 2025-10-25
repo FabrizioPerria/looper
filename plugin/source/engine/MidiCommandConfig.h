@@ -16,10 +16,13 @@ constexpr uint8_t MUTE_BUTTON = 68;
 constexpr uint8_t LOAD_BUTTON = 69;
 constexpr uint8_t REVERSE_BUTTON = 70;
 constexpr uint8_t KEEP_PITCH_BUTTON = 71;
+constexpr uint8_t VOLUME_NORMALIZE_BUTTON = 72;
 
 constexpr uint8_t TRACK_SELECT_CC = 102;
 constexpr uint8_t TRACK_VOLUME_CC = 7;
 constexpr uint8_t PLAYBACK_SPEED_CC = 1;
+constexpr uint8_t OVERDUB_LEVEL_CC = 103;
+constexpr uint8_t EXISTING_AUDIO_LEVEL_CC = 104;
 } // namespace MidiNotes
 
 // MIDI command IDs - enum for type safety
@@ -38,6 +41,7 @@ enum class MidiCommandId : uint8_t
     LoadFile,
     ToggleReverse,
     ToggleKeepPitch,
+    VolumeNormalize,
 
     COUNT
 };
@@ -68,6 +72,7 @@ constexpr std::array<MidiCommandId, MAX_MIDI_NOTES> buildNoteOnCommands()
     table[MidiNotes::LOAD_BUTTON] = MidiCommandId::LoadFile;
     table[MidiNotes::REVERSE_BUTTON] = MidiCommandId::ToggleReverse;
     table[MidiNotes::KEEP_PITCH_BUTTON] = MidiCommandId::ToggleKeepPitch;
+    table[MidiNotes::VOLUME_NORMALIZE_BUTTON] = MidiCommandId::VolumeNormalize;
 
     return table;
 }
@@ -116,7 +121,9 @@ constexpr CommandFlags COMMAND_FLAGS[static_cast<size_t>(MidiCommandId::COUNT)] 
     [(size_t)MidiCommandId::ToggleMute] = CommandFlags{true, true},
     [(size_t)MidiCommandId::LoadFile] = CommandFlags{true, false},
     [(size_t)MidiCommandId::ToggleReverse] = CommandFlags{true, true},
-    [(size_t)MidiCommandId::ToggleKeepPitch] = CommandFlags{true, true}};
+    [(size_t)MidiCommandId::ToggleKeepPitch] = CommandFlags{true, true},
+    [(size_t)MidiCommandId::VolumeNormalize] = CommandFlags{true, true},
+};
 
 constexpr bool needsTrackIndex(MidiCommandId cmd)
 {
@@ -127,4 +134,68 @@ constexpr bool canRunDuringRecording(MidiCommandId cmd)
 {
     return COMMAND_FLAGS[static_cast<size_t>(cmd)].canRunDuringRecording;
 }
+
 } // namespace MidiCommandMapping
+
+enum class MidiControlChangeId : uint8_t
+{
+    None = 0,
+    TrackSelect = MidiNotes::TRACK_SELECT_CC,
+    TrackVolume = MidiNotes::TRACK_VOLUME_CC,
+    PlaybackSpeed = MidiNotes::PLAYBACK_SPEED_CC,
+    OverdubLevel = MidiNotes::OVERDUB_LEVEL_CC,
+    ExistingAudioLevel = MidiNotes::EXISTING_AUDIO_LEVEL_CC,
+
+    COUNT
+};
+
+namespace MidiControlChangeMapping
+{
+constexpr size_t MAX_CC_NUMBERS = 128;
+// Build lookup table at compile time
+constexpr std::array<MidiControlChangeId, MAX_CC_NUMBERS> buildCCMapping()
+{
+    std::array<MidiControlChangeId, MAX_CC_NUMBERS> table{};
+    // Initialize all to COUNT (invalid)
+    for (size_t i = 0; i < MAX_CC_NUMBERS; ++i)
+        table[i] = MidiControlChangeId::COUNT;
+    // Map specific CC numbers to control change IDs
+    table[MidiNotes::TRACK_SELECT_CC] = MidiControlChangeId::TrackSelect;
+    table[MidiNotes::TRACK_VOLUME_CC] = MidiControlChangeId::TrackVolume;
+    table[MidiNotes::PLAYBACK_SPEED_CC] = MidiControlChangeId::PlaybackSpeed;
+    table[MidiNotes::OVERDUB_LEVEL_CC] = MidiControlChangeId::OverdubLevel;
+    table[MidiNotes::EXISTING_AUDIO_LEVEL_CC] = MidiControlChangeId::ExistingAudioLevel;
+    return table;
+}
+
+constexpr auto CC_MAPPING = buildCCMapping();
+constexpr MidiControlChangeId getControlChangeId(uint8_t ccNumber)
+{
+    return ccNumber < MAX_CC_NUMBERS ? CC_MAPPING[ccNumber] : MidiControlChangeId::COUNT;
+}
+
+struct CCFlags
+{
+    bool needsTrackIndex : 1;
+    bool isContinuous : 1;
+};
+
+constexpr CCFlags CONTROL_CHANGE_FLAGS[static_cast<size_t>(MidiControlChangeId::COUNT)] = {
+    [(size_t)MidiControlChangeId::TrackSelect] = CCFlags{true, true},
+    [(size_t)MidiControlChangeId::TrackVolume] = CCFlags{true, true},
+    [(size_t)MidiControlChangeId::PlaybackSpeed] = CCFlags{true, true},
+    [(size_t)MidiControlChangeId::OverdubLevel] = CCFlags{true, true},
+    [(size_t)MidiControlChangeId::ExistingAudioLevel] = CCFlags{true, true},
+};
+
+constexpr bool needsTrackIndex(MidiControlChangeId cc)
+{
+    return CONTROL_CHANGE_FLAGS[static_cast<size_t>(cc)].needsTrackIndex;
+}
+
+constexpr bool isContinuous(MidiControlChangeId cc)
+{
+    return CONTROL_CHANGE_FLAGS[static_cast<size_t>(cc)].isContinuous;
+}
+
+} // namespace MidiControlChangeMapping

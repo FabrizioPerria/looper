@@ -425,7 +425,11 @@ void LooperEngine::setOverdubGainsForTrack (int trackIndex, double oldGain, doub
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
     auto* track = getTrackByIndex (trackIndex);
-    if (track) track->setOverdubGains (oldGain, newGain);
+    if (track)
+    {
+        track->setOverdubGainNew (newGain);
+        track->setOverdubGainOld (oldGain);
+    }
 }
 
 void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex)
@@ -564,25 +568,10 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
             uint8_t cc = (uint8_t) m.getControllerNumber();
             uint8_t value = (uint8_t) m.getControllerValue();
 
-            if (cc == MidiNotes::TRACK_SELECT_CC)
+            MidiControlChangeId ccId = MidiControlChangeMapping::getControlChangeId (cc);
+            if (ccId != MidiControlChangeId::None)
             {
-                targetTrack = juce::jlimit (0, numTracks - 1, value % numTracks);
-                selectTrack (targetTrack);
-                continue;
-            }
-
-            if (cc == MidiNotes::TRACK_VOLUME_CC)
-            {
-                float volume = (float) value / 127.0f;
-                setTrackVolume (targetTrack, volume);
-                continue;
-            }
-
-            if (cc == MidiNotes::PLAYBACK_SPEED_CC)
-            {
-                float normalizedValue = (float) value / 127.0f;
-                float speed = 0.2f + (normalizedValue * 1.8f);
-                setTrackPlaybackSpeed (targetTrack, speed);
+                MidiCommandDispatcher::dispatch (ccId, *this, targetTrack, value);
                 continue;
             }
         }

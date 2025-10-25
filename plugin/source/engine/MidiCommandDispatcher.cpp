@@ -7,37 +7,27 @@
 namespace CommandExecutors
 {
 static void executeToggleRecord (LooperEngine& engine, int) { engine.toggleRecord(); }
-
 static void executeTogglePlay (LooperEngine& engine, int) { engine.togglePlay(); }
-
 static void executeUndo (LooperEngine& engine, int trackIndex) { engine.undo (trackIndex); }
-
 static void executeRedo (LooperEngine& engine, int trackIndex) { engine.redo (trackIndex); }
-
 static void executeClear (LooperEngine& engine, int trackIndex) { engine.clear (trackIndex); }
-
 static void executeNextTrack (LooperEngine& engine, int) { engine.selectNextTrack(); }
-
 static void executePrevTrack (LooperEngine& engine, int) { engine.selectPreviousTrack(); }
-
 static void executeToggleSolo (LooperEngine& engine, int trackIndex)
 {
     auto* track = engine.getTrackByIndex (trackIndex);
     if (track) engine.setTrackSoloed (trackIndex, ! track->isSoloed());
 }
-
 static void executeToggleMute (LooperEngine& engine, int trackIndex)
 {
     auto* track = engine.getTrackByIndex (trackIndex);
     if (track) engine.setTrackMuted (trackIndex, ! track->isMuted());
 }
-
 static void executeLoadFile (LooperEngine& engine, int trackIndex)
 {
     juce::File defaultFile = juce::File::getSpecialLocation (juce::File::userDesktopDirectory).getChildFile ("backing.wav");
     engine.loadWaveFileToTrack (defaultFile, trackIndex);
 }
-
 static void executeToggleReverse (LooperEngine& engine, int trackIndex)
 {
     auto* track = engine.getTrackByIndex (trackIndex);
@@ -49,17 +39,54 @@ static void executeToggleReverse (LooperEngine& engine, int trackIndex)
             track->setPlaybackDirectionForward();
     }
 }
-
 static void executeToggleKeepPitch (LooperEngine& engine, int trackIndex)
 {
     bool current = engine.getKeepPitchWhenChangingSpeed (trackIndex);
     engine.setKeepPitchWhenChangingSpeed (trackIndex, ! current);
 }
-
-static void executeNone (LooperEngine&, int)
+static void executeVolumeNormalize (LooperEngine& engine, int trackIndex)
 {
-    // No-op
+    auto* track = engine.getTrackByIndex (trackIndex);
+    if (track)
+    {
+        track->toggleNormalizingOutput();
+    }
 }
+
+static void executeSelectTrack (LooperEngine& engine, int, int value)
+{
+    int numTracks = engine.getNumTracks();
+    int targetTrack = juce::jlimit (0, numTracks - 1, value % numTracks);
+    engine.selectTrack (targetTrack);
+}
+static void executeSetTrackVolume (LooperEngine& engine, int trackIndex, int value)
+{
+    float volume = (float) value / 127.0f;
+    engine.setTrackVolume (trackIndex, volume);
+}
+static void executeSetPlaybackSpeed (LooperEngine& engine, int trackIndex, int value)
+{
+    float normalizedValue = (float) value / 127.0f;
+    float speed = 0.2f + (normalizedValue * 1.8f);
+    engine.setTrackPlaybackSpeed (trackIndex, speed);
+}
+static void executeSetOverdubGain (LooperEngine& engine, int trackIndex, int value)
+{
+    float normalizedValue = (float) value / 127.0f;
+    double gain = juce::jmap (normalizedValue, 0.0f, 2.0f);
+    auto* track = engine.getTrackByIndex (trackIndex);
+    if (track) track->setOverdubGainNew (gain);
+}
+static void executeSetOldOverdubGain (LooperEngine& engine, int trackIndex, int value)
+{
+    float normalizedValue = (float) value / 127.0f;
+    double gain = juce::jmap (normalizedValue, 0.0f, 2.0f);
+    auto* track = engine.getTrackByIndex (trackIndex);
+    if (track) track->setOverdubGainOld (gain);
+}
+
+static void executeNone (LooperEngine&, int) {}
+static void executeNone (LooperEngine&, int, int) {}
 } // namespace CommandExecutors
 
 const CommandFunc COMMAND_DISPATCH_TABLE[(size_t) MidiCommandId::COUNT] = {
@@ -75,7 +102,8 @@ const CommandFunc COMMAND_DISPATCH_TABLE[(size_t) MidiCommandId::COUNT] = {
     [(size_t) MidiCommandId::ToggleMute] = CommandExecutors::executeToggleMute,
     [(size_t) MidiCommandId::LoadFile] = CommandExecutors::executeLoadFile,
     [(size_t) MidiCommandId::ToggleReverse] = CommandExecutors::executeToggleReverse,
-    [(size_t) MidiCommandId::ToggleKeepPitch] = CommandExecutors::executeToggleKeepPitch
+    [(size_t) MidiCommandId::ToggleKeepPitch] = CommandExecutors::executeToggleKeepPitch,
+    [(size_t) MidiCommandId::VolumeNormalize] = CommandExecutors::executeVolumeNormalize,
 };
 
 void MidiCommandDispatcher::dispatch (MidiCommandId commandId, LooperEngine& engine, int trackIndex)
@@ -83,4 +111,20 @@ void MidiCommandDispatcher::dispatch (MidiCommandId commandId, LooperEngine& eng
     if (commandId == MidiCommandId::None || commandId >= MidiCommandId::COUNT) return;
 
     COMMAND_DISPATCH_TABLE[static_cast<size_t> (commandId)](engine, trackIndex);
+}
+
+const ControlChangeFunc COMMAND_CONTROL_CHANGE_DISPATCH_TABLE[static_cast<size_t> (MidiControlChangeId::COUNT)] = {
+    [(size_t) MidiControlChangeId::None] = CommandExecutors::executeNone,
+    [(size_t) MidiControlChangeId::TrackSelect] = CommandExecutors::executeSelectTrack,
+    [(size_t) MidiControlChangeId::TrackVolume] = CommandExecutors::executeSetTrackVolume,
+    [(size_t) MidiControlChangeId::PlaybackSpeed] = CommandExecutors::executeSetPlaybackSpeed,
+    [(size_t) MidiControlChangeId::OverdubLevel] = CommandExecutors::executeSetOverdubGain,
+    [(size_t) MidiControlChangeId::ExistingAudioLevel] = CommandExecutors::executeSetOldOverdubGain,
+};
+
+void MidiCommandDispatcher::dispatch (MidiControlChangeId commandId, LooperEngine& engine, int trackIndex, int param)
+{
+    if (commandId == MidiControlChangeId::None || commandId >= MidiControlChangeId::COUNT) return;
+
+    COMMAND_CONTROL_CHANGE_DISPATCH_TABLE[static_cast<size_t> (commandId)](engine, trackIndex, param);
 }

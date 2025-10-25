@@ -4,12 +4,14 @@
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/WaveformComponent.h"
 #include "ui/daw/PlaybackSlider.h"
+#include "ui/daw/VolumesComponent.h"
 #include <JuceHeader.h>
 
 class DawTrackComponent : public juce::Component, private juce::Timer
 {
 public:
-    DawTrackComponent (LooperEngine* engine, int trackIdx, AudioToUIBridge* bridge) : trackIndex (trackIdx), looperEngine (engine)
+    DawTrackComponent (LooperEngine* engine, int trackIdx, AudioToUIBridge* bridge)
+        : trackIndex (trackIdx), looperEngine (engine), volumesComponent (engine, trackIdx, bridge)
     {
         trackLabel.setText ("Track " + juce::String (trackIdx + 1), juce::dontSendNotification);
         trackLabel.setFont (LooperTheme::Fonts::getBoldFont (11.0f));
@@ -80,6 +82,9 @@ public:
         speedFader.setValue (1.0);
         speedFader.onValueChange = [this]() { sendCommandToEngine (MidiNotes::PLAYBACK_SPEED_CC, speedFader.getValue()); };
         addAndMakeVisible (speedFader);
+
+        volumesComponent.setComponentID ("volumesComponent");
+        addAndMakeVisible (volumesComponent);
 
         updateControlsFromEngine();
         startTimerHz (10);
@@ -165,7 +170,7 @@ public:
         muteSoloRow.flexDirection = juce::FlexBox::Direction::row;
         muteSoloRow.items.add (juce::FlexItem (soloButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
         muteSoloRow.items.add (juce::FlexItem (muteButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        muteSoloRow.items.add (juce::FlexItem().withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        muteSoloRow.items.add (juce::FlexItem (volumesComponent).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         muteSoloRow.items.add (juce::FlexItem (volumeFader).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
         mainRow.items.add (juce::FlexItem (muteSoloRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
 
@@ -233,6 +238,8 @@ private:
     juce::TextButton reverseButton;
     juce::TextButton keepPitchButton;
     PlaybackSpeedSlider speedFader;
+
+    VolumesComponent volumesComponent;
 
     LooperEngine* looperEngine;
 

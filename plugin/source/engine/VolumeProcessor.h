@@ -60,21 +60,11 @@ public:
         }
     }
 
-    void setOverdubGains (const double oldGain, const double newGain)
-    {
-        PERFETTO_FUNCTION();
-        overdubNewGain = std::clamp (newGain, 0.0, 2.0);
-        overdubOldGain = std::clamp (oldGain, 0.0, 2.0);
-        shouldNormalizeOutput = false;
-    }
+    void setOverdubNewGain (const double newGain) { overdubNewGain = std::clamp (newGain, 0.0, 2.0); }
 
-    void enableOutputNormalization()
-    {
-        PERFETTO_FUNCTION();
-        overdubNewGain = 1.0f;
-        overdubOldGain = 1.0f;
-        shouldNormalizeOutput = true;
-    }
+    void setOverdubOldGain (const double newGain) { overdubOldGain = std::clamp (newGain, 0.0, 2.0); }
+
+    void toggleOutputNormalization() { shouldNormalizeOutput = ! shouldNormalizeOutput; }
 
     double getOverdubNewGain() const { return overdubNewGain; }
     double getOverdubOldGain() const { return overdubOldGain; }
@@ -112,6 +102,8 @@ public:
         juce::FloatVectorOperations::multiply (dest, shouldOverdub ? (float) overdubOldGain : 0, (int) numSamples);
         juce::FloatVectorOperations::addWithMultiply (dest, source, (float) overdubNewGain, (int) numSamples);
     }
+
+    void isNormalizingOutput (bool& outShouldNormalize) const { outShouldNormalize = shouldNormalizeOutput; }
 
 private:
     float trackVolume = 1.0f;

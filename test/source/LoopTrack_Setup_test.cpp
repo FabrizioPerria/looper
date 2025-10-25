@@ -1,5 +1,5 @@
-#include <gtest/gtest.h>
 #include "engine/LoopTrack.h"
+#include <gtest/gtest.h>
 
 namespace audio_plugin_test
 {
@@ -58,16 +58,16 @@ TEST_F (LoopTrackSetupTest, StateReset)
     const int maxBlock = 512;
     const int numChannels = 2;
     const int undoLayers = 1;
-    
+
     // Create a loop first
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
     juce::AudioBuffer<float> input (numChannels, maxBlock);
     input.clear();
     track.processRecord (input, maxBlock);
     track.finalizeLayer();
-    
+
     EXPECT_GT (track.getTrackLengthSamples(), 0);
-    
+
     // Re-prepare should reset
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
     EXPECT_EQ (track.getTrackLengthSamples(), 0);
@@ -206,10 +206,10 @@ TEST_F (LoopTrackSetupTest, SetAndGetVolume)
 
     track.setTrackVolume (0.5f);
     EXPECT_FLOAT_EQ (track.getTrackVolume(), 0.5f);
-    
+
     track.setTrackVolume (0.0f);
     EXPECT_FLOAT_EQ (track.getTrackVolume(), 0.0f);
-    
+
     track.setTrackVolume (1.0f);
     EXPECT_FLOAT_EQ (track.getTrackVolume(), 1.0f);
 }
@@ -224,11 +224,11 @@ TEST_F (LoopTrackSetupTest, MuteAndUnmute)
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
     EXPECT_FALSE (track.isMuted());
-    
+
     track.setMuted (true);
     EXPECT_TRUE (track.isMuted());
     EXPECT_FLOAT_EQ (track.getTrackVolume(), 0.0f);
-    
+
     track.setMuted (false);
     EXPECT_FALSE (track.isMuted());
     EXPECT_GT (track.getTrackVolume(), 0.0f);
@@ -244,10 +244,10 @@ TEST_F (LoopTrackSetupTest, SoloState)
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
     EXPECT_FALSE (track.isSoloed());
-    
+
     track.setSoloed (true);
     EXPECT_TRUE (track.isSoloed());
-    
+
     track.setSoloed (false);
     EXPECT_FALSE (track.isSoloed());
 }
@@ -262,7 +262,7 @@ TEST_F (LoopTrackSetupTest, SetCrossfadeLength)
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
     track.setCrossFadeLength (1000);
-    
+
     // Record and finalize to apply crossfade
     juce::AudioBuffer<float> input (numChannels, 10000);
     input.clear();
@@ -274,7 +274,7 @@ TEST_F (LoopTrackSetupTest, SetCrossfadeLength)
     }
     track.processRecord (input, 10000);
     track.finalizeLayer();
-    
+
     // Just verify it doesn't crash
     EXPECT_GT (track.getTrackLengthSamples(), 0);
 }
@@ -288,8 +288,10 @@ TEST_F (LoopTrackSetupTest, SetOverdubGains)
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
 
-    track.setOverdubGains (0.7, 1.0);
-    
+    track.setOverdubGainOld (0.7f);
+    track.setOverdubGainNew (1.0f);
+    track.toggleNormalizingOutput();
+
     // Just verify it doesn't crash and can be used
     juce::AudioBuffer<float> input (numChannels, maxBlock);
     input.clear();
@@ -315,9 +317,9 @@ TEST_F (LoopTrackSetupTest, ReleaseResourcesClearsEverything)
     input.clear();
     track.processRecord (input, maxBlock);
     track.finalizeLayer();
-    
+
     track.releaseResources();
-    
+
     EXPECT_EQ (track.getAudioBuffer()->getNumSamples(), 0);
     EXPECT_EQ (track.getTrackLengthSamples(), 0);
 }
@@ -329,11 +331,11 @@ TEST_F (LoopTrackSetupTest, ReleaseAndReprepare)
     const int maxBlock = 512;
     const int numChannels = 2;
     const int undoLayers = 1;
-    
+
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
     track.releaseResources();
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
-    
+
     EXPECT_GT (track.getAudioBuffer()->getNumSamples(), 0);
 }
 
@@ -356,7 +358,7 @@ TEST_F (LoopTrackSetupTest, GetLoopDurationSeconds)
     input.clear();
     track.processRecord (input, 48000);
     track.finalizeLayer();
-    
+
     int duration = track.getLoopDurationSeconds();
     EXPECT_EQ (duration, 1);
 }
@@ -369,7 +371,7 @@ TEST_F (LoopTrackSetupTest, GetAvailableTrackSize)
     const int numChannels = 2;
     const int undoLayers = 1;
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
-    
+
     int availableSize = track.getAvailableTrackSizeSamples();
     EXPECT_GT (availableSize, 0);
     EXPECT_GE (availableSize, (int) sr * maxSeconds);

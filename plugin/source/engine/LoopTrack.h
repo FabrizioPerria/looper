@@ -57,7 +57,10 @@ public:
     float getTrackVolume() const { return volumeProcessor.getTrackVolume(); }
     void setTrackVolume (const float newVolume) { volumeProcessor.setTrackVolume (newVolume); }
 
-    void setOverdubGains (const double oldGain, const double newGain) { volumeProcessor.setOverdubGains (oldGain, newGain); }
+    void toggleNormalizingOutput() { volumeProcessor.toggleOutputNormalization(); }
+
+    void setOverdubGainNew (const double newGain) { volumeProcessor.setOverdubNewGain (newGain); }
+    void setOverdubGainOld (const double oldGain) { volumeProcessor.setOverdubOldGain (oldGain); }
 
     bool isSoloed() const { return volumeProcessor.isSoloed(); }
     void setSoloed (const bool shouldBeSoloed) { volumeProcessor.setSoloed (shouldBeSoloed); }
