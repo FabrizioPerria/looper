@@ -1,6 +1,6 @@
 #pragma once
 #include "engine/LooperEngine.h"
-#include "engine/midiMappings.h"
+#include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/WaveformComponent.h"
 #include "ui/daw/PlaybackSlider.h"
@@ -22,19 +22,19 @@ public:
 
         undoButton.setButtonText ("UNDO");
         undoButton.setComponentID ("undo");
-        undoButton.onClick = [this]() { sendMidiMessageToEngine (UNDO_BUTTON_MIDI_NOTE, NOTE_ON); };
+        undoButton.onClick = [this]() { sendCommandToEngine (MidiNotes::UNDO_BUTTON); };
         addAndMakeVisible (undoButton);
 
         redoButton.setButtonText ("REDO");
         redoButton.setComponentID ("redo");
-        redoButton.onClick = [this]() { sendMidiMessageToEngine (REDO_BUTTON_MIDI_NOTE, NOTE_ON); };
+        redoButton.onClick = [this]() { sendCommandToEngine (MidiNotes::REDO_BUTTON); };
         addAndMakeVisible (redoButton);
 
         clearButton.setButtonText ("CLEAR");
         clearButton.setComponentID ("clear");
         clearButton.onClick = [this]()
         {
-            sendMidiMessageToEngine (CLEAR_BUTTON_MIDI_NOTE, NOTE_ON);
+            sendCommandToEngine (MidiNotes::CLEAR_BUTTON);
             waveformDisplay.clearTrack();
         };
         addAndMakeVisible (clearButton);
@@ -43,42 +43,42 @@ public:
         volumeFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
         volumeFader.setRange (0.0, 1.0, 0.01);
         volumeFader.setValue (0.75);
-        volumeFader.onValueChange = [this]() { sendMidiMessageToEngine (TRACK_VOLUME_CC, volumeFader.getValue()); };
+        volumeFader.onValueChange = [this]() { sendCommandToEngine (MidiNotes::TRACK_VOLUME_CC, volumeFader.getValue()); };
         addAndMakeVisible (volumeFader);
 
         muteButton.setButtonText ("MUTE");
         muteButton.setComponentID ("mute");
         muteButton.setClickingTogglesState (true);
-        muteButton.onClick = [this]() { sendMidiMessageToEngine (MUTE_BUTTON_MIDI_NOTE, NOTE_ON); };
+        muteButton.onClick = [this]() { sendCommandToEngine (MidiNotes::MUTE_BUTTON); };
         addAndMakeVisible (muteButton);
 
         soloButton.setButtonText ("SOLO");
         soloButton.setComponentID ("solo");
         soloButton.setClickingTogglesState (true);
-        soloButton.onClick = [this]() { sendMidiMessageToEngine (SOLO_BUTTON_MIDI_NOTE, NOTE_ON); };
+        soloButton.onClick = [this]() { sendCommandToEngine (MidiNotes::SOLO_BUTTON); };
         addAndMakeVisible (soloButton);
 
         // Create accent bar component
         accentBar.setInterceptsMouseClicks (true, false);
-        accentBar.onClick = [this]() { sendMidiMessageToEngine (TRACK_SELECT_CC, trackIndex); };
+        accentBar.onClick = [this]() { sendCommandToEngine (MidiNotes::TRACK_SELECT_CC, trackIndex); };
         addAndMakeVisible (accentBar);
 
         reverseButton.setButtonText ("REV");
         reverseButton.setComponentID ("reverse");
         reverseButton.setClickingTogglesState (true);
-        reverseButton.onClick = [this]() { sendMidiMessageToEngine (REVERSE_BUTTON_MIDI_NOTE, NOTE_ON); };
+        reverseButton.onClick = [this]() { sendCommandToEngine (MidiNotes::REVERSE_BUTTON); };
         addAndMakeVisible (reverseButton);
 
         keepPitchButton.setButtonText ("PITCH");
         keepPitchButton.setComponentID ("keepPitch");
         keepPitchButton.setClickingTogglesState (true);
-        keepPitchButton.onClick = [this]() { sendMidiMessageToEngine (KEEP_PITCH_BUTTON_MIDI_NOTE, NOTE_ON); };
+        keepPitchButton.onClick = [this]() { sendCommandToEngine (MidiNotes::KEEP_PITCH_BUTTON); };
         addAndMakeVisible (keepPitchButton);
 
         speedFader.setSliderStyle (juce::Slider::LinearHorizontal);
         speedFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
         speedFader.setValue (1.0);
-        speedFader.onValueChange = [this]() { sendMidiMessageToEngine (PLAYBACK_SPEED_CC, speedFader.getValue()); };
+        speedFader.onValueChange = [this]() { sendCommandToEngine (MidiNotes::PLAYBACK_SPEED_CC, speedFader.getValue()); };
         addAndMakeVisible (speedFader);
 
         updateControlsFromEngine();
@@ -236,34 +236,43 @@ private:
 
     LooperEngine* looperEngine;
 
-    void sendMidiMessageToEngine (const int noteNumber, const bool isNoteOn)
+    /// Sends a command to the engine using MIDI protocol.
+    /// This ensures UI commands go through the same validation,
+    /// logging, and dispatch path as external MIDI controllers.
+    void sendCommandToEngine (const int noteNumber, const bool isNoteOn = true)
     {
         juce::MidiBuffer midiBuffer;
         juce::MidiMessage msg = isNoteOn ? juce::MidiMessage::noteOn (1, noteNumber, (juce::uint8) 100)
                                          : juce::MidiMessage::noteOff (1, noteNumber);
 
-        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (msg, 0);
         looperEngine->handleMidiCommand (midiBuffer);
     }
 
-    void sendMidiMessageToEngine (const int controllerNumber, const int value)
+    /// Sends a command to the engine using MIDI protocol.
+    /// This ensures UI commands go through the same validation,
+    /// logging, and dispatch path as external MIDI controllers.
+    void sendCommandToEngine (const int controllerNumber, const int value)
     {
         juce::MidiBuffer midiBuffer;
-        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, value), 0);
         looperEngine->handleMidiCommand (midiBuffer);
     }
 
-    void sendMidiMessageToEngine (const int controllerNumber, const double value)
+    /// Sends a command to the engine using MIDI protocol.
+    /// This ensures UI commands go through the same validation,
+    /// logging, and dispatch path as external MIDI controllers.
+    void sendCommandToEngine (const int controllerNumber, const double value)
     {
         juce::MidiBuffer midiBuffer;
 
         int ccValue = (int) std::clamp (value * 127.0, 0.0, 127.0);
 
-        if (controllerNumber == PLAYBACK_SPEED_CC) ccValue = (int) (((value - 0.2) / 1.8) * 127.0);
+        if (controllerNumber == MidiNotes::PLAYBACK_SPEED_CC) ccValue = (int) (((value - 0.2) / 1.8) * 127.0);
 
-        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, TRACK_SELECT_CC, trackIndex), 0);
+        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, ccValue), 0);
         looperEngine->handleMidiCommand (midiBuffer);
     }

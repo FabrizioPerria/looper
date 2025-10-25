@@ -37,6 +37,7 @@ public:
 
     void releaseResources()
     {
+        clear();
         interpolationBuffer->setSize (0, 0, false, false, true);
         soundTouchProcessors.clear();
         zeroBuffer.clear();

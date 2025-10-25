@@ -26,6 +26,9 @@ TEST_F (LooperEngineTest, TransportStateTransitions)
     EXPECT_EQ (engine.getState(), LooperState::Recording);
 
     engine.toggleRecord();
+    EXPECT_EQ (engine.getState(), LooperState::Playing);
+
+    engine.stop();
     EXPECT_EQ (engine.getState(), LooperState::Stopped);
 }
 
@@ -104,9 +107,11 @@ TEST_F (LooperEngineTest, UndoAndClear)
     engine.record();
     engine.processBlock (buffer, midiMessages);
     engine.stop();
+    EXPECT_EQ (engine.getState(), LooperState::Playing);
 
     // Test undo
     engine.undo (-1);
+    EXPECT_EQ (engine.getState(), LooperState::Playing);
 
     // Test clear
     engine.clear (-1);

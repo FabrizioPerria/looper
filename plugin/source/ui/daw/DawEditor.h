@@ -1,6 +1,6 @@
 #pragma once
 #include "DawTrackComponent.h"
-#include "engine/midiMappings.h"
+#include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
@@ -18,20 +18,20 @@ public:
 
         recordButton.setButtonText ("REC");
         recordButton.setClickingTogglesState (true);
-        recordButton.onClick = [this]() { sendMidiMessageToEngine (RECORD_BUTTON_MIDI_NOTE, NOTE_ON); };
+        recordButton.onClick = [this]() { sendCommandToEngine (MidiNotes::TOGGLE_RECORD_BUTTON); };
         addAndMakeVisible (recordButton);
 
         playButton.setButtonText ("PLAY");
         playButton.setClickingTogglesState (true);
-        playButton.onClick = [this]() { sendMidiMessageToEngine (TOGGLE_PLAY_BUTTON_MIDI_NOTE, NOTE_ON); };
+        playButton.onClick = [this]() { sendCommandToEngine (MidiNotes::TOGGLE_PLAY_BUTTON); };
         addAndMakeVisible (playButton);
 
         prevButton.setButtonText ("PREV");
-        prevButton.onClick = [this]() { sendMidiMessageToEngine (PREV_TRACK_MIDI_NOTE, NOTE_ON); };
+        prevButton.onClick = [this]() { sendCommandToEngine (MidiNotes::PREV_TRACK); };
         addAndMakeVisible (prevButton);
 
         nextButton.setButtonText ("NEXT");
-        nextButton.onClick = [this]() { sendMidiMessageToEngine (NEXT_TRACK_MIDI_NOTE, NOTE_ON); };
+        nextButton.onClick = [this]() { sendCommandToEngine (MidiNotes::NEXT_TRACK); };
         addAndMakeVisible (nextButton);
 
         startTimerHz (10);
@@ -109,7 +109,7 @@ private:
     juce::TextButton nextButton;
     juce::TextButton prevButton;
 
-    void sendMidiMessageToEngine (const int noteNumber, const bool isNoteOn)
+    void sendCommandToEngine (const int noteNumber, const bool isNoteOn = true)
     {
         juce::MidiBuffer midiBuffer;
         juce::MidiMessage msg = isNoteOn ? juce::MidiMessage::noteOn (1, noteNumber, (juce::uint8) 100)
