@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/MidiCommandConfig.h"
+#include "ui/colors/TokyoNight.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
@@ -40,6 +41,14 @@ public:
         playButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
         prevButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
         nextButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto bounds = getLocalBounds();
+        g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
+        g.drawLine (bounds.getX(), bounds.getY() + 8, bounds.getX(), bounds.getBottom() - 8, 1.0f);
+        g.drawLine (bounds.getRight() - 1, bounds.getY() + 8, bounds.getRight() - 1, bounds.getBottom() - 8, 1.0f);
     }
 
 private:

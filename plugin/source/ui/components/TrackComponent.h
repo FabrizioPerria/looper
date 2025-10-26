@@ -3,8 +3,10 @@
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/AccentBarComponent.h"
+#include "ui/components/LevelComponent.h"
 #include "ui/components/PlaybackSpeedComponent.h"
-#include "ui/components/VolumeKnobComponent.h"
+#include "ui/components/TrackEditComponent.h"
+#include "ui/components/VolumesComponent.h"
 #include "ui/components/WaveformComponent.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
@@ -19,10 +21,12 @@ public:
         : trackIndex (trackIdx)
         , waveformDisplay (audioBridge)
         , accentBar (midiCommandDispatcher, trackIdx, audioBridge, selectionBridge)
-        , volumeFader (midiCommandDispatcher, trackIdx)
+        , volumeFader (midiCommandDispatcher, trackIdx, "VOLUME", MidiNotes::TRACK_VOLUME_CC)
         , speedFader (midiCommandDispatcher, trackIdx)
         , midiDispatcher (midiCommandDispatcher)
         , bridge (audioBridge)
+        , trackEditComponent (midiCommandDispatcher, trackIdx)
+        , volumesComponent (midiCommandDispatcher, trackIdx)
     {
         addAndMakeVisible (waveformDisplay);
 
@@ -54,6 +58,8 @@ public:
 
         addAndMakeVisible (accentBar);
         addAndMakeVisible (speedFader);
+        addAndMakeVisible (trackEditComponent);
+        addAndMakeVisible (volumesComponent);
 
         // pitchFader.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         // pitchFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
@@ -74,15 +80,13 @@ public:
 
     void updateControlsFromEngine()
     {
-        float currentVolume;
-        bridge->getCurrentVolume (currentVolume);
+        float currentVolume = midiDispatcher->getCurrentVolume (trackIndex);
         if (std::abs (volumeFader.getValue() - currentVolume) > 0.001)
         {
             volumeFader.setValue (currentVolume, juce::dontSendNotification);
         }
 
-        bool currentMuted;
-        bridge->getIsMuted (currentMuted);
+        bool currentMuted = midiDispatcher->isMuted (trackIndex);
         if (muteButton.getToggleState() != currentMuted)
         {
             muteButton.setToggleState (currentMuted, juce::dontSendNotification);
@@ -147,8 +151,12 @@ public:
         juce::FlexBox controlsRow;
         controlsRow.flexDirection = juce::FlexBox::Direction::row;
         controlsRow.items.add (juce::FlexItem (muteSoloRow).withFlex (0.5f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
-        controlsRow.items.add (juce::FlexItem().withFlex (1.5f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
-        controlsRow.items.add (juce::FlexItem (pitchSpeedRow).withFlex (0.5f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+        controlsRow.items.add (juce::FlexItem().withFlex (0.1f).withMargin (juce::FlexItem::Margin (2, 0, 2, 0)));
+        controlsRow.items.add (juce::FlexItem (trackEditComponent).withFlex (0.5f).withMargin (juce::FlexItem::Margin (2, 0, 2, 0)));
+        controlsRow.items.add (juce::FlexItem().withFlex (0.1f).withMargin (juce::FlexItem::Margin (2, 0, 2, 0)));
+        controlsRow.items.add (juce::FlexItem (volumesComponent).withFlex (0.5f).withMargin (juce::FlexItem::Margin (2, 0, 2, 0)));
+        controlsRow.items.add (juce::FlexItem().withFlex (0.1f).withMargin (juce::FlexItem::Margin (2, 0, 2, 0)));
+        controlsRow.items.add (juce::FlexItem (pitchSpeedRow).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 2, 0)));
 
         mainRow.items.add (juce::FlexItem (controlsRow).withFlex (0.3f));
 
@@ -164,11 +172,14 @@ private:
     juce::TextButton lockPitchButton;
     juce::TextButton reverseButton;
     AccentBar accentBar;
-    VolumeKnobComponent volumeFader;
+    LevelComponent volumeFader;
     PlaybackSpeedComponent speedFader;
+    TrackEditComponent trackEditComponent;
+
+    VolumesComponent volumesComponent;
+
     juce::Slider pitchFader;
 
-    // LooperEngine* looperEngine;
     MidiCommandDispatcher* midiDispatcher;
     AudioToUIBridge* bridge;
 

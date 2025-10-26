@@ -55,6 +55,16 @@ public:
 
     LooperState getCurrentState() const { return looperEngine->getState(); }
 
+    LoopTrack* getTrackByIndex (int trackIndex) const { return looperEngine->getTrackByIndex (trackIndex); }
+
+    float getCurrentVolume (int trackIndex) const { return looperEngine->getTrackVolume (trackIndex); }
+
+    bool isMuted (int trackIndex) const { return looperEngine->isTrackMuted (trackIndex); }
+
+    int getPendingTrackIndex() const { return looperEngine->getPendingTrackIndex(); }
+
+    int getActiveTrackIndex() const { return looperEngine->getActiveTrackIndex(); }
+
 private:
     LooperEngine* looperEngine;
 };

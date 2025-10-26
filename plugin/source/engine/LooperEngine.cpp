@@ -156,9 +156,7 @@ void LooperEngine::updateUIBridge (StateContext& ctx, bool wasRecording)
                                        lengthToShow,
                                        ctx.track->getCurrentReadPosition(),
                                        nowRecording,
-                                       shouldShowPlaying,
-                                       ctx.track->getTrackVolume(),
-                                       ctx.track->isMuted());
+                                       shouldShowPlaying);
 }
 
 // State transition

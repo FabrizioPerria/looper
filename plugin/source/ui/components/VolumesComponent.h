@@ -1,49 +1,27 @@
 #pragma once
-#include "engine/LooperEngine.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
+#include "ui/components/LevelComponent.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
 class VolumesComponent : public juce::Component, private juce::Timer
 {
 public:
-    VolumesComponent (LooperEngine* engine, int trackIdx) : trackIndex (trackIdx), looperEngine (engine), midiDispatcher (engine)
+    VolumesComponent (MidiCommandDispatcher* dispatcher, int trackIdx)
+        : midiDispatcher (dispatcher)
+        , trackIndex (trackIdx)
+        , overdubLevelKnob (midiDispatcher, trackIndex, "OVERDUB LEVEL", MidiNotes::OVERDUB_LEVEL_CC)
+        , existingAudioLevelKnob (midiDispatcher, trackIndex, "EXISTING LEVEL", MidiNotes::EXISTING_AUDIO_LEVEL_CC)
     {
         normalizeButton.setButtonText ("NORM");
+        normalizeButton.setComponentID ("normalize");
         normalizeButton.setClickingTogglesState (true);
-        normalizeButton.onClick = [this]() { midiDispatcher.sendCommandToEngine (MidiNotes::VOLUME_NORMALIZE_BUTTON, trackIndex); };
+        normalizeButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::VOLUME_NORMALIZE_BUTTON, trackIndex); };
         addAndMakeVisible (normalizeButton);
 
-        overdubLevelKnob.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-        overdubLevelKnob.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-        overdubLevelKnob.setRange (0.0, 1.0, 0.01);
-        overdubLevelKnob.setValue (0.5);
-        overdubLevelKnob.setPopupDisplayEnabled (true, true, nullptr);
-        overdubLevelKnob.onValueChange = [this]()
-        { midiDispatcher.sendControlChangeToEngine (MidiNotes::OVERDUB_LEVEL_CC, trackIndex, overdubLevelKnob.getValue()); };
         addAndMakeVisible (overdubLevelKnob);
-
-        existingAudioLevelKnob.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-        existingAudioLevelKnob.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-        existingAudioLevelKnob.setRange (0.0, 1.0, 0.01);
-        existingAudioLevelKnob.setValue (0.5);
-        existingAudioLevelKnob.setPopupDisplayEnabled (true, true, nullptr);
-        existingAudioLevelKnob.onValueChange = [this]()
-        { midiDispatcher.sendControlChangeToEngine (MidiNotes::EXISTING_AUDIO_LEVEL_CC, trackIndex, existingAudioLevelKnob.getValue()); };
         addAndMakeVisible (existingAudioLevelKnob);
-
-        overdubLabel.setText ("NEXT", juce::dontSendNotification);
-        overdubLabel.setFont (LooperTheme::Fonts::getBoldFont (9.0f));
-        overdubLabel.setJustificationType (juce::Justification::centred);
-        overdubLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
-        addAndMakeVisible (overdubLabel);
-
-        existingLabel.setText ("LOOP", juce::dontSendNotification);
-        existingLabel.setFont (LooperTheme::Fonts::getBoldFont (9.0f));
-        existingLabel.setJustificationType (juce::Justification::centred);
-        existingLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
-        addAndMakeVisible (existingLabel);
 
         startTimerHz (10);
     }
@@ -52,9 +30,10 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        auto bounds = getLocalBounds().toFloat();
-        g.setColour (LooperTheme::Colors::backgroundDark.withAlpha (0.3f));
-        g.fillRoundedRectangle (bounds, 3.0f);
+        auto bounds = getLocalBounds();
+        g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
+        g.drawLine (bounds.getX(), bounds.getY() + 8, bounds.getX(), bounds.getBottom() - 8, 1.0f);
+        g.drawLine (bounds.getRight() - 1, bounds.getY() + 8, bounds.getRight() - 1, bounds.getBottom() - 8, 1.0f);
     }
 
     void resized() override
@@ -89,23 +68,21 @@ public:
     }
 
 private:
+    MidiCommandDispatcher* midiDispatcher;
     int trackIndex;
     bool isUpdatingFromEngine = false;
 
     juce::TextButton normalizeButton;
-    juce::Slider overdubLevelKnob;
-    juce::Slider existingAudioLevelKnob;
+    LevelComponent overdubLevelKnob;
+    LevelComponent existingAudioLevelKnob;
     juce::Label overdubLabel;
     juce::Label existingLabel;
-
-    LooperEngine* looperEngine;
-    MidiCommandDispatcher midiDispatcher;
 
     void timerCallback() override { updateFromEngine(); }
 
     void updateFromEngine()
     {
-        auto* track = looperEngine->getTrackByIndex (trackIndex);
+        auto* track = midiDispatcher->getTrackByIndex (trackIndex);
         if (! track) return;
 
         isUpdatingFromEngine = true;

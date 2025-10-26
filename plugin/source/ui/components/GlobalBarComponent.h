@@ -18,18 +18,6 @@ public:
 
         addAndMakeVisible (transportControls);
 
-        // Edit controls
-        setupButton (undoButton);
-        setupButton (redoButton);
-        setupButton (clearButton);
-
-        // Effect toggles
-        setupButton (normalizeButton);
-
-        // Overdub controls
-        setupSlider (odSlider);
-        setupSlider (exSlider);
-
         // Utility buttons
         setupButton (metronomeButton);
         setupButton (saveButton);
@@ -48,16 +36,7 @@ public:
         // Logo
         mainBox.items.add (juce::FlexItem (looperLabel).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 10, 0, 10)));
 
-        mainBox.items.add (juce::FlexItem (transportControls).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
-
-        // Edit section
-        mainBox.items.add (juce::FlexItem (undoButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
-        mainBox.items.add (juce::FlexItem (redoButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        mainBox.items.add (juce::FlexItem (clearButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
-
-        mainBox.items.add (juce::FlexItem (normalizeButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
-        mainBox.items.add (juce::FlexItem (odSlider).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 5, 0, 5)));
-        mainBox.items.add (juce::FlexItem (exSlider).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 5, 0, 5)));
+        mainBox.items.add (juce::FlexItem (transportControls).withFlex (2.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
 
         // Utility buttons
         mainBox.items.add (juce::FlexItem (metronomeButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
@@ -73,16 +52,6 @@ private:
     juce::Label looperLabel;
 
     TransportControlsComponent transportControls;
-
-    // Edit controls
-    juce::TextButton undoButton { "UNDO" };
-    juce::TextButton redoButton { "REDO" };
-    juce::TextButton clearButton { "CLEAR" };
-
-    // Overdub controls
-    juce::TextButton normalizeButton { "NORM" };
-    juce::Slider odSlider; // Overdub gain
-    juce::Slider exSlider; // Extra gain
 
     // Utility buttons
     juce::TextButton metronomeButton { "CLICK" };

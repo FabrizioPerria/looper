@@ -18,11 +18,9 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto bounds = getLocalBounds();
-
         bool isTrackActive = selectionBridge->getSnapshot().activeTrackIndex == trackIndex;
 
-        bool isPendingTrack;
-        audioBridge->getIsPendingUpdate (isPendingTrack);
+        bool isPendingTrack = midiDispatcher->getPendingTrackIndex() == trackIndex;
 
         // Choose color
         if (isPendingTrack && ! isTrackActive)
