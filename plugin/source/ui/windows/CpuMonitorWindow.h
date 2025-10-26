@@ -32,17 +32,18 @@ private:
         CPUMonitorComponent (juce::AudioProcessor& proc) : processor (proc)
         {
             cpuLabel.setText ("CPU Usage:", juce::dontSendNotification);
-            cpuLabel.setFont (juce::Font (16.0f, juce::Font::bold));
+            juce::FontOptions options = juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 16.0f, juce::Font::bold);
+            cpuLabel.setFont (juce::Font (options));
             addAndMakeVisible (cpuLabel);
 
-            cpuValueLabel.setFont (juce::Font (24.0f, juce::Font::bold));
+            cpuValueLabel.setFont (juce::Font (options));
             cpuValueLabel.setJustificationType (juce::Justification::centred);
             addAndMakeVisible (cpuValueLabel);
 
             underrunLabel.setText ("Buffer Overruns:", juce::dontSendNotification);
             addAndMakeVisible (underrunLabel);
 
-            underrunValueLabel.setFont (juce::Font (20.0f));
+            underrunValueLabel.setFont (juce::Font (options));
             underrunValueLabel.setJustificationType (juce::Justification::centred);
             addAndMakeVisible (underrunValueLabel);
 

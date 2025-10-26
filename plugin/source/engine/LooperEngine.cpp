@@ -1,4 +1,5 @@
 #include "LooperEngine.h"
+#include "engine/LooperStateConfig.h"
 #include "engine/MidiCommandConfig.h"
 #include "engine/MidiCommandDispatcher.h"
 #include "profiler/PerfettoProfiler.h"
@@ -79,10 +80,6 @@ bool LooperEngine::trackHasContent() const
     auto* track = getActiveTrack();
     return track && track->getTrackLengthSamples() > 0;
 }
-
-LooperState LooperEngine::determineStateAfterRecording() const { return LooperState::Playing; }
-
-LooperState LooperEngine::determineStateAfterStop() const { return LooperState::Stopped; }
 
 void LooperEngine::switchToTrackImmediately (int trackIndex)
 {
@@ -202,20 +199,14 @@ void LooperEngine::stop()
     if (! activeTrack) return;
 
     if (StateConfig::isRecording (currentState))
-    {
-        transitionTo (determineStateAfterRecording());
-    }
+        transitionTo (LooperState::Playing);
     else if (StateConfig::isPlaying (currentState))
-    {
-        transitionTo (determineStateAfterStop());
-    }
+        transitionTo (LooperState::Stopped);
 }
 
 void LooperEngine::toggleRecord() { isRecording() ? stop() : record(); }
-
 void LooperEngine::togglePlay() { isPlaying() ? stop() : play(); }
 
-// Track selection
 void LooperEngine::selectTrack (int trackIndex)
 {
     PERFETTO_FUNCTION();
@@ -242,7 +233,6 @@ void LooperEngine::selectTrack (int trackIndex)
     scheduleTrackSwitch (trackIndex);
 }
 
-// Undo/Redo/Clear
 void LooperEngine::undo (int trackIndex)
 {
     PERFETTO_FUNCTION();
@@ -307,7 +297,6 @@ void LooperEngine::clear (int trackIndex)
     }
 }
 
-// Process block - THE CORE
 void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     PERFETTO_FUNCTION();
@@ -319,16 +308,9 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
 
     bool wasRecording = activeTrack->isCurrentlyRecording();
 
-    // Process pending actions
     processPendingActions();
-
-    // Create state context
     auto ctx = createStateContext (buffer);
-
-    // SINGLE LINE - delegate to state machine!
     stateMachine.processAudio (currentState, ctx);
-
-    // Update UI
     updateUIBridge (ctx, wasRecording);
 }
 
@@ -425,7 +407,11 @@ void LooperEngine::setOverdubGainsForTrack (int trackIndex, double oldGain, doub
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
     auto* track = getTrackByIndex (trackIndex);
-    if (track) track->setOverdubGains (oldGain, newGain);
+    if (track)
+    {
+        track->setOverdubGainNew (newGain);
+        track->setOverdubGainOld (oldGain);
+    }
 }
 
 void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex)
@@ -564,25 +550,10 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
             uint8_t cc = (uint8_t) m.getControllerNumber();
             uint8_t value = (uint8_t) m.getControllerValue();
 
-            if (cc == MidiNotes::TRACK_SELECT_CC)
+            MidiControlChangeId ccId = MidiControlChangeMapping::getControlChangeId (cc);
+            if (ccId != MidiControlChangeId::None)
             {
-                targetTrack = juce::jlimit (0, numTracks - 1, value % numTracks);
-                selectTrack (targetTrack);
-                continue;
-            }
-
-            if (cc == MidiNotes::TRACK_VOLUME_CC)
-            {
-                float volume = (float) value / 127.0f;
-                setTrackVolume (targetTrack, volume);
-                continue;
-            }
-
-            if (cc == MidiNotes::PLAYBACK_SPEED_CC)
-            {
-                float normalizedValue = (float) value / 127.0f;
-                float speed = 0.2f + (normalizedValue * 1.8f);
-                setTrackPlaybackSpeed (targetTrack, speed);
+                MidiCommandDispatcher::dispatch (ccId, *this, targetTrack, value);
                 continue;
             }
         }

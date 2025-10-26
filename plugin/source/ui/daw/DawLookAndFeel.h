@@ -106,6 +106,71 @@ public:
         }
     }
 
+    void drawRotarySlider (juce::Graphics& g,
+                           int x,
+                           int y,
+                           int width,
+                           int height,
+                           float sliderPosProportional,
+                           float rotaryStartAngle,
+                           float rotaryEndAngle,
+                           juce::Slider& slider) override
+    {
+        slider.setPopupDisplayEnabled (true, true, nullptr);
+
+        auto bounds = juce::Rectangle<float> (x, y, width, height);
+        auto centre = bounds.getCentre();
+        auto radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) / 2.0f - 4.0f;
+        auto toAngle = rotaryStartAngle + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
+        auto lineWidth = 3.0f;
+        auto arcRadius = radius - lineWidth * 0.5f;
+
+        // Draw background arc
+        juce::Path backgroundArc;
+        backgroundArc.addCentredArc (centre.x, centre.y, arcRadius, arcRadius, 0.0f, rotaryStartAngle, rotaryEndAngle, true);
+
+        g.setColour (LooperTheme::Colors::backgroundDark);
+        g.strokePath (backgroundArc, juce::PathStrokeType (lineWidth, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+        // Draw value arc with gradient
+        if (toAngle > rotaryStartAngle)
+        {
+            juce::Path valueArc;
+            valueArc.addCentredArc (centre.x, centre.y, arcRadius, arcRadius, 0.0f, rotaryStartAngle, toAngle, true);
+
+            juce::ColourGradient gradient (LooperTheme::Colors::primary,
+                                           centre.x - radius,
+                                           centre.y,
+                                           LooperTheme::Colors::cyan,
+                                           centre.x + radius,
+                                           centre.y,
+                                           false);
+            g.setGradientFill (gradient);
+            g.strokePath (valueArc, juce::PathStrokeType (lineWidth, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
+
+        // Draw pointer/thumb
+        juce::Path pointer;
+        auto pointerLength = radius * 0.6f;
+        auto pointerThickness = 3.0f;
+        pointer.addRectangle (-pointerThickness * 0.5f, -radius, pointerThickness, pointerLength);
+
+        pointer.applyTransform (juce::AffineTransform::rotation (toAngle).translated (centre.x, centre.y));
+
+        // Shadow
+        g.setColour (juce::Colours::black.withAlpha (0.3f));
+        g.fillPath (pointer, juce::AffineTransform::translation (0, 1));
+
+        // Pointer
+        g.setColour (LooperTheme::Colors::cyan);
+        g.fillPath (pointer);
+
+        // Center dot
+        auto dotRadius = 4.0f;
+        g.setColour (LooperTheme::Colors::surface);
+        g.fillEllipse (centre.x - dotRadius, centre.y - dotRadius, dotRadius * 2.0f, dotRadius * 2.0f);
+    }
+
     void drawButtonBackground (juce::Graphics& g,
                                juce::Button& button,
                                const juce::Colour& /**/,
@@ -262,12 +327,7 @@ private:
     {
         auto drawTickMark = [&] (double value, const juce::String& label, bool isMajor)
         {
-            // Calculate position based on slider's value range
-            double proportion = (value - slider.getMinimum()) / (slider.getMaximum() - slider.getMinimum());
-
-            // Apply the same skew that the slider uses
-            proportion = slider.proportionOfLengthToValue (proportion);
-            proportion = slider.valueToProportionOfLength (value);
+            double proportion = slider.proportionOfLengthToValue (value);
 
             float tickX = trackBounds.getX() + (float) proportion * trackBounds.getWidth();
 
@@ -290,13 +350,10 @@ private:
         };
 
         // Draw major tick marks at snap points
-        drawTickMark (0.2f, "0.2x", true);
-        drawTickMark (0.5f, "0.5x", true);
-        drawTickMark (1.0f, "1.0x", true);
-        drawTickMark (2.0f, "2.0x", true);
-
-        // Optional: Draw minor tick marks
-        drawTickMark (0.75f, "", false);
-        drawTickMark (1.5f, "", false);
+        drawTickMark (0.5, "0.5x", true);
+        drawTickMark (0.75, "0.75x", true);
+        drawTickMark (1.0, "1.0x", true);
+        drawTickMark (1.5, "1.5x", true);
+        drawTickMark (2.0, "2.0x", true);
     }
 };

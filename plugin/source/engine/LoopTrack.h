@@ -49,6 +49,9 @@ public:
     void setPlaybackSpeed (float speed) { playbackEngine.setPlaybackSpeed (speed); }
     float getPlaybackSpeed() const { return playbackEngine.getPlaybackSpeed(); }
 
+    void setPlaybackPitch (int pitch) { playbackEngine.setPlaybackPitchSemitones (pitch); }
+    int getPlaybackPitch() const { return playbackEngine.getPlaybackPitchSemitones(); }
+
     bool shouldKeepPitchWhenChangingSpeed() const { return playbackEngine.shouldKeepPitchWhenChangingSpeed(); }
     void setKeepPitchWhenChangingSpeed (const bool shouldKeepPitch) { playbackEngine.setKeepPitchWhenChangingSpeed (shouldKeepPitch); }
 
@@ -57,7 +60,13 @@ public:
     float getTrackVolume() const { return volumeProcessor.getTrackVolume(); }
     void setTrackVolume (const float newVolume) { volumeProcessor.setTrackVolume (newVolume); }
 
-    void setOverdubGains (const double oldGain, const double newGain) { volumeProcessor.setOverdubGains (oldGain, newGain); }
+    void toggleNormalizingOutput() { volumeProcessor.toggleOutputNormalization(); }
+    bool isOutputNormalized() const { return volumeProcessor.isNormalizingOutput(); }
+
+    void setOverdubGainNew (const double newGain) { volumeProcessor.setOverdubNewGain (newGain); }
+    void setOverdubGainOld (const double oldGain) { volumeProcessor.setOverdubOldGain (oldGain); }
+    double getOverdubGainNew() const { return volumeProcessor.getOverdubNewGain(); }
+    double getOverdubGainOld() const { return volumeProcessor.getOverdubOldGain(); }
 
     bool isSoloed() const { return volumeProcessor.isSoloed(); }
     void setSoloed (const bool shouldBeSoloed) { volumeProcessor.setSoloed (shouldBeSoloed); }
