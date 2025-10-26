@@ -1,9 +1,9 @@
 #pragma once
 
 #include "audio/AudioToUIBridge.h"
+#include "audio/EngineStateToUIBridge.h"
 #include "engine/LoopTrack.h"
 #include "engine/LooperStateMachine.h"
-#include "engine/MidiCommandConfig.h"
 #include <JuceHeader.h>
 
 struct PendingAction
@@ -98,11 +98,14 @@ public:
 
     void handleMidiCommand (const juce::MidiBuffer& midiMessages);
 
+    EngineStateToUIBridge* getEngineStateBridge() const { return engineStateBridge.get(); }
+
 private:
     // State machine
     LooperStateMachine stateMachine;
     LooperState currentState = LooperState::Idle;
     PendingAction pendingAction;
+    std::unique_ptr<EngineStateToUIBridge> engineStateBridge = std::make_unique<EngineStateToUIBridge>();
 
     // Engine data
     double sampleRate = 0.0;

@@ -6,14 +6,15 @@
 AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
-    theme = ThemeFactory::createTheme ("Daw", processorRef.getLooperEngine());
-    setLookAndFeel (theme->lookAndFeel.get());
+    looperEditor = std::make_unique<LooperEditor> (processorRef.getLooperEngine());
+    lookAndFeel = std::make_unique<LooperLookAndFeel>();
+    setLookAndFeel (lookAndFeel.get());
 
-    addAndMakeVisible (theme->editorComponent.get());
+    addAndMakeVisible (looperEditor.get());
 
-    cpuMonitorButton.setButtonText ("CPU Monitor");
-    cpuMonitorButton.onClick = [this] { openCPUMonitor(); };
-    addAndMakeVisible (cpuMonitorButton);
+    // cpuMonitorButton.setButtonText ("CPU Monitor");
+    // cpuMonitorButton.onClick = [this] { openCPUMonitor(); };
+    // addAndMakeVisible (cpuMonitorButton);
 
     setSize (1200, 900); // Make it bigger to see
 }
@@ -29,6 +30,6 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g) { g.fillAll (Loo
 
 void AudioPluginAudioProcessorEditor::resized()
 {
-    theme->editorComponent->setBounds (getLocalBounds());
-    cpuMonitorButton.setBounds (10, 10, 120, 30);
+    looperEditor->setBounds (getLocalBounds());
+    // cpuMonitorButton.setBounds (10, 10, 120, 30);
 }

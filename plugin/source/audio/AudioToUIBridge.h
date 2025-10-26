@@ -144,6 +144,12 @@ public:
         playing = state.isPlaying.load (std::memory_order_relaxed);
     }
 
+    void getIsPendingUpdate (bool& pending)
+    {
+        PERFETTO_FUNCTION();
+        pending = pendingUpdate.load (std::memory_order_relaxed);
+    }
+
     // Called from UI THREAD - get waveform snapshot if updated
     bool getWaveformSnapshot (WaveformSnapshot& destination)
     {

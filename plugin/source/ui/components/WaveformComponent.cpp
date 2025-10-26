@@ -1,18 +1,4 @@
-#include "WaveformComponent.h"
-#include "ui/renderers/LinearRenderer.h"
-
-WaveformComponent::WaveformComponent()
-{
-    renderer = std::make_unique<LinearRenderer>();
-    startTimerHz (60);
-}
-
-WaveformComponent::~WaveformComponent()
-{
-    stopTimer();
-    cancelPendingUpdate();
-    backgroundProcessor.removeAllJobs (true, 5000);
-}
+#include "ui/components/WaveformComponent.h"
 
 void WaveformComponent::timerCallback()
 {
