@@ -156,7 +156,9 @@ void LooperEngine::updateUIBridge (StateContext& ctx, bool wasRecording)
                                        lengthToShow,
                                        ctx.track->getCurrentReadPosition(),
                                        nowRecording,
-                                       shouldShowPlaying);
+                                       shouldShowPlaying,
+                                       ctx.track->getTrackVolume(),
+                                       ctx.track->isMuted());
 }
 
 // State transition
@@ -312,6 +314,8 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     auto ctx = createStateContext (buffer);
     stateMachine.processAudio (currentState, ctx);
     updateUIBridge (ctx, wasRecording);
+
+    selectionStateBridge->publish (activeTrackIndex, nextTrackIndex);
 }
 
 int LooperEngine::getPendingTrackIndex() const

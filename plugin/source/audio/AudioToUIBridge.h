@@ -12,6 +12,8 @@ public:
         std::atomic<int> readPosition { 0 };
         std::atomic<bool> isRecording { false };
         std::atomic<bool> isPlaying { false };
+        std::atomic<float> currentVolume { 1 };
+        std::atomic<bool> isMuted { false };
         std::atomic<int> stateVersion { 0 }; // Increment when waveform changes
     };
 
@@ -70,6 +72,8 @@ public:
         state.isRecording.store (false, std::memory_order_relaxed);
         state.isPlaying.store (false, std::memory_order_relaxed);
         state.stateVersion.fetch_add (1, std::memory_order_release);
+        state.currentVolume.store (1.0f, std::memory_order_relaxed);
+        state.isMuted.store (false, std::memory_order_relaxed);
 
         pendingUpdate.store (false, std::memory_order_relaxed);
         lastUIVersion = -1;
@@ -96,7 +100,13 @@ public:
     }
 
     // Called from AUDIO THREAD - must be lock-free and fast
-    void updateFromAudioThread (const juce::AudioBuffer<float>* audioBuffer, int length, int readPos, bool recording, bool playing)
+    void updateFromAudioThread (const juce::AudioBuffer<float>* audioBuffer,
+                                int length,
+                                int readPos,
+                                bool recording,
+                                bool playing,
+                                float currentVolume,
+                                bool isMuted)
     {
         PERFETTO_FUNCTION();
         // Update lightweight state (always)
@@ -104,6 +114,8 @@ public:
         state.readPosition.store (readPos, std::memory_order_relaxed);
         state.isRecording.store (recording, std::memory_order_relaxed);
         state.isPlaying.store (playing, std::memory_order_relaxed);
+        state.currentVolume.store (currentVolume, std::memory_order_relaxed);
+        state.isMuted.store (isMuted, std::memory_order_relaxed);
 
         // Only update waveform snapshot when it actually changes
         if (pendingUpdate.exchange (false, std::memory_order_acq_rel))
@@ -142,6 +154,36 @@ public:
         readPos = state.readPosition.load (std::memory_order_relaxed);
         recording = state.isRecording.load (std::memory_order_relaxed);
         playing = state.isPlaying.load (std::memory_order_relaxed);
+    }
+
+    void getCurrentVolume (float& volume)
+    {
+        PERFETTO_FUNCTION();
+        volume = state.currentVolume.load (std::memory_order_relaxed);
+    }
+
+    void setCurrentVolume (float volume)
+    {
+        PERFETTO_FUNCTION();
+        state.currentVolume.store (volume, std::memory_order_relaxed);
+    }
+
+    void getIsMuted (bool& isMuted)
+    {
+        PERFETTO_FUNCTION();
+        isMuted = state.isMuted.load (std::memory_order_relaxed);
+    }
+
+    void setIsMuted (bool isMuted)
+    {
+        PERFETTO_FUNCTION();
+        state.isMuted.store (isMuted, std::memory_order_relaxed);
+    }
+
+    void getIsPendingUpdate (bool& pending)
+    {
+        PERFETTO_FUNCTION();
+        pending = pendingUpdate.load (std::memory_order_relaxed);
     }
 
     // Called from UI THREAD - get waveform snapshot if updated

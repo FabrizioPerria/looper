@@ -1,9 +1,10 @@
 #pragma once
-#include "engine/LooperEngine.h"
+#include "audio/AudioToUIBridge.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/components/PlaybackSliderComponent.h"
-#include "ui/components/VolumesComponent.h"
+#include "ui/components/AccentBarComponent.h"
+#include "ui/components/PlaybackSpeedComponent.h"
+#include "ui/components/VolumeKnobComponent.h"
 #include "ui/components/WaveformComponent.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
@@ -11,83 +12,55 @@
 class TrackComponent : public juce::Component, private juce::Timer
 {
 public:
-    TrackComponent (LooperEngine* engine, int trackIdx, AudioToUIBridge* bridge)
-        : trackIndex (trackIdx), volumesComponent (engine, trackIdx), looperEngine (engine), midiDispatcher (engine)
+    TrackComponent (MidiCommandDispatcher* midiCommandDispatcher,
+                    int trackIdx,
+                    AudioToUIBridge* audioBridge,
+                    SelectionStateBridge* selectionBridge)
+        : trackIndex (trackIdx)
+        , waveformDisplay (audioBridge)
+        , accentBar (midiCommandDispatcher, trackIdx, audioBridge, selectionBridge)
+        , volumeFader (midiCommandDispatcher, trackIdx)
+        , speedFader (midiCommandDispatcher, trackIdx)
+        , midiDispatcher (midiCommandDispatcher)
+        , bridge (audioBridge)
     {
-        trackLabel.setText ("Track " + juce::String (trackIdx + 1), juce::dontSendNotification);
-        trackLabel.setFont (LooperTheme::Fonts::getBoldFont (11.0f));
-        trackLabel.setJustificationType (juce::Justification::centredLeft);
-        trackLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
-        addAndMakeVisible (trackLabel);
-
-        waveformDisplay.setBridge (bridge);
         addAndMakeVisible (waveformDisplay);
 
-        undoButton.setButtonText ("UNDO");
-        undoButton.setComponentID ("undo");
-        undoButton.onClick = [this]() { midiDispatcher.sendCommandToEngine (MidiNotes::UNDO_BUTTON, trackIndex); };
-        addAndMakeVisible (undoButton);
-
-        redoButton.setButtonText ("REDO");
-        redoButton.setComponentID ("redo");
-        redoButton.onClick = [this]() { midiDispatcher.sendCommandToEngine (MidiNotes::REDO_BUTTON, trackIndex); };
-        addAndMakeVisible (redoButton);
-
-        clearButton.setButtonText ("CLEAR");
-        clearButton.setComponentID ("clear");
-        clearButton.onClick = [this]()
-        {
-            midiDispatcher.sendCommandToEngine (MidiNotes::CLEAR_BUTTON, trackIndex);
-            waveformDisplay.clearTrack();
-        };
-        addAndMakeVisible (clearButton);
-
-        volumeFader.setSliderStyle (juce::Slider::LinearHorizontal);
-        volumeFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-        volumeFader.setRange (0.0, 1.0, 0.01);
-        volumeFader.setValue (0.75);
-        volumeFader.onValueChange = [this]()
-        { midiDispatcher.sendControlChangeToEngine (MidiNotes::TRACK_VOLUME_CC, trackIndex, volumeFader.getValue()); };
         addAndMakeVisible (volumeFader);
 
         muteButton.setButtonText ("MUTE");
         muteButton.setComponentID ("mute");
         muteButton.setClickingTogglesState (true);
-        muteButton.onClick = [this]() { midiDispatcher.sendCommandToEngine (MidiNotes::MUTE_BUTTON, trackIndex); };
+        muteButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::MUTE_BUTTON, trackIndex); };
         addAndMakeVisible (muteButton);
 
         soloButton.setButtonText ("SOLO");
         soloButton.setComponentID ("solo");
         soloButton.setClickingTogglesState (true);
-        soloButton.onClick = [this]() { midiDispatcher.sendCommandToEngine (MidiNotes::SOLO_BUTTON, trackIndex); };
+        soloButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::SOLO_BUTTON, trackIndex); };
         addAndMakeVisible (soloButton);
 
-        // Create accent bar component
-        accentBar.setInterceptsMouseClicks (true, false);
-        accentBar.onClick = [this]() { midiDispatcher.sendControlChangeToEngine (MidiNotes::TRACK_SELECT_CC, trackIndex, trackIndex); };
-        addAndMakeVisible (accentBar);
+        lockPitchButton.setButtonText ("LOCK");
+        lockPitchButton.setComponentID ("lock");
+        lockPitchButton.setClickingTogglesState (true);
+        lockPitchButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::KEEP_PITCH_BUTTON, trackIndex); };
+        addAndMakeVisible (lockPitchButton);
 
         reverseButton.setButtonText ("REV");
         reverseButton.setComponentID ("reverse");
         reverseButton.setClickingTogglesState (true);
-        reverseButton.onClick = [this]() { midiDispatcher.sendCommandToEngine (MidiNotes::REVERSE_BUTTON, trackIndex); };
+        reverseButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::REVERSE_BUTTON, trackIndex); };
         addAndMakeVisible (reverseButton);
 
-        keepPitchButton.setButtonText ("PITCH");
-        keepPitchButton.setComponentID ("keepPitch");
-        keepPitchButton.setClickingTogglesState (true);
-        keepPitchButton.onClick = [this]() { midiDispatcher.sendCommandToEngine (MidiNotes::KEEP_PITCH_BUTTON, trackIndex); };
-        addAndMakeVisible (keepPitchButton);
-
-        speedFader.setSliderStyle (juce::Slider::LinearHorizontal);
-        speedFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-        speedFader.setValue (1.0);
-        speedFader.onValueChange = [this]()
-        { midiDispatcher.sendControlChangeToEngine (MidiNotes::PLAYBACK_SPEED_CC, trackIndex, speedFader.getValue()); };
+        addAndMakeVisible (accentBar);
         addAndMakeVisible (speedFader);
 
-        volumesComponent.setComponentID ("volumesComponent");
-        addAndMakeVisible (volumesComponent);
+        // pitchFader.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+        // pitchFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+        // pitchFader.setValue (0.0);
+        // pitchFader.onValueChange = [this]()
+        // { midiDispatcher.sendControlChangeToEngine (MidiNotes::PITCH_SHIFT_CC, trackIndex, pitchFader.getValue() + 12.0); };
+        // addAndMakeVisible (pitchFader);
 
         updateControlsFromEngine();
         startTimerHz (10);
@@ -101,16 +74,15 @@ public:
 
     void updateControlsFromEngine()
     {
-        auto* track = looperEngine->getTrackByIndex (trackIndex);
-        if (! track) return;
-
-        float currentVolume = track->getTrackVolume();
+        float currentVolume;
+        bridge->getCurrentVolume (currentVolume);
         if (std::abs (volumeFader.getValue() - currentVolume) > 0.001)
         {
             volumeFader.setValue (currentVolume, juce::dontSendNotification);
         }
 
-        bool currentMuted = track->isMuted();
+        bool currentMuted;
+        bridge->getIsMuted (currentMuted);
         if (muteButton.getToggleState() != currentMuted)
         {
             muteButton.setToggleState (currentMuted, juce::dontSendNotification);
@@ -151,101 +123,54 @@ public:
         mainRow.flexDirection = juce::FlexBox::Direction::column;
         mainRow.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        juce::FlexBox undoRedoClearRow;
-        undoRedoClearRow.flexDirection = juce::FlexBox::Direction::row;
-        undoRedoClearRow.items.add (juce::FlexItem (undoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
-        undoRedoClearRow.items.add (juce::FlexItem (redoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        undoRedoClearRow.items.add (juce::FlexItem().withFlex (3.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        undoRedoClearRow.items.add (juce::FlexItem (clearButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
-        mainRow.items.add (juce::FlexItem (undoRedoClearRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+        mainRow.items.add (juce::FlexItem (waveformDisplay).withFlex (0.6f));
 
-        mainRow.items.add (juce::FlexItem (waveformDisplay).withFlex (0.3f));
+        juce::FlexBox playbackButtonsColumn;
+        playbackButtonsColumn.flexDirection = juce::FlexBox::Direction::column;
+        playbackButtonsColumn.items.add (juce::FlexItem (lockPitchButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        playbackButtonsColumn.items.add (juce::FlexItem (reverseButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
 
-        juce::FlexBox reverseSpeedRow;
-        reverseSpeedRow.flexDirection = juce::FlexBox::Direction::row;
-        reverseSpeedRow.items.add (juce::FlexItem (reverseButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
-        reverseSpeedRow.items.add (juce::FlexItem (keepPitchButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        reverseSpeedRow.items.add (juce::FlexItem().withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        reverseSpeedRow.items.add (juce::FlexItem (speedFader).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
-        mainRow.items.add (juce::FlexItem (reverseSpeedRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+        juce::FlexBox pitchSpeedRow;
+        pitchSpeedRow.flexDirection = juce::FlexBox::Direction::row;
+        pitchSpeedRow.items.add (juce::FlexItem (speedFader).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
+        pitchSpeedRow.items.add (juce::FlexItem (playbackButtonsColumn).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
 
+        juce::FlexBox MSButtons;
+        MSButtons.flexDirection = juce::FlexBox::Direction::column;
+        MSButtons.items.add (juce::FlexItem (muteButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 1, 0)));
+        MSButtons.items.add (juce::FlexItem (soloButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (1, 0, 0, 0)));
         juce::FlexBox muteSoloRow;
         muteSoloRow.flexDirection = juce::FlexBox::Direction::row;
-        muteSoloRow.items.add (juce::FlexItem (soloButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
-        muteSoloRow.items.add (juce::FlexItem (muteButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        muteSoloRow.items.add (juce::FlexItem (volumesComponent).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        muteSoloRow.items.add (juce::FlexItem (volumeFader).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
-        mainRow.items.add (juce::FlexItem (muteSoloRow).withFlex (0.15f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+        muteSoloRow.items.add (juce::FlexItem (MSButtons).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        muteSoloRow.items.add (juce::FlexItem (volumeFader).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
+
+        juce::FlexBox controlsRow;
+        controlsRow.flexDirection = juce::FlexBox::Direction::row;
+        controlsRow.items.add (juce::FlexItem (muteSoloRow).withFlex (0.5f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+        controlsRow.items.add (juce::FlexItem().withFlex (1.5f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+        controlsRow.items.add (juce::FlexItem (pitchSpeedRow).withFlex (0.5f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+
+        mainRow.items.add (juce::FlexItem (controlsRow).withFlex (0.3f));
 
         mainRow.performLayout (bounds.toFloat());
     }
 
 private:
-    class AccentBar : public juce::Component
-    {
-    public:
-        std::function<void()> onClick;
-        AccentBar() {}
-
-        void paint (juce::Graphics& g) override
-        {
-            auto bounds = getLocalBounds();
-            auto* track = dynamic_cast<TrackComponent*> (getParentComponent());
-            bool isTrackActive = track ? track->isActive : false;
-
-            // Check for pending track change
-            int pendingIndex = track->looperEngine->getPendingTrackIndex();
-            bool isPendingTrack = (pendingIndex == track->getTrackIndex());
-
-            // Choose color
-            if (isPendingTrack && ! isTrackActive)
-                g.setColour (LooperTheme::Colors::yellow.withAlpha (0.8f));
-            else if (isTrackActive)
-                g.setColour (LooperTheme::Colors::cyan.withAlpha (0.8f));
-            else
-                g.setColour (LooperTheme::Colors::primary.withAlpha (0.3f));
-
-            // ACTUALLY DRAW IT!
-            g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
-
-            // Draw track number
-            g.setColour (isTrackActive ? LooperTheme::Colors::backgroundDark : LooperTheme::Colors::cyan);
-            g.setFont (LooperTheme::Fonts::getBoldFont (14.0f));
-            g.drawText (juce::String (track->getTrackIndex() + 1), bounds, juce::Justification::centred);
-        }
-
-        void mouseDown (const juce::MouseEvent&) override
-        {
-            if (onClick) onClick();
-        }
-
-        void mouseEnter (const juce::MouseEvent&) override { setMouseCursor (juce::MouseCursor::PointingHandCursor); }
-
-        void mouseExit (const juce::MouseEvent&) override { setMouseCursor (juce::MouseCursor::NormalCursor); }
-
-    private:
-        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AccentBar)
-    };
-
     int trackIndex;
     bool isActive = false;
-    juce::Label trackLabel;
     WaveformComponent waveformDisplay;
-    juce::TextButton undoButton;
-    juce::TextButton redoButton;
-    juce::TextButton clearButton;
-    juce::Slider volumeFader;
     juce::TextButton muteButton;
     juce::TextButton soloButton;
-    AccentBar accentBar;
+    juce::TextButton lockPitchButton;
     juce::TextButton reverseButton;
-    juce::TextButton keepPitchButton;
-    PlaybackSpeedSlider speedFader;
+    AccentBar accentBar;
+    VolumeKnobComponent volumeFader;
+    PlaybackSpeedComponent speedFader;
+    juce::Slider pitchFader;
 
-    VolumesComponent volumesComponent;
-
-    LooperEngine* looperEngine;
-    MidiCommandDispatcher midiDispatcher;
+    // LooperEngine* looperEngine;
+    MidiCommandDispatcher* midiDispatcher;
+    AudioToUIBridge* bridge;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TrackComponent)
 };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "audio/AudioToUIBridge.h"
+#include "audio/selectionStateBridge.h"
 #include "engine/LoopTrack.h"
 #include "engine/LooperStateMachine.h"
 #include "engine/MidiCommandConfig.h"
@@ -98,11 +99,14 @@ public:
 
     void handleMidiCommand (const juce::MidiBuffer& midiMessages);
 
+    SelectionStateBridge* getSelectionStateBridge() const { return selectionStateBridge.get(); }
+
 private:
     // State machine
     LooperStateMachine stateMachine;
     LooperState currentState = LooperState::Idle;
     PendingAction pendingAction;
+    std::unique_ptr<SelectionStateBridge> selectionStateBridge = std::make_unique<SelectionStateBridge>();
 
     // Engine data
     double sampleRate = 0.0;

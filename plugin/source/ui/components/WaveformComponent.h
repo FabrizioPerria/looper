@@ -3,13 +3,24 @@
 #include "audio/AudioToUIBridge.h"
 #include "ui/helpers/WaveformCache.h"
 #include "ui/renderers/IRenderer.h"
+#include "ui/renderers/LinearRenderer.h"
 #include <JuceHeader.h>
 
 class WaveformComponent : public juce::Component, public juce::Timer, public juce::AsyncUpdater
 {
 public:
-    WaveformComponent();
-    ~WaveformComponent() override;
+    WaveformComponent (AudioToUIBridge* audioBridge) : bridge (audioBridge)
+    {
+        renderer = std::make_unique<LinearRenderer>();
+        startTimerHz (60);
+    }
+
+    ~WaveformComponent() override
+    {
+        stopTimer();
+        cancelPendingUpdate();
+        backgroundProcessor.removeAllJobs (true, 5000);
+    }
 
     void paint (juce::Graphics& g) override;
     void timerCallback() override;
@@ -17,8 +28,6 @@ public:
     {
         if (bridge) triggerAsyncUpdate();
     }
-
-    void setBridge (AudioToUIBridge* newBridge) { bridge = newBridge; }
 
     void setRenderer (std::unique_ptr<IRenderer> newRenderer)
     {

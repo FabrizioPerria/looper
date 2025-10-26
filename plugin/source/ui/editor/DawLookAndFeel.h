@@ -1,6 +1,6 @@
 #pragma once
 #include "ui/colors/TokyoNight.h"
-#include "ui/components/PlaybackSliderComponent.h"
+#include "ui/components/PlaybackSpeedComponent.h"
 #include <JuceHeader.h>
 
 class LooperLookAndFeel : public juce::LookAndFeel_V4
@@ -46,9 +46,8 @@ public:
             slider.setPopupDisplayEnabled (true, true, nullptr);
             auto bounds = juce::Rectangle<int> (x, y, width, height);
 
-            // Check if this is a PlaybackSpeedSlider
-            bool isSpeedSlider = (dynamic_cast<PlaybackSpeedSlider*> (&slider) != nullptr);
-
+            auto speedSlider = dynamic_cast<PlaybackSpeedSlider*> (&slider);
+            bool isSpeedSlider = (speedSlider != nullptr);
             // Reserve space for tick marks if speed slider
             int bottomSpace = isSpeedSlider ? 18 : 0;
             auto sliderBounds = bounds.withHeight (bounds.getHeight() - bottomSpace);
@@ -81,7 +80,7 @@ public:
             // Draw tick marks using the ORIGINAL trackBounds
             if (isSpeedSlider)
             {
-                drawSpeedTickMarks (g, originalTrackBounds.toFloat(), slider);
+                drawSpeedTickMarks (g, originalTrackBounds.toFloat(), *speedSlider);
             }
 
             // Draw thumb
@@ -162,8 +161,16 @@ public:
         g.setColour (juce::Colours::black.withAlpha (0.3f));
         g.fillPath (pointer, juce::AffineTransform::translation (0, 1));
 
-        // Pointer
-        g.setColour (LooperTheme::Colors::cyan);
+        auto* rotarySlider = dynamic_cast<PlaybackSpeedSlider*> (&slider);
+        if (rotarySlider)
+        {
+            bool isInSnapRegion = (rotarySlider != nullptr) && rotarySlider->isInSnapRange (slider.getValue());
+            g.setColour (isInSnapRegion ? LooperTheme::Colors::cyan : LooperTheme::Colors::cyan.darker (0.5f));
+        }
+        else
+        {
+            g.setColour (LooperTheme::Colors::cyan);
+        }
         g.fillPath (pointer);
 
         // Center dot
@@ -324,11 +331,11 @@ private:
         return nullptr;
     }
 
-    void drawSpeedTickMarks (juce::Graphics& g, juce::Rectangle<float> trackBounds, juce::Slider& slider)
+    void drawSpeedTickMarks (juce::Graphics& g, juce::Rectangle<float> trackBounds, PlaybackSpeedSlider& slider)
     {
         auto drawTickMark = [&] (double value, const juce::String& label, bool isMajor)
         {
-            double proportion = slider.proportionOfLengthToValue (value);
+            double proportion = slider.valueToProportionOfLength (value);
 
             float tickX = trackBounds.getX() + (float) proportion * trackBounds.getWidth();
 

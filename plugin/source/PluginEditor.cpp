@@ -12,9 +12,9 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
 
     addAndMakeVisible (looperEditor.get());
 
-    cpuMonitorButton.setButtonText ("CPU Monitor");
-    cpuMonitorButton.onClick = [this] { openCPUMonitor(); };
-    addAndMakeVisible (cpuMonitorButton);
+    // cpuMonitorButton.setButtonText ("CPU Monitor");
+    // cpuMonitorButton.onClick = [this] { openCPUMonitor(); };
+    // addAndMakeVisible (cpuMonitorButton);
 
     setSize (1200, 900); // Make it bigger to see
 }
@@ -31,5 +31,5 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g) { g.fillAll (Loo
 void AudioPluginAudioProcessorEditor::resized()
 {
     looperEditor->setBounds (getLocalBounds());
-    cpuMonitorButton.setBounds (10, 10, 120, 30);
+    // cpuMonitorButton.setBounds (10, 10, 120, 30);
 }
