@@ -1,6 +1,7 @@
 #pragma once
 #include "PluginProcessor.h"
-#include "ui/ThemeFactory.h"
+#include "ui/editor/DawLookAndFeel.h"
+#include "ui/editor/LooperEditor.h"
 #include "ui/windows/CpuMonitorWindow.h"
 #include <JuceHeader.h>
 
@@ -32,7 +33,8 @@ private:
     juce::TextButton cpuMonitorButton;
     std::unique_ptr<CPUMonitorWindow> cpuMonitorWindow;
     AudioPluginAudioProcessor& processorRef;
-    std::unique_ptr<Theme> theme;
+    std::unique_ptr<LooperEditor> looperEditor;
+    std::unique_ptr<LooperLookAndFeel> lookAndFeel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessorEditor)
 };

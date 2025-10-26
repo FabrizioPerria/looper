@@ -3,7 +3,7 @@
 #include "IRenderer.h"
 #include "profiler/PerfettoProfiler.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/components/WaveformCache.h"
+#include "ui/helpers/WaveformCache.h"
 #include <JuceHeader.h>
 
 class LinearRenderer : public IRenderer

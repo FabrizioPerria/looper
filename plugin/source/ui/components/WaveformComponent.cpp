@@ -1,4 +1,4 @@
-#include "WaveformComponent.h"
+#include "ui/components/WaveformComponent.h"
 #include "ui/renderers/LinearRenderer.h"
 
 WaveformComponent::WaveformComponent()

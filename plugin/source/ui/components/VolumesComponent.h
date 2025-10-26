@@ -2,7 +2,7 @@
 #include "engine/LooperEngine.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/daw/MidiCommandDispatcher.h"
+#include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
 class VolumesComponent : public juce::Component, private juce::Timer

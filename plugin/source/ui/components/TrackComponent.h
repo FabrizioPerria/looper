@@ -2,16 +2,16 @@
 #include "engine/LooperEngine.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
+#include "ui/components/PlaybackSliderComponent.h"
+#include "ui/components/VolumesComponent.h"
 #include "ui/components/WaveformComponent.h"
-#include "ui/daw/MidiCommandDispatcher.h"
-#include "ui/daw/PlaybackSlider.h"
-#include "ui/daw/VolumesComponent.h"
+#include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
-class DawTrackComponent : public juce::Component, private juce::Timer
+class TrackComponent : public juce::Component, private juce::Timer
 {
 public:
-    DawTrackComponent (LooperEngine* engine, int trackIdx, AudioToUIBridge* bridge)
+    TrackComponent (LooperEngine* engine, int trackIdx, AudioToUIBridge* bridge)
         : trackIndex (trackIdx), volumesComponent (engine, trackIdx), looperEngine (engine), midiDispatcher (engine)
     {
         trackLabel.setText ("Track " + juce::String (trackIdx + 1), juce::dontSendNotification);
@@ -93,7 +93,7 @@ public:
         startTimerHz (10);
     }
 
-    ~DawTrackComponent() override { stopTimer(); }
+    ~TrackComponent() override { stopTimer(); }
 
     void timerCallback() override { updateControlsFromEngine(); }
 
@@ -190,7 +190,7 @@ private:
         void paint (juce::Graphics& g) override
         {
             auto bounds = getLocalBounds();
-            auto* track = dynamic_cast<DawTrackComponent*> (getParentComponent());
+            auto* track = dynamic_cast<TrackComponent*> (getParentComponent());
             bool isTrackActive = track ? track->isActive : false;
 
             // Check for pending track change
@@ -247,5 +247,5 @@ private:
     LooperEngine* looperEngine;
     MidiCommandDispatcher midiDispatcher;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DawTrackComponent)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TrackComponent)
 };

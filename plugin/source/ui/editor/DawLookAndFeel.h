@@ -1,12 +1,12 @@
 #pragma once
 #include "ui/colors/TokyoNight.h"
-#include "ui/daw/PlaybackSlider.h"
+#include "ui/components/PlaybackSliderComponent.h"
 #include <JuceHeader.h>
 
-class DawLookAndFeel : public juce::LookAndFeel_V4
+class LooperLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    DawLookAndFeel() { setColour (juce::ResizableWindow::backgroundColourId, LooperTheme::Colors::backgroundDark); }
+    LooperLookAndFeel() { setColour (juce::ResizableWindow::backgroundColourId, LooperTheme::Colors::backgroundDark); }
 
     juce::Label* createSliderTextBox (juce::Slider& /**/) override
     {
@@ -118,7 +118,8 @@ public:
     {
         slider.setPopupDisplayEnabled (true, true, nullptr);
 
-        auto bounds = juce::Rectangle<float> (x, y, width, height);
+        auto boundsI = juce::Rectangle<int> (x, y, width, height);
+        auto bounds = boundsI.toFloat();
         auto centre = bounds.getCentre();
         auto radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) / 2.0f - 4.0f;
         auto toAngle = rotaryStartAngle + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
@@ -254,7 +255,7 @@ public:
         // Try to load SVG
         auto svg = loadSvg (componentId);
 
-        if (svg != nullptr && false) //svg are nice, but don't care now
+        if (svg != nullptr && /* DISABLES CODE */ (false)) //svg are nice, but don't care now
         {
             // Draw SVG
             auto bounds = button.getLocalBounds().toFloat().reduced (12);

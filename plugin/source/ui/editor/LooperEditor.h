@@ -1,18 +1,18 @@
 #pragma once
-#include "DawTrackComponent.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/daw/MidiCommandDispatcher.h"
+#include "ui/components/TrackComponent.h"
+#include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
-class DawEditor : public juce::Component, public juce::Timer
+class LooperEditor : public juce::Component, public juce::Timer
 {
 public:
-    DawEditor (LooperEngine* engine) : looperEngine (engine), midiDispatcher (engine)
+    LooperEditor (LooperEngine* engine) : looperEngine (engine), midiDispatcher (engine)
     {
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {
-            auto* channel = new DawTrackComponent (engine, i, engine->getUIBridgeByIndex (i));
+            auto* channel = new TrackComponent (engine, i, engine->getUIBridgeByIndex (i));
             channels.add (channel);
             addAndMakeVisible (channel);
         }
@@ -38,7 +38,7 @@ public:
         startTimerHz (10);
     }
 
-    ~DawEditor() override { stopTimer(); }
+    ~LooperEditor() override { stopTimer(); }
 
     void paint (juce::Graphics& g) override
     {
@@ -105,7 +105,7 @@ private:
     LooperEngine* looperEngine;
     MidiCommandDispatcher midiDispatcher;
 
-    juce::OwnedArray<DawTrackComponent> channels;
+    juce::OwnedArray<TrackComponent> channels;
 
     juce::TextButton recordButton;
     juce::TextButton playButton;
@@ -131,5 +131,5 @@ private:
         }
     }
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DawEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LooperEditor)
 };

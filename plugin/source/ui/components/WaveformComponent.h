@@ -1,7 +1,7 @@
 #pragma once
 
 #include "audio/AudioToUIBridge.h"
-#include "ui/components/WaveformCache.h"
+#include "ui/helpers/WaveformCache.h"
 #include "ui/renderers/IRenderer.h"
 #include <JuceHeader.h>
 
