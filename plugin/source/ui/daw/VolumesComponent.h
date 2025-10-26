@@ -2,16 +2,17 @@
 #include "engine/LooperEngine.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
+#include "ui/daw/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
 class VolumesComponent : public juce::Component, private juce::Timer
 {
 public:
-    VolumesComponent (LooperEngine* engine, int trackIdx, AudioToUIBridge* bridge) : looperEngine (engine), trackIndex (trackIdx)
+    VolumesComponent (LooperEngine* engine, int trackIdx) : trackIndex (trackIdx), looperEngine (engine), midiDispatcher (engine)
     {
         normalizeButton.setButtonText ("NORM");
         normalizeButton.setClickingTogglesState (true);
-        normalizeButton.onClick = [this]() { sendCommandToEngine (MidiNotes::VOLUME_NORMALIZE_BUTTON); };
+        normalizeButton.onClick = [this]() { midiDispatcher.sendCommandToEngine (MidiNotes::VOLUME_NORMALIZE_BUTTON, trackIndex); };
         addAndMakeVisible (normalizeButton);
 
         overdubLevelKnob.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
@@ -19,7 +20,8 @@ public:
         overdubLevelKnob.setRange (0.0, 1.0, 0.01);
         overdubLevelKnob.setValue (0.5);
         overdubLevelKnob.setPopupDisplayEnabled (true, true, nullptr);
-        overdubLevelKnob.onValueChange = [this]() { sendCommandToEngine (MidiNotes::OVERDUB_LEVEL_CC, overdubLevelKnob.getValue()); };
+        overdubLevelKnob.onValueChange = [this]()
+        { midiDispatcher.sendControlChangeToEngine (MidiNotes::OVERDUB_LEVEL_CC, trackIndex, overdubLevelKnob.getValue()); };
         addAndMakeVisible (overdubLevelKnob);
 
         existingAudioLevelKnob.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
@@ -28,7 +30,7 @@ public:
         existingAudioLevelKnob.setValue (0.5);
         existingAudioLevelKnob.setPopupDisplayEnabled (true, true, nullptr);
         existingAudioLevelKnob.onValueChange = [this]()
-        { sendCommandToEngine (MidiNotes::EXISTING_AUDIO_LEVEL_CC, existingAudioLevelKnob.getValue()); };
+        { midiDispatcher.sendControlChangeToEngine (MidiNotes::EXISTING_AUDIO_LEVEL_CC, trackIndex, existingAudioLevelKnob.getValue()); };
         addAndMakeVisible (existingAudioLevelKnob);
 
         overdubLabel.setText ("NEXT", juce::dontSendNotification);
@@ -97,6 +99,7 @@ private:
     juce::Label existingLabel;
 
     LooperEngine* looperEngine;
+    MidiCommandDispatcher midiDispatcher;
 
     void timerCallback() override { updateFromEngine(); }
 
@@ -121,43 +124,5 @@ private:
         isUpdatingFromEngine = false;
     }
 
-    /// Sends a command to the engine using MIDI protocol.
-    /// This ensures UI commands go through the same validation,
-    /// logging, and dispatch path as external MIDI controllers.
-    void sendCommandToEngine (const int noteNumber, const bool isNoteOn = true)
-    {
-        juce::MidiBuffer midiBuffer;
-        juce::MidiMessage msg = isNoteOn ? juce::MidiMessage::noteOn (1, noteNumber, (juce::uint8) 100)
-                                         : juce::MidiMessage::noteOff (1, noteNumber);
-
-        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
-        midiBuffer.addEvent (msg, 0);
-        looperEngine->handleMidiCommand (midiBuffer);
-    }
-
-    /// Sends a command to the engine using MIDI protocol.
-    /// This ensures UI commands go through the same validation,
-    /// logging, and dispatch path as external MIDI controllers.
-    void sendCommandToEngine (const int controllerNumber, const int value)
-    {
-        juce::MidiBuffer midiBuffer;
-        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
-        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, value), 0);
-        looperEngine->handleMidiCommand (midiBuffer);
-    }
-
-    /// Sends a command to the engine using MIDI protocol.
-    /// This ensures UI commands go through the same validation,
-    /// logging, and dispatch path as external MIDI controllers.
-    void sendCommandToEngine (const int controllerNumber, const double value)
-    {
-        juce::MidiBuffer midiBuffer;
-
-        int ccValue = (int) std::clamp (value * 127.0, 0.0, 127.0);
-
-        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
-        midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, ccValue), 0);
-        looperEngine->handleMidiCommand (midiBuffer);
-    }
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VolumesComponent)
 };

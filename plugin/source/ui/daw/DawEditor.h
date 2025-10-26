@@ -2,12 +2,13 @@
 #include "DawTrackComponent.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
+#include "ui/daw/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
 class DawEditor : public juce::Component, public juce::Timer
 {
 public:
-    DawEditor (LooperEngine* engine) : looperEngine (engine)
+    DawEditor (LooperEngine* engine) : looperEngine (engine), midiDispatcher (engine)
     {
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {
@@ -18,20 +19,20 @@ public:
 
         recordButton.setButtonText ("REC");
         recordButton.setClickingTogglesState (true);
-        recordButton.onClick = [this]() { sendCommandToEngine (MidiNotes::TOGGLE_RECORD_BUTTON); };
+        recordButton.onClick = [this]() { midiDispatcher.sendCommandToEngine (MidiNotes::TOGGLE_RECORD_BUTTON); };
         addAndMakeVisible (recordButton);
 
         playButton.setButtonText ("PLAY");
         playButton.setClickingTogglesState (true);
-        playButton.onClick = [this]() { sendCommandToEngine (MidiNotes::TOGGLE_PLAY_BUTTON); };
+        playButton.onClick = [this]() { midiDispatcher.sendCommandToEngine (MidiNotes::TOGGLE_PLAY_BUTTON); };
         addAndMakeVisible (playButton);
 
         prevButton.setButtonText ("PREV");
-        prevButton.onClick = [this]() { sendCommandToEngine (MidiNotes::PREV_TRACK); };
+        prevButton.onClick = [this]() { midiDispatcher.sendCommandToEngine (MidiNotes::PREV_TRACK); };
         addAndMakeVisible (prevButton);
 
         nextButton.setButtonText ("NEXT");
-        nextButton.onClick = [this]() { sendCommandToEngine (MidiNotes::NEXT_TRACK); };
+        nextButton.onClick = [this]() { midiDispatcher.sendCommandToEngine (MidiNotes::NEXT_TRACK); };
         addAndMakeVisible (nextButton);
 
         startTimerHz (10);
@@ -102,21 +103,14 @@ public:
 
 private:
     LooperEngine* looperEngine;
+    MidiCommandDispatcher midiDispatcher;
+
     juce::OwnedArray<DawTrackComponent> channels;
 
     juce::TextButton recordButton;
     juce::TextButton playButton;
     juce::TextButton nextButton;
     juce::TextButton prevButton;
-
-    void sendCommandToEngine (const int noteNumber, const bool isNoteOn = true)
-    {
-        juce::MidiBuffer midiBuffer;
-        juce::MidiMessage msg = isNoteOn ? juce::MidiMessage::noteOn (1, noteNumber, (juce::uint8) 100)
-                                         : juce::MidiMessage::noteOff (1, noteNumber);
-        midiBuffer.addEvent (msg, 0);
-        looperEngine->handleMidiCommand (midiBuffer);
-    }
 
     void timerCallback() override
     {
