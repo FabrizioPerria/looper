@@ -1,5 +1,6 @@
 #pragma once
 
+#include "audio/EngineStateToUIBridge.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/TransportControlsComponent.h"
 #include <JuceHeader.h>
@@ -7,7 +8,7 @@
 class GlobalControlBar : public juce::Component
 {
 public:
-    GlobalControlBar (MidiCommandDispatcher* midiDispatcher) : transportControls (midiDispatcher)
+    GlobalControlBar (MidiCommandDispatcher* midiDispatcher, EngineStateToUIBridge* bridge) : transportControls (midiDispatcher, bridge)
     {
         looperLabel.setText ("[LOOPER]", juce::NotificationType::dontSendNotification);
         juce::FontOptions fontOptions = juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 16.0f, juce::Font::bold);

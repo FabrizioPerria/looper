@@ -11,11 +11,11 @@ public:
     LooperEditor (LooperEngine* engine) : looperEngine (engine)
     {
         midiDispatcher = std::make_unique<MidiCommandDispatcher> (engine);
-        globalBar = std::make_unique<GlobalControlBar> (midiDispatcher.get());
+        globalBar = std::make_unique<GlobalControlBar> (midiDispatcher.get(), engine->getEngineStateBridge());
 
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {
-            auto* channel = new TrackComponent (midiDispatcher.get(), i, engine->getUIBridgeByIndex (i), engine->getSelectionStateBridge());
+            auto* channel = new TrackComponent (midiDispatcher.get(), i, engine->getUIBridgeByIndex (i), engine->getEngineStateBridge());
             channels.add (channel);
             addAndMakeVisible (channel);
         }

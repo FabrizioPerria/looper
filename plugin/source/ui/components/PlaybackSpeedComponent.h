@@ -1,4 +1,5 @@
 #pragma once
+#include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>

@@ -1,4 +1,6 @@
 #pragma once
+#include "audio/EngineStateToUIBridge.h"
+#include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
@@ -9,8 +11,8 @@ public:
     AccentBar (MidiCommandDispatcher* midiCommandDispatcher,
                int trackIdx,
                AudioToUIBridge* audioUIBridge,
-               SelectionStateBridge* selectionStateBridge)
-        : selectionBridge (selectionStateBridge), audioBridge (audioUIBridge), midiDispatcher (midiCommandDispatcher), trackIndex (trackIdx)
+               EngineStateToUIBridge* engineBridge)
+        : engineStateBridge (engineBridge), audioBridge (audioUIBridge), midiDispatcher (midiCommandDispatcher), trackIndex (trackIdx)
     {
         setInterceptsMouseClicks (true, false);
     }
@@ -18,9 +20,12 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto bounds = getLocalBounds();
-        bool isTrackActive = selectionBridge->getSnapshot().activeTrackIndex == trackIndex;
 
-        bool isPendingTrack = midiDispatcher->getPendingTrackIndex() == trackIndex;
+        int activeTrackIndex, numTracks, pendingTrackIndex;
+        bool isRecording, isPlaying;
+        engineStateBridge->getEngineState (isRecording, isPlaying, activeTrackIndex, pendingTrackIndex, numTracks);
+        bool isTrackActive = activeTrackIndex == trackIndex;
+        bool isPendingTrack = pendingTrackIndex == trackIndex;
 
         // Choose color
         if (isPendingTrack && ! isTrackActive)
@@ -49,7 +54,7 @@ public:
     void mouseExit (const juce::MouseEvent&) override { setMouseCursor (juce::MouseCursor::NormalCursor); }
 
 private:
-    SelectionStateBridge* selectionBridge;
+    EngineStateToUIBridge* engineStateBridge;
     AudioToUIBridge* audioBridge;
     MidiCommandDispatcher* midiDispatcher;
     int trackIndex;

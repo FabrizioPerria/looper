@@ -1,5 +1,4 @@
 #include "ui/components/WaveformComponent.h"
-#include "ui/renderers/LinearRenderer.h"
 
 void WaveformComponent::timerCallback()
 {

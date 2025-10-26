@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
@@ -33,8 +34,12 @@ public:
         flexBox.flexDirection = juce::FlexBox::Direction::row;
         flexBox.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        flexBox.items.add (juce::FlexItem (undoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        flexBox.items.add (juce::FlexItem (redoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        juce::FlexBox undoredoBox;
+        undoredoBox.flexDirection = juce::FlexBox::Direction::column;
+        undoredoBox.items.add (juce::FlexItem (undoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 1, 1)));
+        undoredoBox.items.add (juce::FlexItem (redoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (1, 1, 0, 1)));
+
+        flexBox.items.add (juce::FlexItem (undoredoBox).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         flexBox.items.add (juce::FlexItem (clearButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
 
         flexBox.performLayout (bounds.toFloat());
@@ -42,7 +47,7 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        auto bounds = getLocalBounds();
+        auto bounds = getLocalBounds().toFloat();
         g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
         g.drawLine (bounds.getX(), bounds.getY() + 8, bounds.getX(), bounds.getBottom() - 8, 1.0f);
         g.drawLine (bounds.getRight() - 1, bounds.getY() + 8, bounds.getRight() - 1, bounds.getBottom() - 8, 1.0f);

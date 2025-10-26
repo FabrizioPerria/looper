@@ -1,5 +1,6 @@
 #pragma once
 
+#include "audio/EngineStateToUIBridge.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
@@ -8,7 +9,8 @@
 class TransportControlsComponent : public juce::Component, private juce::Timer
 {
 public:
-    TransportControlsComponent (MidiCommandDispatcher* midiCommandDispatcher) : midiDispatcher (midiCommandDispatcher)
+    TransportControlsComponent (MidiCommandDispatcher* midiCommandDispatcher, EngineStateToUIBridge* bridge)
+        : midiDispatcher (midiCommandDispatcher), engineState (bridge)
     {
         recButton.setButtonText ("REC");
         recButton.setComponentID ("rec");
@@ -31,7 +33,10 @@ public:
         nextButton.setComponentID ("next");
         nextButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::NEXT_TRACK); };
         addAndMakeVisible (nextButton);
+        startTimerHz (10);
     }
+
+    ~TransportControlsComponent() override { stopTimer(); }
 
     void resized() override
     {
@@ -45,7 +50,7 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        auto bounds = getLocalBounds();
+        auto bounds = getLocalBounds().toFloat();
         g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
         g.drawLine (bounds.getX(), bounds.getY() + 8, bounds.getX(), bounds.getBottom() - 8, 1.0f);
         g.drawLine (bounds.getRight() - 1, bounds.getY() + 8, bounds.getRight() - 1, bounds.getBottom() - 8, 1.0f);
@@ -54,14 +59,13 @@ public:
 private:
     void timerCallback() override
     {
-        auto state = midiDispatcher->getCurrentState();
+        bool recording, playing;
+        int activeTrack, pendingTrack, numTracks;
+        engineState->getEngineState (recording, playing, activeTrack, pendingTrack, numTracks);
 
         // Update button states based on new state enum
-        recButton.setToggleState (state == LooperState::Recording || state == LooperState::Overdubbing, juce::dontSendNotification);
-
-        playButton.setToggleState (state == LooperState::Playing || state == LooperState::PendingTrackChange
-                                       || state == LooperState::Overdubbing,
-                                   juce::dontSendNotification);
+        recButton.setToggleState (recording, juce::dontSendNotification);
+        playButton.setToggleState (playing, juce::dontSendNotification);
     }
 
     juce::TextButton recButton;
@@ -70,6 +74,7 @@ private:
     juce::TextButton nextButton;
 
     MidiCommandDispatcher* midiDispatcher;
+    EngineStateToUIBridge* engineState;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TransportControlsComponent)
 };

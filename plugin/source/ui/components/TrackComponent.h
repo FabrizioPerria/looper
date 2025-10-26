@@ -1,5 +1,6 @@
 #pragma once
 #include "audio/AudioToUIBridge.h"
+#include "audio/EngineStateToUIBridge.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/AccentBarComponent.h"
@@ -17,16 +18,16 @@ public:
     TrackComponent (MidiCommandDispatcher* midiCommandDispatcher,
                     int trackIdx,
                     AudioToUIBridge* audioBridge,
-                    SelectionStateBridge* selectionBridge)
+                    EngineStateToUIBridge* engineBridge)
         : trackIndex (trackIdx)
         , waveformDisplay (audioBridge)
-        , accentBar (midiCommandDispatcher, trackIdx, audioBridge, selectionBridge)
+        , accentBar (midiCommandDispatcher, trackIdx, audioBridge, engineBridge)
         , volumeFader (midiCommandDispatcher, trackIdx, "VOLUME", MidiNotes::TRACK_VOLUME_CC)
         , speedFader (midiCommandDispatcher, trackIdx)
-        , midiDispatcher (midiCommandDispatcher)
-        , bridge (audioBridge)
         , trackEditComponent (midiCommandDispatcher, trackIdx)
         , volumesComponent (midiCommandDispatcher, trackIdx)
+        , midiDispatcher (midiCommandDispatcher)
+        , bridge (audioBridge)
     {
         addAndMakeVisible (waveformDisplay);
 

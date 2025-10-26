@@ -126,7 +126,7 @@ void LooperEngine::updateUIBridge (StateContext& ctx, bool wasRecording)
 {
     if (! ctx.track || ! ctx.bridge) return;
 
-    bool nowRecording = ctx.track->isCurrentlyRecording();
+    bool nowRecording = StateConfig::isRecording (currentState);
 
     // Initialize bridge if needed
     if (! (ctx.bridgeInitialized) && ctx.track->getTrackLengthSamples() > 0)
@@ -313,7 +313,12 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     stateMachine.processAudio (currentState, ctx);
     updateUIBridge (ctx, wasRecording);
 
-    selectionStateBridge->publish (activeTrackIndex, nextTrackIndex);
+    // Update global engine state for transport controls
+    engineStateBridge->updateFromAudioThread (StateConfig::isRecording (currentState),
+                                              StateConfig::isPlaying (currentState),
+                                              activeTrackIndex,
+                                              nextTrackIndex,
+                                              numTracks);
 }
 
 int LooperEngine::getPendingTrackIndex() const

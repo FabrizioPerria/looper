@@ -30,7 +30,7 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        auto bounds = getLocalBounds();
+        auto bounds = getLocalBounds().toFloat();
         g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
         g.drawLine (bounds.getX(), bounds.getY() + 8, bounds.getX(), bounds.getBottom() - 8, 1.0f);
         g.drawLine (bounds.getRight() - 1, bounds.getY() + 8, bounds.getRight() - 1, bounds.getBottom() - 8, 1.0f);
