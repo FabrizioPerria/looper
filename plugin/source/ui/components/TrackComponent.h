@@ -18,9 +18,10 @@ public:
     TrackComponent (MidiCommandDispatcher* midiCommandDispatcher,
                     int trackIdx,
                     AudioToUIBridge* audioBridge,
-                    EngineStateToUIBridge* engineBridge)
+                    EngineStateToUIBridge* engineBridge,
+                    UIToEngineBridge* uiToEngineBridge)
         : trackIndex (trackIdx)
-        , waveformDisplay (audioBridge)
+        , waveformDisplay (audioBridge, uiToEngineBridge)
         , accentBar (midiCommandDispatcher, trackIdx, audioBridge, engineBridge)
         , volumeFader (midiCommandDispatcher, trackIdx, "VOLUME", MidiNotes::TRACK_VOLUME_CC)
         , speedFader (midiCommandDispatcher, trackIdx)

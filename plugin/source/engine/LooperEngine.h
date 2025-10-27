@@ -2,6 +2,7 @@
 
 #include "audio/AudioToUIBridge.h"
 #include "audio/EngineStateToUIBridge.h"
+#include "audio/UIToEngineBridge.h"
 #include "engine/LoopTrack.h"
 #include "engine/LooperStateMachine.h"
 #include <JuceHeader.h>
@@ -30,7 +31,7 @@ struct PendingAction
     bool isActive() const { return type != Type::None; }
 };
 
-class LooperEngine
+class LooperEngine : public juce::Timer
 {
 public:
     LooperEngine();
@@ -51,7 +52,7 @@ public:
     int trackBeingChanged() const { return nextTrackIndex >= 0 ? nextTrackIndex : activeTrackIndex; }
 
     LoopTrack* getActiveTrack() const;
-    LoopTrack* getTrackByIndex (int trackIndex);
+    LoopTrack* getTrackByIndex (int trackIndex) const;
     AudioToUIBridge* getUIBridgeByIndex (int trackIndex);
 
     void processBlock (const juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages);
@@ -92,6 +93,8 @@ public:
     void setTrackSoloed (int trackIndex, bool soloed);
     float getTrackVolume (int trackIndex) const;
     bool isTrackMuted (int trackIndex) const;
+    void setSingleTrackMode (bool singleTrack) { singleTrackMode = singleTrack; }
+    bool isSingleTrackMode() const { return singleTrackMode; }
 
     void setKeepPitchWhenChangingSpeed (int trackIndex, bool shouldKeepPitch);
     bool getKeepPitchWhenChangingSpeed (int trackIndex) const;
@@ -99,6 +102,10 @@ public:
     void handleMidiCommand (const juce::MidiBuffer& midiMessages);
 
     EngineStateToUIBridge* getEngineStateBridge() const { return engineStateBridge.get(); }
+    UIToEngineBridge* getUIToEngineBridge() const { return uiToEngineBridge.get(); }
+
+    void processMultiTrackPlayback (const juce::AudioBuffer<float>& outputBuffer);
+    void processSingleTrackPlayback (const juce::AudioBuffer<float>& outputBuffer);
 
 private:
     // State machine
@@ -106,6 +113,7 @@ private:
     LooperState currentState = LooperState::Idle;
     PendingAction pendingAction;
     std::unique_ptr<EngineStateToUIBridge> engineStateBridge = std::make_unique<EngineStateToUIBridge>();
+    std::unique_ptr<UIToEngineBridge> uiToEngineBridge = std::make_unique<UIToEngineBridge>();
 
     // Engine data
     double sampleRate = 0.0;
@@ -114,6 +122,8 @@ private:
     int numTracks = 0;
     int activeTrackIndex = 0;
     int nextTrackIndex = -1;
+
+    bool singleTrackMode = false;
 
     std::vector<std::unique_ptr<LoopTrack>> loopTracks;
     std::vector<std::unique_ptr<AudioToUIBridge>> uiBridges;
@@ -134,6 +144,17 @@ private:
     void setPendingAction (PendingAction::Type type, int trackIndex, bool waitForWrap);
     void processPendingActions();
     void setupMidiCommands();
+
+    bool shouldTrackPlay (int trackIndex) const;
+
+    void timerCallback() override
+    {
+        if (uiToEngineBridge->hasNewFile())
+        {
+            juce::File temp = uiToEngineBridge->getAudioFile();
+            loadWaveFileToTrack (temp, activeTrackIndex);
+        }
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LooperEngine)
 };

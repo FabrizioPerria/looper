@@ -15,7 +15,11 @@ public:
 
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {
-            auto* channel = new TrackComponent (midiDispatcher.get(), i, engine->getUIBridgeByIndex (i), engine->getEngineStateBridge());
+            auto* channel = new TrackComponent (midiDispatcher.get(),
+                                                i,
+                                                engine->getUIBridgeByIndex (i),
+                                                engine->getEngineStateBridge(),
+                                                engine->getUIToEngineBridge());
             channels.add (channel);
             addAndMakeVisible (channel);
         }

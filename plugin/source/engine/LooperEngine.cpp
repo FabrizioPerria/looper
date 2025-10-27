@@ -5,8 +5,12 @@
 #include "profiler/PerfettoProfiler.h"
 #include <algorithm>
 
-LooperEngine::LooperEngine() = default;
-LooperEngine::~LooperEngine() { releaseResources(); }
+LooperEngine::LooperEngine() { startTimerHz (30); }
+LooperEngine::~LooperEngine()
+{
+    releaseResources();
+    stopTimer();
+}
 
 void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int newNumTracks, int newNumChannels)
 {
@@ -39,6 +43,7 @@ void LooperEngine::releaseResources()
     activeTrackIndex = 0;
     nextTrackIndex = -1;
     currentState = LooperState::Idle;
+    singleTrackMode = false;
 }
 
 void LooperEngine::addTrack()
@@ -62,7 +67,7 @@ LoopTrack* LooperEngine::getActiveTrack() const
     return loopTracks[(size_t) activeTrackIndex].get();
 }
 
-LoopTrack* LooperEngine::getTrackByIndex (int trackIndex)
+LoopTrack* LooperEngine::getTrackByIndex (int trackIndex) const
 {
     if (trackIndex >= 0 && trackIndex < numTracks) return loopTracks[(size_t) trackIndex].get();
     return nullptr;
@@ -86,14 +91,21 @@ void LooperEngine::switchToTrackImmediately (int trackIndex)
     activeTrackIndex = trackIndex;
     nextTrackIndex = -1;
 
-    LooperState targetState = LooperState::Stopped;
-    transitionTo (targetState);
+    if (singleTrackMode) transitionTo (LooperState::Stopped);
 }
 
 void LooperEngine::scheduleTrackSwitch (int trackIndex)
 {
     setPendingAction (PendingAction::Type::SwitchTrack, trackIndex, true);
     nextTrackIndex = trackIndex;
+}
+
+static void modeAwarePlaybackCallback (LooperEngine* engine, juce::AudioBuffer<float>& buf, int numSamples)
+{
+    if (engine->isSingleTrackMode())
+        engine->processSingleTrackPlayback (buf);
+    else
+        engine->processMultiTrackPlayback (buf);
 }
 
 StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& buffer)
@@ -224,7 +236,7 @@ void LooperEngine::selectTrack (int trackIndex)
         return;
     }
 
-    if (currentState == LooperState::Idle || currentState == LooperState::Stopped || ! trackHasContent())
+    if (currentState == LooperState::Idle || currentState == LooperState::Stopped || ! trackHasContent() || ! singleTrackMode)
     {
         switchToTrackImmediately (trackIndex);
         return;
@@ -587,5 +599,35 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages)
                 MidiCommandDispatcher::dispatch (commandId, *this, trackIndex);
             }
         }
+    }
+}
+bool LooperEngine::shouldTrackPlay (int trackIndex) const
+{
+    auto* track = getTrackByIndex (trackIndex);
+    if (! track || track->getTrackLengthSamples() == 0) return false;
+    if (track->isMuted()) return false;
+    return true;
+}
+
+void LooperEngine::processMultiTrackPlayback (const juce::AudioBuffer<float>& outputBuffer)
+{
+    PERFETTO_FUNCTION();
+    for (int i = 0; i < numTracks; ++i)
+    {
+        if (shouldTrackPlay (i))
+        {
+            auto* track = getTrackByIndex (i);
+            if (track) track->processPlayback (const_cast<juce::AudioBuffer<float>&> (outputBuffer), outputBuffer.getNumSamples());
+        }
+    }
+}
+
+void LooperEngine::processSingleTrackPlayback (const juce::AudioBuffer<float>& outputBuffer)
+{
+    PERFETTO_FUNCTION();
+    auto* track = getActiveTrack();
+    if (track && shouldTrackPlay (activeTrackIndex))
+    {
+        track->processPlayback (const_cast<juce::AudioBuffer<float>&> (outputBuffer), outputBuffer.getNumSamples());
     }
 }
