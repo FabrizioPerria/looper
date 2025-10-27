@@ -151,8 +151,10 @@ private:
     {
         if (uiToEngineBridge->hasNewFile())
         {
-            juce::File temp = uiToEngineBridge->getAudioFile();
-            loadWaveFileToTrack (temp, activeTrackIndex);
+            juce::File temp;
+            int trackIndex;
+            uiToEngineBridge->fetchAudioFileForTrack (temp, trackIndex);
+            loadWaveFileToTrack (temp, trackIndex);
         }
     }
 

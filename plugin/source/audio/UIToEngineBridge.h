@@ -10,6 +10,7 @@ public:
     {
         juce::File audioFile;
         std::atomic<bool> fileUpdated { false };
+        std::atomic<int> trackIndex { -1 };
         std::atomic<int> stateVersion { 0 };
         juce::SpinLock fileLock;
     };
@@ -17,10 +18,11 @@ public:
     UIToEngineBridge() = default;
 
     // Called from UI thread
-    void updateAudioFile (const juce::File& newFile)
+    void updateAudioFile (const juce::File& newFile, int trackIdx)
     {
         const juce::SpinLock::ScopedLockType lock (state.fileLock);
         state.audioFile = newFile;
+        state.trackIndex.store (trackIdx, std::memory_order_release);
         state.fileUpdated.store (true, std::memory_order_release);
         state.stateVersion.fetch_add (1, std::memory_order_release);
     }
@@ -28,11 +30,12 @@ public:
     bool hasNewFile() const { return state.fileUpdated.load (std::memory_order_acquire); }
 
     // Called from audio thread
-    juce::File getAudioFile()
+    void fetchAudioFileForTrack (juce::File& outFile, int& outTrackIdx)
     {
         const juce::SpinLock::ScopedLockType lock (state.fileLock);
+        outFile = state.audioFile;
+        outTrackIdx = state.trackIndex.load (std::memory_order_acquire);
         state.fileUpdated.store (false, std::memory_order_release);
-        return state.audioFile;
     }
 
 private:

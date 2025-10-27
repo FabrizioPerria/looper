@@ -21,7 +21,7 @@ public:
                     EngineStateToUIBridge* engineBridge,
                     UIToEngineBridge* uiToEngineBridge)
         : trackIndex (trackIdx)
-        , waveformDisplay (audioBridge, uiToEngineBridge)
+        , waveformDisplay (trackIdx, audioBridge, uiToEngineBridge)
         , accentBar (midiCommandDispatcher, trackIdx, audioBridge, engineBridge)
         , volumeFader (midiCommandDispatcher, trackIdx, "VOLUME", MidiNotes::TRACK_VOLUME_CC)
         , speedFader (midiCommandDispatcher, trackIdx)

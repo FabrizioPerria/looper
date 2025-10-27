@@ -11,7 +11,8 @@
 class WaveformComponent : public juce::Component, public juce::Timer, public juce::AsyncUpdater, public juce::FileDragAndDropTarget
 {
 public:
-    WaveformComponent (AudioToUIBridge* audioBridge, UIToEngineBridge* engineBridge) : bridge (audioBridge), uiToEngineBridge (engineBridge)
+    WaveformComponent (int trackIdx, AudioToUIBridge* audioBridge, UIToEngineBridge* engineBridge)
+        : trackIndex (trackIdx), bridge (audioBridge), uiToEngineBridge (engineBridge)
     {
         renderer = std::make_unique<LinearRenderer>();
         startTimerHz (60);
@@ -66,7 +67,7 @@ public:
 
             if (isAudioFile (file))
             {
-                uiToEngineBridge->updateAudioFile (file);
+                uiToEngineBridge->updateAudioFile (file, trackIndex);
                 break; // Load only the first valid audio file
             }
         }
@@ -75,6 +76,7 @@ public:
 private:
     void handleAsyncUpdate() override;
 
+    int trackIndex;
     WaveformCache cache;
     std::unique_ptr<IRenderer> renderer;
     AudioToUIBridge* bridge = nullptr;

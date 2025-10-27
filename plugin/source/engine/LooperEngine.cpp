@@ -325,12 +325,26 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     stateMachine.processAudio (currentState, ctx);
     updateUIBridge (ctx, wasRecording);
 
-    // Update global engine state for transport controls
+    // // Update global engine state for transport controls
     engineStateBridge->updateFromAudioThread (StateConfig::isRecording (currentState),
                                               StateConfig::isPlaying (currentState),
                                               activeTrackIndex,
                                               nextTrackIndex,
                                               numTracks);
+    for (int i = 0; i < numTracks; ++i)
+    {
+        auto* track = getTrackByIndex (i);
+        auto* bridge = getUIBridgeByIndex (i);
+
+        if (track && bridge && bridge->getState().loopLength.load() > 0)
+        {
+            bridge->updateFromAudioThread (track->getAudioBuffer(),
+                                           track->getTrackLengthSamples(),
+                                           track->getCurrentReadPosition(),
+                                           i == activeTrackIndex ? isRecording() : false,
+                                           i == activeTrackIndex ? isPlaying() : false);
+        }
+    }
 }
 
 int LooperEngine::getPendingTrackIndex() const
@@ -441,7 +455,11 @@ void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& back
     if (track)
     {
         track->loadBackingTrack (backingTrack);
-        uiBridges[(size_t) trackIndex]->signalWaveformChanged();
+
+        auto bridge = getUIBridgeByIndex (trackIndex);
+
+        bridge->updateFromAudioThread (track->getAudioBuffer(), backingTrack.getNumSamples(), 0, false, true);
+        bridge->signalWaveformChanged();
         play();
     }
 }
