@@ -10,7 +10,7 @@ class LooperEditor : public juce::Component, public juce::Timer
 public:
     LooperEditor (LooperEngine* engine) : looperEngine (engine)
     {
-        midiDispatcher = std::make_unique<MidiCommandDispatcher> (engine);
+        midiDispatcher = std::make_unique<MidiCommandDispatcher> (engine, engine->getUIToEngineBridge());
         globalBar = std::make_unique<GlobalControlBar> (midiDispatcher.get(), engine->getEngineStateBridge());
 
         for (int i = 0; i < engine->getNumTracks(); ++i)

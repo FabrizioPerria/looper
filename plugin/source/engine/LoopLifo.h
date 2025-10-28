@@ -68,6 +68,12 @@ public:
 
     int getCapacity() const { return capacity; }
 
+    int getNextLayerIndex() const
+    {
+        if (activeLayers == 0) return -1;
+        return (slotToPush - 1 + capacity) % capacity;
+    }
+
 private:
     int capacity;
     int slotToPush;

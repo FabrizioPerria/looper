@@ -66,7 +66,8 @@ inline void recordingProcessAudio (StateContext& ctx)
 inline void recordingOnEnter (StateContext&) {}
 inline void recordingOnExit (StateContext& ctx)
 {
-    // Ensure recording is finalized when leaving
+    // CRITICAL: Ensure recording is finalized when leaving Recording state
+    // This is the ONLY place where finalizeLayer should be called for Recording
     if (ctx.track && ctx.track->isCurrentlyRecording())
     {
         ctx.track->finalizeLayer();
@@ -89,7 +90,8 @@ inline void overdubbingProcessAudio (StateContext& ctx)
 inline void overdubbingOnEnter (StateContext&) {}
 inline void overdubbingOnExit (StateContext& ctx)
 {
-    // Ensure recording is finalized when leaving
+    // CRITICAL: Ensure recording is finalized when leaving Overdubbing state
+    // This is the ONLY place where finalizeLayer should be called for Overdubbing
     if (ctx.track && ctx.track->isCurrentlyRecording())
     {
         ctx.track->finalizeLayer();
@@ -145,6 +147,7 @@ public:
         }
 
         // Call exit handler for current state
+        // CRITICAL: This is where recording finalization happens
         const auto& currentActions = STATE_ACTION_TABLE[static_cast<size_t> (current)];
         currentActions.onExit (ctx);
 

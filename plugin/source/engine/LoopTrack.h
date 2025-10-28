@@ -40,7 +40,8 @@ public:
 
     const int getAvailableTrackSizeSamples() const { return (int) alignedBufferSize; }
 
-    bool isCurrentlyRecording() const { return isRecording; }
+    bool isCurrentlyRecording() const { return hasUnfinalizedRecording; }
+    bool hasHitRecordingLimit() const { return hitRecordingLimit; }
 
     bool isPlaybackDirectionForward() const { return playbackEngine.isPlaybackDirectionForward(); }
     void setPlaybackDirectionForward() { playbackEngine.setPlaybackDirectionForward(); }
@@ -89,9 +90,14 @@ private:
     int channels = 0;
     size_t alignedBufferSize = 0;
 
-    bool isRecording = false;
+    // Recording state - tracks if we have unfinalized recording data
+    // This is set when processRecord is called and cleared when finalizeLayer/cancelCurrentRecording is called
+    bool hasUnfinalizedRecording = false;
+    bool hitRecordingLimit = false;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
+    void applyPostProcessing (juce::AudioBuffer<float>& audioBuffer, int length);
+
     bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const int numSamples) const
     {
         return numSamples == 0 || (int) input.getNumSamples() < numSamples || input.getNumChannels() != bufferManager.getNumChannels();

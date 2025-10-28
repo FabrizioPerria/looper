@@ -131,6 +131,7 @@ private:
     LooperState determineStateAfterStop() const;
     void switchToTrackImmediately (int trackIndex);
     void scheduleTrackSwitch (int trackIndex);
+    void scheduleFinalizeRecording (int trackIndex);
 
     bool transitionTo (LooperState newState);
     StateContext createStateContext (const juce::AudioBuffer<float>& buffer);

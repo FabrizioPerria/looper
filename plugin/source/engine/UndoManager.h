@@ -42,6 +42,9 @@ public:
     bool undo (std::unique_ptr<juce::AudioBuffer<float>>& destination)
     {
         PERFETTO_FUNCTION();
+        juce::Logger::
+            outputDebugString ("########################################################################\nUndoStackManager::undo called");
+        printDebugInfo();
         int uStart1, uSize1, uStart2, uSize2;
         undoLifo.prepareToRead (1, uStart1, uSize1, uStart2, uSize2);
 
@@ -56,6 +59,9 @@ public:
             redoLifo.finishedWrite (rSize1, false);
             undoLifo.finishedRead (uSize1, false);
 
+            juce::Logger::outputDebugString (
+                "########################################################################\nUndoStackManager::undo completed");
+            printDebugInfo();
             return true;
         }
         return false;
@@ -64,6 +70,8 @@ public:
     bool redo (std::unique_ptr<juce::AudioBuffer<float>>& destination)
     {
         PERFETTO_FUNCTION();
+        // juce::Logger::outputDebugString ("UndoStackManager::redo called");
+        // printDebugInfo();
         int rStart1, rSize1, rStart2, rSize2;
         redoLifo.prepareToRead (1, rStart1, rSize1, rStart2, rSize2);
 
@@ -79,6 +87,8 @@ public:
             undoLifo.finishedWrite (uSize1, false);
             redoLifo.finishedRead (rSize1, false);
 
+            // juce::Logger::outputDebugString ("UndoStackManager::redo completed");
+            // printDebugInfo();
             return true;
         }
         return false;
@@ -120,6 +130,9 @@ public:
     void finalizeCopyAndPush (int loopLength)
     {
         PERFETTO_FUNCTION();
+        juce::Logger::outputDebugString (
+            "##########################################################################\nUndoStackManager::finalizeCopyAndPush called");
+        printDebugInfo();
         int start1, size1, start2, size2;
         undoLifo.prepareToWrite (1, start1, size1, start2, size2);
 
@@ -128,16 +141,25 @@ public:
 
         undoLifo.finishedWrite (size1, false);
         redoLifo.clear();
+        juce::Logger::outputDebugString (
+            "###########################################################################\nUndoStackManager::finalizeCopyAndPush completed");
+        printDebugInfo();
     }
 
     void stageCurrentBuffer (const juce::AudioBuffer<float>& sourceBuffer, int numSamples)
     {
+        juce::Logger::outputDebugString (
+            "###########################################################################\nUndoStackManager::stageCurrentBuffer called");
+        printDebugInfo();
         PERFETTO_FUNCTION();
         undoStaging->setSize (sourceBuffer.getNumChannels(), numSamples, false, true, true);
         for (int ch = 0; ch < sourceBuffer.getNumChannels(); ++ch)
         {
             juce::FloatVectorOperations::copy (undoStaging->getWritePointer (ch), sourceBuffer.getReadPointer (ch), numSamples);
         }
+        juce::Logger::outputDebugString (
+            "###########################################################################\nUndoStackManager::stageCurrentBuffer completed");
+        printDebugInfo();
     }
 
 private:
@@ -149,6 +171,53 @@ private:
 
     int length { 0 };
     std::unique_ptr<juce::AudioBuffer<float>> undoStaging = std::make_unique<juce::AudioBuffer<float>>();
+
+    void printDebugInfo()
+    {
+        PERFETTO_FUNCTION();
+        juce::Logger::outputDebugString ("Undo Stack Manager:");
+
+        juce::Logger::outputDebugString ("STAGING BUFFER:");
+        juce::String sampleStr;
+        for (int i = 0; i < std::min (10, undoStaging->getNumSamples()); ++i)
+        {
+            sampleStr += juce::String (undoStaging->getReadPointer (0)[i]) + " ";
+        }
+        juce::Logger::outputDebugString ("    " + sampleStr);
+
+        // now print all layers in undo stack
+        juce::String nextLayer = ">>>";
+        for (int layer = 0; layer < undoBuffers.size(); ++layer)
+        {
+            bool isNextLayer = (layer == undoLifo.getNextLayerIndex());
+            if (isNextLayer)
+                juce::Logger::outputDebugString (nextLayer + " UNDO LAYER " + juce::String (layer) + ":");
+            else
+                juce::Logger::outputDebugString ("UNDO LAYER " + juce::String (layer) + ":");
+            juce::String sampleStr;
+            for (int i = 0; i < std::min (10, undoBuffers[(size_t) layer]->getNumSamples()); ++i)
+            {
+                sampleStr += juce::String (undoBuffers[(size_t) layer]->getReadPointer (0)[i]) + " ";
+            }
+            juce::Logger::outputDebugString ("    " + sampleStr);
+        }
+
+        // now print all layers in redo stack
+        for (int layer = 0; layer < redoBuffers.size(); ++layer)
+        {
+            bool isNextLayer = (layer == redoLifo.getNextLayerIndex());
+            if (isNextLayer)
+                juce::Logger::outputDebugString (nextLayer + " REDO LAYER " + juce::String (layer) + ":");
+            else
+                juce::Logger::outputDebugString ("REDO LAYER " + juce::String (layer) + ":");
+            juce::String sampleStr;
+            for (int i = 0; i < std::min (10, redoBuffers[(size_t) layer]->getNumSamples()); ++i)
+            {
+                sampleStr += juce::String (redoBuffers[(size_t) layer]->getReadPointer (0)[i]) + " ";
+            }
+            juce::Logger::outputDebugString ("    " + sampleStr);
+        }
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (UndoStackManager)
 };

@@ -99,6 +99,11 @@ void LooperEngine::scheduleTrackSwitch (int trackIndex)
     nextTrackIndex = trackIndex;
 }
 
+void LooperEngine::scheduleFinalizeRecording (int trackIndex)
+{
+    setPendingAction (PendingAction::Type::FinalizeRecording, trackIndex, false);
+}
+
 StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& buffer)
 {
     return StateContext { .track = getActiveTrack(),
@@ -201,8 +206,16 @@ void LooperEngine::stop()
     auto* activeTrack = getActiveTrack();
     if (! activeTrack) return;
 
+    // CRITICAL FIX: When stopping during recording, transition to appropriate state
+    // The state machine exit handler will finalize the recording
     if (StateConfig::isRecording (currentState))
-        transitionTo (LooperState::Playing);
+    {
+        // Determine target state based on whether we have content
+        if (trackHasContent() || activeTrack->isCurrentlyRecording())
+            transitionTo (LooperState::Playing);
+        else
+            transitionTo (LooperState::Idle);
+    }
     else if (StateConfig::isPlaying (currentState))
         transitionTo (LooperState::Stopped);
 }
@@ -216,14 +229,11 @@ void LooperEngine::selectTrack (int trackIndex)
     if (trackIndex < 0 || trackIndex >= numTracks) return;
     if (trackIndex == activeTrackIndex) return;
 
+    // CRITICAL FIX: Don't directly cancel recording - let state machine handle it
     if (StateConfig::isRecording (currentState))
     {
-        auto* track = getActiveTrack();
-        if (track && track->isCurrentlyRecording())
-        {
-            track->cancelCurrentRecording();
-        }
-        switchToTrackImmediately (trackIndex);
+        // Schedule cancel action to be handled via state transition
+        setPendingAction (PendingAction::Type::CancelRecording, trackIndex, false);
         return;
     }
 
@@ -303,8 +313,12 @@ void LooperEngine::clear (int trackIndex)
 void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     PERFETTO_FUNCTION();
-    handleMidiCommand (midiMessages);
 
+    juce::MidiBuffer outBuffer;
+    uiToEngineBridge->fetchNextMidiBuffer (outBuffer);
+    midiMessages.addEvents (outBuffer, 0, buffer.getNumSamples(), 0);
+
+    handleMidiCommand (midiMessages);
     auto* activeTrack = getActiveTrack();
     auto* bridge = getUIBridgeByIndex (activeTrackIndex);
     if (! activeTrack || ! bridge) return;
@@ -316,26 +330,12 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     stateMachine.processAudio (currentState, ctx);
     updateUIBridge (ctx, wasRecording);
 
-    // // Update global engine state for transport controls
+    // Update global engine state for transport controls
     engineStateBridge->updateFromAudioThread (StateConfig::isRecording (currentState),
                                               StateConfig::isPlaying (currentState),
                                               activeTrackIndex,
                                               nextTrackIndex,
                                               numTracks);
-    // for (int i = 0; i < numTracks; ++i)
-    // {
-    //     auto* track = getTrackByIndex (i);
-    //     auto* audioBridge = getUIBridgeByIndex (i);
-    //
-    //     if (track && audioBridge && audioBridge->getState().loopLength.load() > 0)
-    //     {
-    //         bridge->updateFromAudioThread (track->getAudioBuffer(),
-    //                                        track->getTrackLengthSamples(),
-    //                                        track->getCurrentReadPosition(),
-    //                                        i == activeTrackIndex ? isRecording() : false,
-    //                                        i == activeTrackIndex ? isPlaying() : false);
-    //     }
-    // }
 }
 
 int LooperEngine::getPendingTrackIndex() const
@@ -390,18 +390,21 @@ void LooperEngine::processPendingActions()
             break;
 
         case PendingAction::Type::CancelRecording:
-            if (activeTrack->isCurrentlyRecording())
+            // CRITICAL FIX: Cancel recording via state transition
+            // First transition to Idle (which calls exit handler to cancel)
+            transitionTo (LooperState::Idle);
+            // Then switch to the target track
+            if (pendingAction.targetTrackIndex >= 0 && pendingAction.targetTrackIndex < numTracks)
             {
-                activeTrack->cancelCurrentRecording();
+                activeTrackIndex = pendingAction.targetTrackIndex;
+                nextTrackIndex = -1;
             }
             break;
 
         case PendingAction::Type::FinalizeRecording:
-            if (activeTrack->isCurrentlyRecording())
-            {
-                activeTrack->finalizeLayer();
-                transitionTo (LooperState::Playing);
-            }
+            // CRITICAL FIX: Finalize via state transition
+            // The exit handler of Recording/Overdubbing states will finalize
+            transitionTo (LooperState::Playing);
             break;
 
         case PendingAction::Type::None:
