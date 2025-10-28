@@ -93,8 +93,6 @@ public:
     void setTrackSoloed (int trackIndex, bool soloed);
     float getTrackVolume (int trackIndex) const;
     bool isTrackMuted (int trackIndex) const;
-    void setSingleTrackMode (bool singleTrack) { singleTrackMode = singleTrack; }
-    bool isSingleTrackMode() const { return singleTrackMode; }
 
     void setKeepPitchWhenChangingSpeed (int trackIndex, bool shouldKeepPitch);
     bool getKeepPitchWhenChangingSpeed (int trackIndex) const;
@@ -122,8 +120,6 @@ private:
     int numTracks = 0;
     int activeTrackIndex = 0;
     int nextTrackIndex = -1;
-
-    bool singleTrackMode = false;
 
     std::vector<std::unique_ptr<LoopTrack>> loopTracks;
     std::vector<std::unique_ptr<AudioToUIBridge>> uiBridges;

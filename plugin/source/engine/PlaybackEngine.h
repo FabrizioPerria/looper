@@ -85,15 +85,16 @@ public:
     {
         if (isPlaybackDirectionForward()) playheadDirection = -1;
     }
-    void setPlaybackPitchSemitones (const int semitones) { playbackPitchSemitones = semitones; }
-    int getPlaybackPitchSemitones() const { return playbackPitchSemitones; }
+    void setPlaybackPitchSemitones (const float semitones) { playbackPitchSemitones = juce::jlimit (-2.0f, 2.0f, semitones); }
+    double getPlaybackPitchSemitones() const { return playbackPitchSemitones; }
 
     void processPlayback (juce::AudioBuffer<float>& output, BufferManager& audioBufferManager, const int numSamples)
     {
         PERFETTO_FUNCTION();
         if (shouldNotPlayback (audioBufferManager.getLength(), numSamples)) return;
 
-        bool useFastPath = (std::abs (playbackSpeed - 1.0f) < 0.01f && isPlaybackDirectionForward() && playbackPitchSemitones == 0);
+        bool useFastPath = (std::abs (playbackSpeed - 1.0f) < 0.01f && isPlaybackDirectionForward()
+                            && std::abs (playbackPitchSemitones - 0.0) < 0.01);
 
         if (useFastPath)
         {
@@ -137,7 +138,7 @@ private:
 
     float previousSpeedMultiplier = 1.0f;
     float playbackSpeed = 1.0f;
-    int playbackPitchSemitones = 0;
+    double playbackPitchSemitones = 0.0;
 
     bool previousKeepPitch = false;
     bool wasUsingFastPath = true;
@@ -171,7 +172,7 @@ private:
         {
             auto& st = soundTouchProcessors[(size_t) ch];
 
-            st->setPitch (1.0);
+            st->setPitchSemiTones (playbackPitchSemitones);
             if (speedChanged || modeChanged)
             {
                 if (shouldKeepPitchWhenChangingSpeed())

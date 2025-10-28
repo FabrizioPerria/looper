@@ -49,8 +49,8 @@ public:
     void setPlaybackSpeed (float speed) { playbackEngine.setPlaybackSpeed (speed); }
     float getPlaybackSpeed() const { return playbackEngine.getPlaybackSpeed(); }
 
-    void setPlaybackPitch (int pitch) { playbackEngine.setPlaybackPitchSemitones (pitch); }
-    int getPlaybackPitch() const { return playbackEngine.getPlaybackPitchSemitones(); }
+    void setPlaybackPitch (double pitch) { playbackEngine.setPlaybackPitchSemitones (pitch); }
+    double getPlaybackPitch() const { return playbackEngine.getPlaybackPitchSemitones(); }
 
     bool shouldKeepPitchWhenChangingSpeed() const { return playbackEngine.shouldKeepPitchWhenChangingSpeed(); }
     void setKeepPitchWhenChangingSpeed (const bool shouldKeepPitch) { playbackEngine.setKeepPitchWhenChangingSpeed (shouldKeepPitch); }
