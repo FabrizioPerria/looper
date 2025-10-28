@@ -50,57 +50,36 @@ void LoopTrack::releaseResources()
 // Recording
 //==============================================================================
 
-void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int numSamples)
+void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int numSamples, const bool isOverdub)
 {
     PERFETTO_FUNCTION();
-    if (shouldNotRecordInputBuffer (input, numSamples)) return;
 
-    // Check if this is the start of a new recording session
-    // We know we're starting recording if bufferManager needs to overdub
-    // and we haven't staged anything yet
-    bool isStartingNewLayer = bufferManager.shouldOverdub() && ! hasUnfinalizedRecording;
-
-    if (isStartingNewLayer)
-    {
-        hasUnfinalizedRecording = true;
-        undoManager.finalizeCopyAndPush (bufferManager.getLength());
-    }
-
-    // CRITICAL FIX: Don't auto-finalize when FIFO prevents wrap
-    // Let the state machine handle finalization
     bool fifoPreventedWrap = bufferManager
                                  .writeToAudioBuffer ([&] (float* dest, const float* source, const int samples, const bool shouldOverdub)
                                                       { volumeProcessor.saveBalancedLayers (dest, source, samples, shouldOverdub); },
                                                       input,
                                                       numSamples,
-                                                      false);
-
-    // Just track that we hit the limit, but don't finalize
-    // The LooperEngine will handle this via state transitions
-    if (fifoPreventedWrap)
-    {
-        hitRecordingLimit = true;
-    }
+                                                      isOverdub,
+                                                      true);
 }
 
-void LoopTrack::finalizeLayer()
+void LoopTrack::initializeForNewOverdubSession()
+{
+    PERFETTO_FUNCTION();
+    undoManager.finalizeCopyAndPush (bufferManager.getLength());
+}
+
+void LoopTrack::finalizeLayer (const bool isOverdub)
 {
     juce::Logger::outputDebugString ("LoopTrack::finalizeLayer called");
     PERFETTO_FUNCTION();
 
-    // Reset the recording flags
-    hitRecordingLimit = false;
-    hasUnfinalizedRecording = false;
-
-    bufferManager.finalizeLayer();
+    bufferManager.finalizeLayer (isOverdub);
 
     auto& audioBuffer = *bufferManager.getAudioBuffer();
     auto length = bufferManager.getLength();
 
-    // Apply audio processing
     applyPostProcessing (audioBuffer, length);
-
-    // Stage for undo - ONLY during actual recording finalization
     undoManager.stageCurrentBuffer (audioBuffer, length);
 }
 
@@ -110,10 +89,10 @@ void LoopTrack::applyPostProcessing (juce::AudioBuffer<float>& audioBuffer, int 
     volumeProcessor.applyCrossfade (audioBuffer, length);
 }
 
-void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int numSamples)
+void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int numSamples, const bool isOverdub)
 {
     PERFETTO_FUNCTION();
-    playbackEngine.processPlayback (output, bufferManager, numSamples);
+    playbackEngine.processPlayback (output, bufferManager, numSamples, isOverdub);
     volumeProcessor.applyVolume (output, numSamples);
 }
 
@@ -124,23 +103,17 @@ void LoopTrack::clear()
     bufferManager.clear();
     undoManager.clear();
     playbackEngine.clear();
-    hitRecordingLimit = false;
-    hasUnfinalizedRecording = false;
 }
 
 bool LoopTrack::undo()
 {
     PERFETTO_FUNCTION();
-    if (! bufferManager.shouldOverdub()) return false;
+    if (bufferManager.getLength() == 0) return false;
 
-    // CRITICAL FIX: Don't call finalizeLayer() - it corrupts the undo stack!
-    // UndoManager.undo() already swaps the buffers correctly
     if (undoManager.undo (bufferManager.getAudioBuffer()))
     {
-        // Update buffer manager state to reflect the undone buffer
-        bufferManager.finalizeLayer();
+        bufferManager.finalizeLayer (true);
 
-        // Apply audio processing to the restored buffer
         auto& audioBuffer = *bufferManager.getAudioBuffer();
         auto length = bufferManager.getLength();
         applyPostProcessing (audioBuffer, length);
@@ -153,15 +126,12 @@ bool LoopTrack::undo()
 bool LoopTrack::redo()
 {
     PERFETTO_FUNCTION();
-    if (! bufferManager.shouldOverdub()) return false;
+    if (bufferManager.getLength() == 0) return false;
 
-    // CRITICAL FIX: Don't call finalizeLayer() - it corrupts the undo stack!
     if (undoManager.redo (bufferManager.getAudioBuffer()))
     {
-        // Update buffer manager state to reflect the redone buffer
-        bufferManager.finalizeLayer();
+        bufferManager.finalizeLayer (true);
 
-        // Apply audio processing to the restored buffer
         auto& audioBuffer = *bufferManager.getAudioBuffer();
         auto length = bufferManager.getLength();
         applyPostProcessing (audioBuffer, length);
@@ -187,19 +157,9 @@ void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
     bufferManager.writeToAudioBuffer ([&] (float* dest, const float* source, const int samples, const bool /*shouldOverdub*/)
                                       { juce::FloatVectorOperations::copy (dest, source, samples); },
                                       backingTrack,
-                                      copySamples);
+                                      copySamples,
+                                      false,
+                                      false);
 
-    finalizeLayer();
-}
-
-void LoopTrack::cancelCurrentRecording()
-{
-    PERFETTO_FUNCTION();
-    if (! hasUnfinalizedRecording) return;
-
-    hasUnfinalizedRecording = false;
-    hitRecordingLimit = false;
-
-    // Don't finalize - the BufferManager will handle cleanup internally
-    // Just reset the recording flags
+    finalizeLayer (false);
 }

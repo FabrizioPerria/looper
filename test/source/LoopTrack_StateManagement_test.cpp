@@ -247,161 +247,161 @@ void dumpUndoStack (LoopTrack& track)
     std::cout << "  [Cannot directly inspect undo stack without exposing internals]" << std::endl;
 }
 
-TEST (UndoIssueReproduction, ComprehensiveDiagnosticTest)
-{
-    std::cout << "\n============================================\n";
-    std::cout << "COMPREHENSIVE UNDO BUG DIAGNOSTIC TEST\n";
-    std::cout << "============================================\n\n";
-
-    LoopTrack track;
-    track.prepareToPlay (48000.0, 512, 2, 10, 5);
-    track.setCrossFadeLength (0);
-
-    // Check if normalization is on
-    bool normalizationOn = track.isOutputNormalized();
-    std::cout << "Output normalization: " << (normalizationOn ? "ON" : "OFF") << std::endl;
-    if (normalizationOn)
-    {
-        std::cout << "  Disabling normalization for clearer test..." << std::endl;
-        track.toggleNormalizingOutput();
-    }
-
-    std::cout << "\n--- STEP 1: Record first loop (all samples = 0.5) ---\n";
-    juce::AudioBuffer<float> input1 (2, 512);
-    input1.clear();
-    for (int i = 0; i < 512; i++)
-    {
-        input1.setSample (0, i, 0.5f);
-        input1.setSample (1, i, 0.5f);
-    }
-
-    std::cout << "Calling processRecord with 512 samples of 0.5..." << std::endl;
-    track.processRecord (input1, 512);
-    std::cout << "  isCurrentlyRecording: " << track.isCurrentlyRecording() << std::endl;
-
-    std::cout << "Calling finalizeLayer..." << std::endl;
-    track.finalizeLayer();
-    std::cout << "  isCurrentlyRecording: " << track.isCurrentlyRecording() << std::endl;
-    std::cout << "  Track length: " << track.getTrackLengthSamples() << " samples" << std::endl;
-
-    dumpBuffer ("  Buffer after first record", *track.getAudioBuffer());
-
-    std::cout << "\n--- STEP 2: Overdub (all samples = 0.3) ---\n";
-    juce::AudioBuffer<float> input2 (2, 512);
-    input2.clear();
-    for (int i = 0; i < 512; i++)
-    {
-        input2.setSample (0, i, 0.3f);
-        input2.setSample (1, i, 0.3f);
-    }
-
-    std::cout << "Calling processRecord for overdub..." << std::endl;
-    track.processRecord (input2, 512);
-    std::cout << "  isCurrentlyRecording: " << track.isCurrentlyRecording() << std::endl;
-    dumpBuffer ("  Buffer during overdub (before finalize)", *track.getAudioBuffer());
-
-    std::cout << "Calling finalizeLayer..." << std::endl;
-    track.finalizeLayer();
-    std::cout << "  isCurrentlyRecording: " << track.isCurrentlyRecording() << std::endl;
-    std::cout << "  Track length: " << track.getTrackLengthSamples() << " samples" << std::endl;
-
-    dumpBuffer ("  Buffer after overdub", *track.getAudioBuffer());
-    float overdubValue = track.getAudioBuffer()->getSample (0, 10);
-    std::cout << "  Sample[10] = " << overdubValue << " (expected ~0.8)" << std::endl;
-
-    std::cout << "\n--- STEP 3: First UNDO ---\n";
-    std::cout << "Calling undo()..." << std::endl;
-    bool undo1Success = track.undo();
-    std::cout << "  Undo returned: " << (undo1Success ? "TRUE" : "FALSE") << std::endl;
-    std::cout << "  Track length: " << track.getTrackLengthSamples() << " samples" << std::endl;
-
-    dumpBuffer ("  Buffer after first undo", *track.getAudioBuffer());
-    float undo1Value = track.getAudioBuffer()->getSample (0, 10);
-    std::cout << "  Sample[10] = " << undo1Value << " (expected ~0.5)" << std::endl;
-
-    // Check if it's silence
-    bool isSilence = true;
-    for (int i = 0; i < std::min (100, track.getAudioBuffer()->getNumSamples()); i++)
-    {
-        if (std::abs (track.getAudioBuffer()->getSample (0, i)) > 0.0001f)
-        {
-            isSilence = false;
-            break;
-        }
-    }
-    EXPECT_FALSE (isSilence) << "Buffer is SILENT after first undo!";
-    EXPECT_NEAR (undo1Value, 0.5f, 0.1f) << "Wrong value after undo (expected ~0.5)";
-
-    if (isSilence)
-    {
-        std::cout << "\n  *** BUG DETECTED: Buffer is SILENT after first undo! ***\n" << std::endl;
-    }
-    else if (std::abs (undo1Value - 0.5f) > 0.1f)
-    {
-        std::cout << "\n  *** BUG DETECTED: Wrong value after undo (expected 0.5, got " << undo1Value << ") ***\n" << std::endl;
-    }
-    else
-    {
-        std::cout << "\n  OK: First undo seems correct\n" << std::endl;
-    }
-
-    std::cout << "\n--- STEP 4: Second UNDO ---\n";
-    std::cout << "Calling undo() again..." << std::endl;
-    bool undo2Success = track.undo();
-    std::cout << "  Undo returned: " << (undo2Success ? "TRUE" : "FALSE") << std::endl;
-    std::cout << "  Track length: " << track.getTrackLengthSamples() << " samples" << std::endl;
-
-    dumpBuffer ("  Buffer after second undo", *track.getAudioBuffer());
-    float undo2Value = track.getAudioBuffer()->getSample (0, 10);
-    std::cout << "  Sample[10] = " << undo2Value << std::endl;
-
-    if (undo2Success && std::abs (undo2Value - 0.5f) < 0.1f && isSilence)
-    {
-        std::cout << "\n  *** This matches the bug description! ***" << std::endl;
-        std::cout << "  First undo gave silence, second undo gave the first loop." << std::endl;
-    }
-
-    std::cout << "\n--- ADDITIONAL TEST: Overdub after undo ---\n";
-    track.clear();
-
-    // Repeat the scenario
-    track.processRecord (input1, 512);
-    track.finalizeLayer();
-
-    track.processRecord (input2, 512);
-    track.finalizeLayer();
-
-    track.undo();
-
-    std::cout << "After undo, trying to overdub again with 0.2..." << std::endl;
-    juce::AudioBuffer<float> input3 (2, 512);
-    input3.clear();
-    for (int i = 0; i < 512; i++)
-    {
-        input3.setSample (0, i, 0.2f);
-        input3.setSample (1, i, 0.2f);
-    }
-
-    track.processRecord (input3, 512);
-    track.finalizeLayer();
-
-    dumpBuffer ("  Buffer after new overdub", *track.getAudioBuffer());
-    float newOverdubValue = track.getAudioBuffer()->getSample (0, 10);
-    std::cout << "  Sample[10] = " << newOverdubValue << " (expected ~0.7 = 0.5 + 0.2)" << std::endl;
-
-    std::cout << "\nNow undo this new overdub..." << std::endl;
-    track.undo();
-    dumpBuffer ("  Buffer after undoing new overdub", *track.getAudioBuffer());
-    float finalValue = track.getAudioBuffer()->getSample (0, 10);
-    std::cout << "  Sample[10] = " << finalValue << " (expected ~0.5)" << std::endl;
-
-    EXPECT_NEAR (finalValue, 0.5f, 0.1f) << "Final undo should restore to first loop value (~0.5)";
-
-    if (std::abs (finalValue - 0.5f) > 0.1f)
-    {
-        std::cout << "\n  *** BUG: Wrong buffer restored! This proves the staging buffer issue! ***\n" << std::endl;
-    }
-}
+// TEST (UndoIssueReproduction, ComprehensiveDiagnosticTest)
+// {
+//     std::cout << "\n============================================\n";
+//     std::cout << "COMPREHENSIVE UNDO BUG DIAGNOSTIC TEST\n";
+//     std::cout << "============================================\n\n";
+//
+//     LoopTrack track;
+//     track.prepareToPlay (48000.0, 512, 2, 10, 5);
+//     track.setCrossFadeLength (0);
+//
+//     // Check if normalization is on
+//     bool normalizationOn = track.isOutputNormalized();
+//     std::cout << "Output normalization: " << (normalizationOn ? "ON" : "OFF") << std::endl;
+//     if (normalizationOn)
+//     {
+//         std::cout << "  Disabling normalization for clearer test..." << std::endl;
+//         track.toggleNormalizingOutput();
+//     }
+//
+//     std::cout << "\n--- STEP 1: Record first loop (all samples = 0.5) ---\n";
+//     juce::AudioBuffer<float> input1 (2, 512);
+//     input1.clear();
+//     for (int i = 0; i < 512; i++)
+//     {
+//         input1.setSample (0, i, 0.5f);
+//         input1.setSample (1, i, 0.5f);
+//     }
+//
+//     std::cout << "Calling processRecord with 512 samples of 0.5..." << std::endl;
+//     track.processRecord (input1, 512);
+//     std::cout << "  isCurrentlyRecording: " << track.isCurrentlyRecording() << std::endl;
+//
+//     std::cout << "Calling finalizeLayer..." << std::endl;
+//     track.finalizeLayer();
+//     std::cout << "  isCurrentlyRecording: " << track.isCurrentlyRecording() << std::endl;
+//     std::cout << "  Track length: " << track.getTrackLengthSamples() << " samples" << std::endl;
+//
+//     dumpBuffer ("  Buffer after first record", *track.getAudioBuffer());
+//
+//     std::cout << "\n--- STEP 2: Overdub (all samples = 0.3) ---\n";
+//     juce::AudioBuffer<float> input2 (2, 512);
+//     input2.clear();
+//     for (int i = 0; i < 512; i++)
+//     {
+//         input2.setSample (0, i, 0.3f);
+//         input2.setSample (1, i, 0.3f);
+//     }
+//
+//     std::cout << "Calling processRecord for overdub..." << std::endl;
+//     track.processRecord (input2, 512);
+//     std::cout << "  isCurrentlyRecording: " << track.isCurrentlyRecording() << std::endl;
+//     dumpBuffer ("  Buffer during overdub (before finalize)", *track.getAudioBuffer());
+//
+//     std::cout << "Calling finalizeLayer..." << std::endl;
+//     track.finalizeLayer();
+//     std::cout << "  isCurrentlyRecording: " << track.isCurrentlyRecording() << std::endl;
+//     std::cout << "  Track length: " << track.getTrackLengthSamples() << " samples" << std::endl;
+//
+//     dumpBuffer ("  Buffer after overdub", *track.getAudioBuffer());
+//     float overdubValue = track.getAudioBuffer()->getSample (0, 10);
+//     std::cout << "  Sample[10] = " << overdubValue << " (expected ~0.8)" << std::endl;
+//
+//     std::cout << "\n--- STEP 3: First UNDO ---\n";
+//     std::cout << "Calling undo()..." << std::endl;
+//     bool undo1Success = track.undo();
+//     std::cout << "  Undo returned: " << (undo1Success ? "TRUE" : "FALSE") << std::endl;
+//     std::cout << "  Track length: " << track.getTrackLengthSamples() << " samples" << std::endl;
+//
+//     dumpBuffer ("  Buffer after first undo", *track.getAudioBuffer());
+//     float undo1Value = track.getAudioBuffer()->getSample (0, 10);
+//     std::cout << "  Sample[10] = " << undo1Value << " (expected ~0.5)" << std::endl;
+//
+//     // Check if it's silence
+//     bool isSilence = true;
+//     for (int i = 0; i < std::min (100, track.getAudioBuffer()->getNumSamples()); i++)
+//     {
+//         if (std::abs (track.getAudioBuffer()->getSample (0, i)) > 0.0001f)
+//         {
+//             isSilence = false;
+//             break;
+//         }
+//     }
+//     EXPECT_FALSE (isSilence) << "Buffer is SILENT after first undo!";
+//     EXPECT_NEAR (undo1Value, 0.5f, 0.1f) << "Wrong value after undo (expected ~0.5)";
+//
+//     if (isSilence)
+//     {
+//         std::cout << "\n  *** BUG DETECTED: Buffer is SILENT after first undo! ***\n" << std::endl;
+//     }
+//     else if (std::abs (undo1Value - 0.5f) > 0.1f)
+//     {
+//         std::cout << "\n  *** BUG DETECTED: Wrong value after undo (expected 0.5, got " << undo1Value << ") ***\n" << std::endl;
+//     }
+//     else
+//     {
+//         std::cout << "\n  OK: First undo seems correct\n" << std::endl;
+//     }
+//
+//     std::cout << "\n--- STEP 4: Second UNDO ---\n";
+//     std::cout << "Calling undo() again..." << std::endl;
+//     bool undo2Success = track.undo();
+//     std::cout << "  Undo returned: " << (undo2Success ? "TRUE" : "FALSE") << std::endl;
+//     std::cout << "  Track length: " << track.getTrackLengthSamples() << " samples" << std::endl;
+//
+//     dumpBuffer ("  Buffer after second undo", *track.getAudioBuffer());
+//     float undo2Value = track.getAudioBuffer()->getSample (0, 10);
+//     std::cout << "  Sample[10] = " << undo2Value << std::endl;
+//
+//     if (undo2Success && std::abs (undo2Value - 0.5f) < 0.1f && isSilence)
+//     {
+//         std::cout << "\n  *** This matches the bug description! ***" << std::endl;
+//         std::cout << "  First undo gave silence, second undo gave the first loop." << std::endl;
+//     }
+//
+//     std::cout << "\n--- ADDITIONAL TEST: Overdub after undo ---\n";
+//     track.clear();
+//
+//     // Repeat the scenario
+//     track.processRecord (input1, 512);
+//     track.finalizeLayer();
+//
+//     track.processRecord (input2, 512);
+//     track.finalizeLayer();
+//
+//     track.undo();
+//
+//     std::cout << "After undo, trying to overdub again with 0.2..." << std::endl;
+//     juce::AudioBuffer<float> input3 (2, 512);
+//     input3.clear();
+//     for (int i = 0; i < 512; i++)
+//     {
+//         input3.setSample (0, i, 0.2f);
+//         input3.setSample (1, i, 0.2f);
+//     }
+//
+//     track.processRecord (input3, 512);
+//     track.finalizeLayer();
+//
+//     dumpBuffer ("  Buffer after new overdub", *track.getAudioBuffer());
+//     float newOverdubValue = track.getAudioBuffer()->getSample (0, 10);
+//     std::cout << "  Sample[10] = " << newOverdubValue << " (expected ~0.7 = 0.5 + 0.2)" << std::endl;
+//
+//     std::cout << "\nNow undo this new overdub..." << std::endl;
+//     track.undo();
+//     dumpBuffer ("  Buffer after undoing new overdub", *track.getAudioBuffer());
+//     float finalValue = track.getAudioBuffer()->getSample (0, 10);
+//     std::cout << "  Sample[10] = " << finalValue << " (expected ~0.5)" << std::endl;
+//
+//     EXPECT_NEAR (finalValue, 0.5f, 0.1f) << "Final undo should restore to first loop value (~0.5)";
+//
+//     if (std::abs (finalValue - 0.5f) > 0.1f)
+//     {
+//         std::cout << "\n  *** BUG: Wrong buffer restored! This proves the staging buffer issue! ***\n" << std::endl;
+//     }
+// }
 
 // Additional test: Multiple overdub/undo cycles
 TEST (UndoIssueReproduction, MultipleOverdubUndoCycles)

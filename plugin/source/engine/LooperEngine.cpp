@@ -211,10 +211,10 @@ void LooperEngine::stop()
     if (StateConfig::isRecording (currentState))
     {
         // Determine target state based on whether we have content
-        if (trackHasContent() || activeTrack->isCurrentlyRecording())
-            transitionTo (LooperState::Playing);
-        else
-            transitionTo (LooperState::Idle);
+        // if (trackHasContent() || activeTrack->isCurrentlyRecording())
+        transitionTo (LooperState::Playing);
+        // else
+        //     transitionTo (LooperState::Idle);
     }
     else if (StateConfig::isPlaying (currentState))
         transitionTo (LooperState::Stopped);
@@ -323,7 +323,7 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     auto* bridge = getUIBridgeByIndex (activeTrackIndex);
     if (! activeTrack || ! bridge) return;
 
-    bool wasRecording = activeTrack->isCurrentlyRecording();
+    bool wasRecording = StateConfig::isRecording (currentState);
 
     processPendingActions();
     auto ctx = createStateContext (buffer);
@@ -614,27 +614,4 @@ bool LooperEngine::shouldTrackPlay (int trackIndex) const
     if (! track || track->getTrackLengthSamples() == 0) return false;
     if (track->isMuted()) return false;
     return true;
-}
-
-void LooperEngine::processMultiTrackPlayback (const juce::AudioBuffer<float>& outputBuffer)
-{
-    PERFETTO_FUNCTION();
-    for (int i = 0; i < numTracks; ++i)
-    {
-        if (shouldTrackPlay (i))
-        {
-            auto* track = getTrackByIndex (i);
-            if (track) track->processPlayback (const_cast<juce::AudioBuffer<float>&> (outputBuffer), outputBuffer.getNumSamples());
-        }
-    }
-}
-
-void LooperEngine::processSingleTrackPlayback (const juce::AudioBuffer<float>& outputBuffer)
-{
-    PERFETTO_FUNCTION();
-    auto* track = getActiveTrack();
-    if (track && shouldTrackPlay (activeTrackIndex))
-    {
-        track->processPlayback (const_cast<juce::AudioBuffer<float>&> (outputBuffer), outputBuffer.getNumSamples());
-    }
 }

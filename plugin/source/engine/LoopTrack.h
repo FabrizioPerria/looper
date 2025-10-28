@@ -20,9 +20,11 @@ public:
                         const int maxUndoLayers = MAX_UNDO_LAYERS);
     void releaseResources();
 
-    void processRecord (const juce::AudioBuffer<float>& input, const int numSamples);
-    void finalizeLayer();
-    void processPlayback (juce::AudioBuffer<float>& output, const int numSamples);
+    void initializeForNewOverdubSession();
+    void processRecord (const juce::AudioBuffer<float>& input, const int numSamples, const bool isOverdub);
+    void finalizeLayer (const bool isOverdub);
+
+    void processPlayback (juce::AudioBuffer<float>& output, const int numSamples, const bool isOverdub);
 
     void clear();
     bool undo();
@@ -39,9 +41,6 @@ public:
     juce::AudioBuffer<float>* getAudioBuffer() { return bufferManager.getAudioBuffer().get(); }
 
     const int getAvailableTrackSizeSamples() const { return (int) alignedBufferSize; }
-
-    bool isCurrentlyRecording() const { return hasUnfinalizedRecording; }
-    bool hasHitRecordingLimit() const { return hitRecordingLimit; }
 
     bool isPlaybackDirectionForward() const { return playbackEngine.isPlaybackDirectionForward(); }
     void setPlaybackDirectionForward() { playbackEngine.setPlaybackDirectionForward(); }
@@ -92,16 +91,10 @@ private:
 
     // Recording state - tracks if we have unfinalized recording data
     // This is set when processRecord is called and cleared when finalizeLayer/cancelCurrentRecording is called
-    bool hasUnfinalizedRecording = false;
-    bool hitRecordingLimit = false;
+    // bool hitRecordingLimit = false;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
     void applyPostProcessing (juce::AudioBuffer<float>& audioBuffer, int length);
-
-    bool shouldNotRecordInputBuffer (const juce::AudioBuffer<float>& input, const int numSamples) const
-    {
-        return numSamples == 0 || (int) input.getNumSamples() < numSamples || input.getNumChannels() != bufferManager.getNumChannels();
-    }
 
     static const int MAX_SECONDS_HARD_LIMIT = 10 * 60; // 10 minutes
     static const int MAX_UNDO_LAYERS = 5;

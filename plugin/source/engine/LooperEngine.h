@@ -102,9 +102,6 @@ public:
     EngineStateToUIBridge* getEngineStateBridge() const { return engineStateBridge.get(); }
     UIToEngineBridge* getUIToEngineBridge() const { return uiToEngineBridge.get(); }
 
-    void processMultiTrackPlayback (const juce::AudioBuffer<float>& outputBuffer);
-    void processSingleTrackPlayback (const juce::AudioBuffer<float>& outputBuffer);
-
 private:
     // State machine
     LooperStateMachine stateMachine;
