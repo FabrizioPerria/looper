@@ -1,5 +1,6 @@
 #pragma once
 #include "engine/LooperEngine.h"
+#include "engine/MidiCommandConfig.h"
 #include <JuceHeader.h>
 
 class MidiCommandDispatcher
@@ -43,6 +44,8 @@ public:
 
         if (controllerNumber == MidiNotes::PLAYBACK_SPEED_CC)
             ccValue = (int) (((value - 0.5) / 1.5) * 127.0);
+        else if (controllerNumber == MidiNotes::PITCH_SHIFT_CC)
+            ccValue = (int) juce::jmap (value, -2.0, 2.0, 0.0, 127.0);
         else if (controllerNumber == MidiNotes::TRACK_SELECT_CC)
             ccValue = (int) value;
         else
@@ -64,6 +67,12 @@ public:
     int getPendingTrackIndex() const { return looperEngine->getPendingTrackIndex(); }
 
     int getActiveTrackIndex() const { return looperEngine->getActiveTrackIndex(); }
+
+    float getCurrentPitchShift (int trackIndex)
+    {
+        auto* track = getTrackByIndex (trackIndex);
+        return track ? track->getPlaybackPitch() : 0.0f;
+    }
 
 private:
     LooperEngine* looperEngine;

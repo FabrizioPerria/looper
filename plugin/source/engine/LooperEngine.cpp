@@ -43,7 +43,6 @@ void LooperEngine::releaseResources()
     activeTrackIndex = 0;
     nextTrackIndex = -1;
     currentState = LooperState::Idle;
-    singleTrackMode = false;
 }
 
 void LooperEngine::addTrack()
@@ -91,21 +90,13 @@ void LooperEngine::switchToTrackImmediately (int trackIndex)
     activeTrackIndex = trackIndex;
     nextTrackIndex = -1;
 
-    if (singleTrackMode) transitionTo (LooperState::Stopped);
+    transitionTo (LooperState::Stopped);
 }
 
 void LooperEngine::scheduleTrackSwitch (int trackIndex)
 {
     setPendingAction (PendingAction::Type::SwitchTrack, trackIndex, true);
     nextTrackIndex = trackIndex;
-}
-
-static void modeAwarePlaybackCallback (LooperEngine* engine, juce::AudioBuffer<float>& buf, int numSamples)
-{
-    if (engine->isSingleTrackMode())
-        engine->processSingleTrackPlayback (buf);
-    else
-        engine->processMultiTrackPlayback (buf);
 }
 
 StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& buffer)
@@ -236,7 +227,7 @@ void LooperEngine::selectTrack (int trackIndex)
         return;
     }
 
-    if (currentState == LooperState::Idle || currentState == LooperState::Stopped || ! trackHasContent() || ! singleTrackMode)
+    if (currentState == LooperState::Idle || currentState == LooperState::Stopped || ! trackHasContent())
     {
         switchToTrackImmediately (trackIndex);
         return;
@@ -331,20 +322,20 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
                                               activeTrackIndex,
                                               nextTrackIndex,
                                               numTracks);
-    for (int i = 0; i < numTracks; ++i)
-    {
-        auto* track = getTrackByIndex (i);
-        auto* bridge = getUIBridgeByIndex (i);
-
-        if (track && bridge && bridge->getState().loopLength.load() > 0)
-        {
-            bridge->updateFromAudioThread (track->getAudioBuffer(),
-                                           track->getTrackLengthSamples(),
-                                           track->getCurrentReadPosition(),
-                                           i == activeTrackIndex ? isRecording() : false,
-                                           i == activeTrackIndex ? isPlaying() : false);
-        }
-    }
+    // for (int i = 0; i < numTracks; ++i)
+    // {
+    //     auto* track = getTrackByIndex (i);
+    //     auto* audioBridge = getUIBridgeByIndex (i);
+    //
+    //     if (track && audioBridge && audioBridge->getState().loopLength.load() > 0)
+    //     {
+    //         bridge->updateFromAudioThread (track->getAudioBuffer(),
+    //                                        track->getTrackLengthSamples(),
+    //                                        track->getCurrentReadPosition(),
+    //                                        i == activeTrackIndex ? isRecording() : false,
+    //                                        i == activeTrackIndex ? isPlaying() : false);
+    //     }
+    // }
 }
 
 int LooperEngine::getPendingTrackIndex() const
@@ -451,15 +442,14 @@ void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& back
 {
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
+    selectTrack (trackIndex);
     auto* track = getTrackByIndex (trackIndex);
     if (track)
     {
         track->loadBackingTrack (backingTrack);
+        auto context = createStateContext (backingTrack);
+        updateUIBridge (context, false);
 
-        auto bridge = getUIBridgeByIndex (trackIndex);
-
-        bridge->updateFromAudioThread (track->getAudioBuffer(), backingTrack.getNumSamples(), 0, false, true);
-        bridge->signalWaveformChanged();
         play();
     }
 }
@@ -467,18 +457,14 @@ void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& back
 void LooperEngine::loadWaveFileToTrack (const juce::File& audioFile, int trackIndex)
 {
     PERFETTO_FUNCTION();
-    auto* track = getTrackByIndex (trackIndex);
-    if (track)
+    juce::AudioFormatManager formatManager;
+    formatManager.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (audioFile));
+    if (reader)
     {
-        juce::AudioFormatManager formatManager;
-        formatManager.registerBasicFormats();
-        std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (audioFile));
-        if (reader)
-        {
-            juce::AudioBuffer<float> backingTrack ((int) reader->numChannels, (int) reader->lengthInSamples);
-            reader->read (&backingTrack, 0, (int) reader->lengthInSamples, 0, true, true);
-            loadBackingTrackToTrack (backingTrack, trackIndex);
-        }
+        juce::AudioBuffer<float> backingTrack ((int) reader->numChannels, (int) reader->lengthInSamples);
+        reader->read (&backingTrack, 0, (int) reader->lengthInSamples, 0, true, true);
+        loadBackingTrackToTrack (backingTrack, trackIndex);
     }
 }
 

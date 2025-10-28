@@ -5,6 +5,7 @@
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/AccentBarComponent.h"
 #include "ui/components/LevelComponent.h"
+#include "ui/components/PlaybackPitchComponent.h"
 #include "ui/components/PlaybackSpeedComponent.h"
 #include "ui/components/TrackEditComponent.h"
 #include "ui/components/VolumesComponent.h"
@@ -25,6 +26,7 @@ public:
         , accentBar (midiCommandDispatcher, trackIdx, audioBridge, engineBridge)
         , volumeFader (midiCommandDispatcher, trackIdx, "VOLUME", MidiNotes::TRACK_VOLUME_CC)
         , speedFader (midiCommandDispatcher, trackIdx)
+        , pitchFader (midiCommandDispatcher, trackIdx)
         , trackEditComponent (midiCommandDispatcher, trackIdx)
         , volumesComponent (midiCommandDispatcher, trackIdx)
         , midiDispatcher (midiCommandDispatcher)
@@ -60,6 +62,7 @@ public:
 
         addAndMakeVisible (accentBar);
         addAndMakeVisible (speedFader);
+        addAndMakeVisible (pitchFader);
         addAndMakeVisible (trackEditComponent);
         addAndMakeVisible (volumesComponent);
 
@@ -140,6 +143,7 @@ public:
         pitchSpeedRow.flexDirection = juce::FlexBox::Direction::row;
         pitchSpeedRow.items.add (juce::FlexItem (speedFader).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
         pitchSpeedRow.items.add (juce::FlexItem (playbackButtonsColumn).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        pitchSpeedRow.items.add (juce::FlexItem (pitchFader).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
 
         juce::FlexBox MSButtons;
         MSButtons.flexDirection = juce::FlexBox::Direction::column;
@@ -176,11 +180,10 @@ private:
     AccentBar accentBar;
     LevelComponent volumeFader;
     PlaybackSpeedComponent speedFader;
+    PlaybackPitchComponent pitchFader;
     TrackEditComponent trackEditComponent;
 
     VolumesComponent volumesComponent;
-
-    juce::Slider pitchFader;
 
     MidiCommandDispatcher* midiDispatcher;
     AudioToUIBridge* bridge;

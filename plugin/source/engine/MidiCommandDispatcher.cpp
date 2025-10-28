@@ -85,6 +85,13 @@ static void executeSetOldOverdubGain (LooperEngine& engine, int trackIndex, int 
     if (track) track->setOverdubGainOld (gain);
 }
 
+static void executePitchShift (LooperEngine& engine, int trackIndex, int value)
+{
+    float semitones = juce::jmap ((float) value, 0.0f, 127.0f, -2.0f, 2.0f);
+    auto* track = engine.getTrackByIndex (trackIndex);
+    if (track) track->setPlaybackPitch (semitones);
+}
+
 static void executeNone (LooperEngine&, int) {}
 static void executeNone (LooperEngine&, int, int) {}
 } // namespace CommandExecutors
@@ -120,6 +127,7 @@ const ControlChangeFunc COMMAND_CONTROL_CHANGE_DISPATCH_TABLE[static_cast<size_t
     [(size_t) MidiControlChangeId::PlaybackSpeed] = CommandExecutors::executeSetPlaybackSpeed,
     [(size_t) MidiControlChangeId::OverdubLevel] = CommandExecutors::executeSetOverdubGain,
     [(size_t) MidiControlChangeId::ExistingAudioLevel] = CommandExecutors::executeSetOldOverdubGain,
+    [(size_t) MidiControlChangeId::PitchShift] = CommandExecutors::executePitchShift,
 };
 
 void MidiCommandDispatcher::dispatch (MidiControlChangeId commandId, LooperEngine& engine, int trackIndex, int param)
