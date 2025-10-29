@@ -36,7 +36,7 @@ public:
         size2 = shouldWrapAround ? std::max (0, numToWrite - remaining) : 0;
     }
 
-    void finishedWrite (int numWritten, bool overdub, bool syncWithRead = true)
+    void finishedWrite (int numWritten, bool overdub, bool syncWithRead)
     {
         PERFETTO_FUNCTION();
         writePos = (writePos + numWritten) % musicalLength;

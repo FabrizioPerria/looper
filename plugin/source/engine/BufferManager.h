@@ -35,16 +35,16 @@ public:
         previousReadPos = 0.0;
     }
 
-    bool shouldOverdub() const { return length > 0; }
+    // bool shouldOverdub() const { return length > 0; }
 
     std::unique_ptr<juce::AudioBuffer<float>>& getAudioBuffer() { return audioBuffer; }
 
     const int getNumChannels() const { return audioBuffer->getNumChannels(); }
     const int getNumSamples() const { return audioBuffer->getNumSamples(); }
 
-    void updateLoopLength (const int numSamples)
+    void updateLoopLength (const int numSamples, const bool isOverdub)
     {
-        int bufferSamples = shouldOverdub() ? length : audioBuffer->getNumSamples();
+        int bufferSamples = isOverdub ? length : audioBuffer->getNumSamples();
         provisionalLength = std::min (provisionalLength + numSamples, bufferSamples);
     }
 
@@ -54,7 +54,7 @@ public:
     float* getWritePointer (const int channel) { return audioBuffer->getWritePointer (channel); }
     const float* getReadPointer (const int channel) const { return audioBuffer->getReadPointer (channel); }
 
-    void finalizeLayer()
+    void finalizeLayer (const bool isOverdub)
     {
         PERFETTO_FUNCTION();
         const int currentLength = std::max ({ (int) length, (int) provisionalLength, 1 });
@@ -64,10 +64,10 @@ public:
             length = currentLength;
         }
         provisionalLength = 0;
-        fifo.finishedWrite (0, shouldOverdub(), true);
+        fifo.finishedWrite (0, isOverdub, true);
     }
 
-    void syncReadPositionToWritePosition() { fifo.finishedWrite (0, shouldOverdub(), true); }
+    // void syncReadPositionToWritePosition() { fifo.finishedWrite (0, shouldOverdub(), true); }
 
     bool hasWrappedAround()
     {
@@ -81,7 +81,8 @@ public:
                                  writeFunc,
                              const juce::AudioBuffer<float>& sourceBuffer,
                              const int numSamples,
-                             const bool syncWriteWithRead = true)
+                             const bool isOverdub,
+                             const bool syncWriteWithRead)
     {
         int writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap;
         fifo.prepareToWrite (numSamples, writePosBeforeWrap, samplesBeforeWrap, writePosAfterWrap, samplesAfterWrap);
@@ -96,40 +97,40 @@ public:
 
                 if (! isReverse)
                 {
-                    writeFunc (dest, src, samplesBeforeWrap, shouldOverdub());
+                    writeFunc (dest, src, samplesBeforeWrap, isOverdub);
                 }
                 else
                 {
                     juce::FloatVectorOperations::copy (scratchBuffer->getWritePointer (ch), src, samplesBeforeWrap);
                     scratchBuffer->reverse (0, samplesBeforeWrap);
-                    writeFunc (dest, scratchBuffer->getReadPointer (ch), samplesBeforeWrap, shouldOverdub());
+                    writeFunc (dest, scratchBuffer->getReadPointer (ch), samplesBeforeWrap, isOverdub);
                 }
             }
 
-            if (samplesAfterWrap > 0 && shouldOverdub())
+            if (samplesAfterWrap > 0 && isOverdub)
             {
                 float* dest = getWritePointer (ch) + writePosAfterWrap;
                 const float* src = sourceBuffer.getReadPointer (ch) + samplesBeforeWrap;
 
                 if (! isReverse)
                 {
-                    writeFunc (dest, src, samplesAfterWrap, shouldOverdub());
+                    writeFunc (dest, src, samplesAfterWrap, isOverdub);
                 }
                 else
                 {
                     juce::FloatVectorOperations::copy (scratchBuffer->getWritePointer (ch), src, samplesAfterWrap);
                     scratchBuffer->reverse (0, samplesAfterWrap);
-                    writeFunc (dest, scratchBuffer->getReadPointer (ch), samplesAfterWrap, shouldOverdub());
+                    writeFunc (dest, scratchBuffer->getReadPointer (ch), samplesAfterWrap, isOverdub);
                 }
             }
             scratchBuffer->clear();
         }
 
         int actualWritten = samplesBeforeWrap + samplesAfterWrap;
-        fifo.finishedWrite (actualWritten, shouldOverdub(), syncWriteWithRead);
+        fifo.finishedWrite (actualWritten, isOverdub, syncWriteWithRead);
         bool fifoPreventedWrap = ! fifo.getWrapAround() && samplesAfterWrap == 0 && numSamples > samplesBeforeWrap;
 
-        if (! fifoPreventedWrap) updateLoopLength (samplesBeforeWrap);
+        if (! fifoPreventedWrap) updateLoopLength (samplesBeforeWrap, isOverdub);
 
         return fifoPreventedWrap;
     }
@@ -137,7 +138,8 @@ public:
     bool readFromAudioBuffer (std::function<void (float* destination, const float* source, const int numSamples)> readFunc,
                               juce::AudioBuffer<float>& destBuffer,
                               const int numSamples,
-                              const float speedMultiplier)
+                              const float speedMultiplier,
+                              const bool isOverdub)
     {
         bool isReverse = speedMultiplier < 0.0f;
 
@@ -176,14 +178,15 @@ public:
             }
         }
 
-        fifo.finishedRead (numSamples, speedMultiplier, shouldOverdub());
+        fifo.finishedRead (numSamples, speedMultiplier, isOverdub);
         return true;
     }
 
     bool linearizeAndReadFromAudioBuffer (juce::AudioBuffer<float>& destBuffer,
                                           int sourceSamples, // How much to linearize
                                           int outputSamples, // How much to advance fifo
-                                          float speedMultiplier)
+                                          float speedMultiplier,
+                                          const bool isOverdub)
     {
         PERFETTO_FUNCTION();
 
@@ -193,10 +196,11 @@ public:
                                               { juce::FloatVectorOperations::copy (destination, source, numSamples); },
                                               destBuffer,
                                               sourceSamples,
-                                              speedMultiplier);
+                                              speedMultiplier,
+                                              isOverdub);
 
         // Advance the fifo accounting for the difference between sourceSamples and outputSamples
-        fifo.finishedRead (outputSamples - sourceSamples, speedMultiplier, shouldOverdub());
+        fifo.finishedRead (outputSamples - sourceSamples, speedMultiplier, isOverdub);
 
         return readResult;
     }

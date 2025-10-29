@@ -102,9 +102,6 @@ public:
     EngineStateToUIBridge* getEngineStateBridge() const { return engineStateBridge.get(); }
     UIToEngineBridge* getUIToEngineBridge() const { return uiToEngineBridge.get(); }
 
-    void processMultiTrackPlayback (const juce::AudioBuffer<float>& outputBuffer);
-    void processSingleTrackPlayback (const juce::AudioBuffer<float>& outputBuffer);
-
 private:
     // State machine
     LooperStateMachine stateMachine;
@@ -131,6 +128,7 @@ private:
     LooperState determineStateAfterStop() const;
     void switchToTrackImmediately (int trackIndex);
     void scheduleTrackSwitch (int trackIndex);
+    void scheduleFinalizeRecording (int trackIndex);
 
     bool transitionTo (LooperState newState);
     StateContext createStateContext (const juce::AudioBuffer<float>& buffer);

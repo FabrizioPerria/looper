@@ -49,7 +49,7 @@ inline void playingProcessAudio (StateContext& ctx)
 {
     if (ctx.track && ctx.outputBuffer)
     {
-        ctx.track->processPlayback (*ctx.outputBuffer, ctx.numSamples);
+        ctx.track->processPlayback (*ctx.outputBuffer, ctx.numSamples, false);
     }
 }
 inline void playingOnEnter (StateContext&) {}
@@ -60,16 +60,17 @@ inline void recordingProcessAudio (StateContext& ctx)
 {
     if (ctx.track && ctx.inputBuffer)
     {
-        ctx.track->processRecord (*ctx.inputBuffer, ctx.numSamples);
+        ctx.track->processRecord (*ctx.inputBuffer, ctx.numSamples, false);
     }
 }
 inline void recordingOnEnter (StateContext&) {}
 inline void recordingOnExit (StateContext& ctx)
 {
-    // Ensure recording is finalized when leaving
-    if (ctx.track && ctx.track->isCurrentlyRecording())
+    // CRITICAL: Ensure recording is finalized when leaving Recording state
+    // This is the ONLY place where finalizeLayer should be called for Recording
+    if (ctx.track)
     {
-        ctx.track->finalizeLayer();
+        ctx.track->finalizeLayer (false);
         if (ctx.bridge)
         {
             ctx.bridge->signalWaveformChanged();
@@ -82,17 +83,20 @@ inline void overdubbingProcessAudio (StateContext& ctx)
 {
     if (ctx.track && ctx.inputBuffer && ctx.outputBuffer)
     {
-        ctx.track->processRecord (*ctx.inputBuffer, ctx.numSamples);
-        ctx.track->processPlayback (*ctx.outputBuffer, ctx.numSamples);
+        ctx.track->processRecord (*ctx.inputBuffer, ctx.numSamples, true);
+        ctx.track->processPlayback (*ctx.outputBuffer, ctx.numSamples, true);
     }
 }
-inline void overdubbingOnEnter (StateContext&) {}
+
+inline void overdubbingOnEnter (StateContext& ctx) { ctx.track->initializeForNewOverdubSession(); }
+
 inline void overdubbingOnExit (StateContext& ctx)
 {
-    // Ensure recording is finalized when leaving
-    if (ctx.track && ctx.track->isCurrentlyRecording())
+    // CRITICAL: Ensure recording is finalized when leaving Overdubbing state
+    // This is the ONLY place where finalizeLayer should be called for Overdubbing
+    if (ctx.track)
     {
-        ctx.track->finalizeLayer();
+        ctx.track->finalizeLayer (true);
         if (ctx.bridge)
         {
             ctx.bridge->signalWaveformChanged();
@@ -145,6 +149,7 @@ public:
         }
 
         // Call exit handler for current state
+        // CRITICAL: This is where recording finalization happens
         const auto& currentActions = STATE_ACTION_TABLE[static_cast<size_t> (current)];
         currentActions.onExit (ctx);
 

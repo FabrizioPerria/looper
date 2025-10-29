@@ -50,44 +50,49 @@ void LoopTrack::releaseResources()
 // Recording
 //==============================================================================
 
-void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int numSamples)
+void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int numSamples, const bool isOverdub)
 {
     PERFETTO_FUNCTION();
-    if (shouldNotRecordInputBuffer (input, numSamples)) return;
-
-    if (! isRecording)
-    {
-        isRecording = true;
-        if (bufferManager.shouldOverdub()) undoManager.finalizeCopyAndPush (bufferManager.getLength());
-    }
 
     bool fifoPreventedWrap = bufferManager
                                  .writeToAudioBuffer ([&] (float* dest, const float* source, const int samples, const bool shouldOverdub)
                                                       { volumeProcessor.saveBalancedLayers (dest, source, samples, shouldOverdub); },
                                                       input,
                                                       numSamples,
-                                                      false);
-    if (fifoPreventedWrap) finalizeLayer();
+                                                      isOverdub,
+                                                      true);
 }
 
-void LoopTrack::finalizeLayer()
+void LoopTrack::initializeForNewOverdubSession()
 {
     PERFETTO_FUNCTION();
-    bufferManager.finalizeLayer();
-    isRecording = false;
+    undoManager.finalizeCopyAndPush (bufferManager.getLength());
+}
+
+void LoopTrack::finalizeLayer (const bool isOverdub)
+{
+    juce::Logger::outputDebugString ("LoopTrack::finalizeLayer called");
+    PERFETTO_FUNCTION();
+
+    bufferManager.finalizeLayer (isOverdub);
 
     auto& audioBuffer = *bufferManager.getAudioBuffer();
     auto length = bufferManager.getLength();
-    volumeProcessor.normalizeOutput (audioBuffer, length);
-    volumeProcessor.applyCrossfade (audioBuffer, length);
 
+    applyPostProcessing (audioBuffer, length);
     undoManager.stageCurrentBuffer (audioBuffer, length);
 }
 
-void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int numSamples)
+void LoopTrack::applyPostProcessing (juce::AudioBuffer<float>& audioBuffer, int length)
+{
+    volumeProcessor.normalizeOutput (audioBuffer, length);
+    volumeProcessor.applyCrossfade (audioBuffer, length);
+}
+
+void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int numSamples, const bool isOverdub)
 {
     PERFETTO_FUNCTION();
-    playbackEngine.processPlayback (output, bufferManager, numSamples);
+    playbackEngine.processPlayback (output, bufferManager, numSamples, isOverdub);
     volumeProcessor.applyVolume (output, numSamples);
 }
 
@@ -103,11 +108,16 @@ void LoopTrack::clear()
 bool LoopTrack::undo()
 {
     PERFETTO_FUNCTION();
-    if (! bufferManager.shouldOverdub()) return false;
+    if (bufferManager.getLength() == 0) return false;
 
     if (undoManager.undo (bufferManager.getAudioBuffer()))
     {
-        finalizeLayer();
+        bufferManager.finalizeLayer (true);
+
+        auto& audioBuffer = *bufferManager.getAudioBuffer();
+        auto length = bufferManager.getLength();
+        applyPostProcessing (audioBuffer, length);
+
         return true;
     }
     return false;
@@ -116,11 +126,16 @@ bool LoopTrack::undo()
 bool LoopTrack::redo()
 {
     PERFETTO_FUNCTION();
-    if (! bufferManager.shouldOverdub()) return false;
+    if (bufferManager.getLength() == 0) return false;
 
     if (undoManager.redo (bufferManager.getAudioBuffer()))
     {
-        finalizeLayer();
+        bufferManager.finalizeLayer (true);
+
+        auto& audioBuffer = *bufferManager.getAudioBuffer();
+        auto length = bufferManager.getLength();
+        applyPostProcessing (audioBuffer, length);
+
         return true;
     }
     return false;
@@ -142,18 +157,9 @@ void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
     bufferManager.writeToAudioBuffer ([&] (float* dest, const float* source, const int samples, const bool /*shouldOverdub*/)
                                       { juce::FloatVectorOperations::copy (dest, source, samples); },
                                       backingTrack,
-                                      copySamples);
+                                      copySamples,
+                                      false,
+                                      false);
 
-    finalizeLayer();
-}
-
-void LoopTrack::cancelCurrentRecording()
-{
-    PERFETTO_FUNCTION();
-    if (! isRecording) return;
-
-    isRecording = false;
-
-    // Don't finalize - the BufferManager will handle cleanup internally
-    // Just reset the recording flag
+    finalizeLayer (false);
 }

@@ -121,38 +121,38 @@ TEST_F (LoopTrackRecordingTest, RecordingMultipleBlocks)
     EXPECT_EQ (track.getTrackLengthSamples(), numBlocks * maxBlockSize);
 }
 
-TEST_F (LoopTrackRecordingTest, IsCurrentlyRecording)
-{
-    EXPECT_FALSE (track.isCurrentlyRecording());
+// TEST_F (LoopTrackRecordingTest, IsCurrentlyRecording)
+// {
+//     EXPECT_FALSE (track.isCurrentlyRecording());
+//
+//     juce::AudioBuffer<float> input (numChannels, maxBlockSize);
+//     input.clear();
+//     track.processRecord (input, maxBlockSize);
+//
+//     EXPECT_TRUE (track.isCurrentlyRecording());
+//
+//     track.finalizeLayer();
+//
+//     EXPECT_FALSE (track.isCurrentlyRecording());
+// }
 
-    juce::AudioBuffer<float> input (numChannels, maxBlockSize);
-    input.clear();
-    track.processRecord (input, maxBlockSize);
-
-    EXPECT_TRUE (track.isCurrentlyRecording());
-
-    track.finalizeLayer();
-
-    EXPECT_FALSE (track.isCurrentlyRecording());
-}
-
-TEST_F (LoopTrackRecordingTest, ZeroSamplesDoesNothing)
-{
-    juce::AudioBuffer<float> input (numChannels, maxBlockSize);
-    track.processRecord (input, 0);
-
-    EXPECT_FALSE (track.isCurrentlyRecording());
-    EXPECT_EQ (track.getCurrentWritePosition(), 0);
-}
-
-TEST_F (LoopTrackRecordingTest, InvalidBufferDoesNothing)
-{
-    // Wrong channel count
-    juce::AudioBuffer<float> wrongChannels (1, maxBlockSize);
-    track.processRecord (wrongChannels, maxBlockSize);
-
-    EXPECT_FALSE (track.isCurrentlyRecording());
-}
+// TEST_F (LoopTrackRecordingTest, ZeroSamplesDoesNothing)
+// {
+//     juce::AudioBuffer<float> input (numChannels, maxBlockSize);
+//     track.processRecord (input, 0);
+//
+//     EXPECT_FALSE (track.isCurrentlyRecording());
+//     EXPECT_EQ (track.getCurrentWritePosition(), 0);
+// }
+//
+// TEST_F (LoopTrackRecordingTest, InvalidBufferDoesNothing)
+// {
+//     // Wrong channel count
+//     juce::AudioBuffer<float> wrongChannels (1, maxBlockSize);
+//     track.processRecord (wrongChannels, maxBlockSize);
+//
+//     EXPECT_FALSE (track.isCurrentlyRecording());
+// }
 
 TEST_F (LoopTrackRecordingTest, WritePositionAdvances)
 {

@@ -70,7 +70,7 @@ constexpr StateFlags FLAGS[NUM_STATES] =
     {
         [static_cast<size_t>(LooperState::Idle)] = StateFlags{0, 0, 0, 1, 0},
         [static_cast<size_t>(LooperState::Stopped)] = StateFlags{0, 0, 1, 1, 1},
-        [static_cast<size_t>(LooperState::Playing)] = StateFlags{0, 1, 1, 1, 1},
+        [static_cast<size_t>(LooperState::Playing)] = StateFlags{0, 1, 1, 0, 1},
         [static_cast<size_t>(LooperState::Recording)] = StateFlags{1, 0, 0, 0, 1},
         [static_cast<size_t>(LooperState::Overdubbing)] = StateFlags{1, 1, 1, 0, 1},
         [static_cast<size_t>(LooperState::PendingTrackChange)] = StateFlags{0, 1, 1, 1, 1},

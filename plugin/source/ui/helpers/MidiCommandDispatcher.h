@@ -1,4 +1,5 @@
 #pragma once
+#include "audio/UIToEngineBridge.h"
 #include "engine/LooperEngine.h"
 #include "engine/MidiCommandConfig.h"
 #include <JuceHeader.h>
@@ -9,7 +10,7 @@ public:
     /// Sends a command to the engine using MIDI protocol.
     /// This ensures UI commands go through the same validation,
     /// logging, and dispatch path as external MIDI controllers.
-    MidiCommandDispatcher (LooperEngine* engine) : looperEngine (engine) {}
+    MidiCommandDispatcher (LooperEngine* engine, UIToEngineBridge* bridge) : looperEngine (engine), uiToEngineBridge (bridge) {}
 
     void sendCommandToEngine (const int noteNumber, const bool isNoteOn = true)
 
@@ -22,7 +23,7 @@ public:
 
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (msg, 0);
-        looperEngine->handleMidiCommand (midiBuffer);
+        uiToEngineBridge->pushMidiMessage (midiBuffer);
     }
     void sendCommandToEngine (const int noteNumber, const int trackIndex, const bool isNoteOn = true)
 
@@ -33,7 +34,7 @@ public:
 
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (msg, 0);
-        looperEngine->handleMidiCommand (midiBuffer);
+        uiToEngineBridge->pushMidiMessage (midiBuffer);
     }
 
     void sendControlChangeToEngine (const int controllerNumber, const int trackIndex, const double value)
@@ -53,7 +54,7 @@ public:
 
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, MidiNotes::TRACK_SELECT_CC, trackIndex), 0);
         midiBuffer.addEvent (juce::MidiMessage::controllerEvent (1, controllerNumber, ccValue), 0);
-        looperEngine->handleMidiCommand (midiBuffer);
+        uiToEngineBridge->pushMidiMessage (midiBuffer);
     }
 
     LooperState getCurrentState() const { return looperEngine->getState(); }
@@ -76,4 +77,5 @@ public:
 
 private:
     LooperEngine* looperEngine;
+    UIToEngineBridge* uiToEngineBridge;
 };
