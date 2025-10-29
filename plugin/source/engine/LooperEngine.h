@@ -5,6 +5,7 @@
 #include "audio/EngineStateToUIBridge.h"
 #include "engine/LoopTrack.h"
 #include "engine/LooperStateMachine.h"
+#include "engine/Metronome.h"
 #include <JuceHeader.h>
 
 struct PendingAction
@@ -35,7 +36,7 @@ class LooperEngine
 {
 public:
     LooperEngine();
-    ~LooperEngine();
+    ~LooperEngine() override;
 
     void prepareToPlay (double sampleRate, int maxBlockSize, int numTracks, int numChannels);
     void releaseResources();
@@ -124,6 +125,8 @@ private:
     PendingAction pendingAction;
     std::unique_ptr<EngineStateToUIBridge> engineStateBridge = std::make_unique<EngineStateToUIBridge>();
     std::unique_ptr<EngineMessageBus> messageBus = std::make_unique<EngineMessageBus>();
+
+    std::unique_ptr<Metronome> metronome = std::make_unique<Metronome>();
 
     // Engine data
     double sampleRate = 0.0;

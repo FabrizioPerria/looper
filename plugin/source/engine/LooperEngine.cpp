@@ -21,6 +21,7 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
     for (int i = 0; i < newNumTracks; ++i)
         addTrack();
 
+    metronome->prepareToPlay (sampleRate, maxBlockSize);
     setPendingAction (PendingAction::Type::SwitchTrack, 0, false);
 }
 
@@ -41,6 +42,8 @@ void LooperEngine::releaseResources()
     activeTrackIndex = 0;
     nextTrackIndex = -1;
     currentState = LooperState::Idle;
+
+    metronome->releaseResources();
 }
 
 void LooperEngine::addTrack()
@@ -357,6 +360,8 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
                                               activeTrackIndex,
                                               nextTrackIndex,
                                               numTracks);
+
+    metronome->processBlock (const_cast<juce::AudioBuffer<float>&> (buffer));
 }
 
 void LooperEngine::processCommandsFromMessageBus()

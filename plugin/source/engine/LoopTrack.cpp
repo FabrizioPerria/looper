@@ -117,6 +117,7 @@ bool LoopTrack::undo()
         auto& audioBuffer = *bufferManager.getAudioBuffer();
         auto length = bufferManager.getLength();
         applyPostProcessing (audioBuffer, length);
+        undoManager.stageCurrentBuffer (audioBuffer, length);
 
         return true;
     }
@@ -135,6 +136,7 @@ bool LoopTrack::redo()
         auto& audioBuffer = *bufferManager.getAudioBuffer();
         auto length = bufferManager.getLength();
         applyPostProcessing (audioBuffer, length);
+        undoManager.stageCurrentBuffer (audioBuffer, length);
 
         return true;
     }
