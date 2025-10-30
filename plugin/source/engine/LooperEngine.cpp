@@ -87,12 +87,14 @@ void LooperEngine::switchToTrackImmediately (int trackIndex)
     nextTrackIndex = -1;
 
     transitionTo (LooperState::Stopped);
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::ActiveTrackChanged, trackIndex, trackIndex));
 }
 
 void LooperEngine::scheduleTrackSwitch (int trackIndex)
 {
     setPendingAction (PendingAction::Type::SwitchTrack, trackIndex, true);
     nextTrackIndex = trackIndex;
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::PendingTrackChanged, trackIndex, trackIndex));
 }
 
 void LooperEngine::scheduleFinalizeRecording (int trackIndex)
@@ -180,6 +182,7 @@ void LooperEngine::record()
 
     LooperState targetState = trackHasContent() ? LooperState::Overdubbing : LooperState::Recording;
     transitionTo (targetState);
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::RecordingStateChanged, activeTrackIndex, true));
 }
 
 void LooperEngine::play()
@@ -192,6 +195,7 @@ void LooperEngine::play()
     if (trackHasContent())
     {
         transitionTo (LooperState::Playing);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::PlaybackStateChanged, activeTrackIndex, true));
     }
 }
 
@@ -202,21 +206,29 @@ void LooperEngine::stop()
     auto* activeTrack = getActiveTrack();
     if (! activeTrack) return;
 
-    // CRITICAL FIX: When stopping during recording, transition to appropriate state
-    // The state machine exit handler will finalize the recording
     if (StateConfig::isRecording (currentState))
     {
-        // Determine target state based on whether we have content
-        // if (trackHasContent() || activeTrack->isCurrentlyRecording())
         transitionTo (LooperState::Playing);
-        // else
-        //     transitionTo (LooperState::Idle);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::RecordingStateChanged, activeTrackIndex, false));
     }
     else if (StateConfig::isPlaying (currentState))
+    {
         transitionTo (LooperState::Stopped);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::PlaybackStateChanged, activeTrackIndex, false));
+    }
+}
+
+void LooperEngine::cancelRecording()
+{
+    PERFETTO_FUNCTION();
+
+    // Schedule cancel action to be handled via state transition
+    setPendingAction (PendingAction::Type::CancelRecording, activeTrackIndex, false);
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::RecordingStateChanged, activeTrackIndex, false));
 }
 
 void LooperEngine::toggleRecord() { isRecording() ? stop() : record(); }
+
 void LooperEngine::togglePlay() { isPlaying() ? stop() : play(); }
 
 void LooperEngine::selectTrack (int trackIndex)
@@ -228,8 +240,7 @@ void LooperEngine::selectTrack (int trackIndex)
     // CRITICAL FIX: Don't directly cancel recording - let state machine handle it
     if (StateConfig::isRecording (currentState))
     {
-        // Schedule cancel action to be handled via state transition
-        setPendingAction (PendingAction::Type::CancelRecording, trackIndex, false);
+        cancelRecording();
         return;
     }
 

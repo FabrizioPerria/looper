@@ -76,6 +76,7 @@ public:
     void undo (int trackIndex);
     void redo (int trackIndex);
     void clear (int trackIndex);
+    void cancelRecording();
 
     // Track controls
     void setOverdubGainsForTrack (int trackIndex, double oldGain, double newGain);
@@ -180,7 +181,7 @@ private:
               }
           } },
 
-        { EngineMessageBus::CommandType::SetMute,
+        { EngineMessageBus::CommandType::ToggleMute,
           [this] (const auto& cmd)
           {
               if (std::holds_alternative<bool> (cmd.payload))
@@ -190,7 +191,7 @@ private:
               }
           } },
 
-        { EngineMessageBus::CommandType::SetSolo,
+        { EngineMessageBus::CommandType::ToggleSolo,
           [this] (const auto& cmd)
           {
               if (std::holds_alternative<bool> (cmd.payload))
@@ -199,7 +200,7 @@ private:
                   setTrackSoloed (cmd.trackIndex, soloed);
               }
           } },
-        { EngineMessageBus::CommandType::VolumeNormalizeToggle,
+        { EngineMessageBus::CommandType::ToggleVolumeNormalize,
           [this] (const auto& cmd)
           {
               // Future implementation
@@ -220,7 +221,7 @@ private:
               // Future implementation
           } },
 
-        { EngineMessageBus::CommandType::SetKeepPitch,
+        { EngineMessageBus::CommandType::TogglePitchLock,
           [this] (const auto& cmd)
           {
               if (std::holds_alternative<bool> (cmd.payload))
@@ -230,7 +231,7 @@ private:
               }
           } },
 
-        { EngineMessageBus::CommandType::SetPlaybackDirection,
+        { EngineMessageBus::CommandType::ToggleReverse,
           [this] (const auto& cmd)
           {
               if (std::holds_alternative<bool> (cmd.payload))
