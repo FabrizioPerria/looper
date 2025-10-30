@@ -100,17 +100,6 @@ public:
         TrackPitchLockChanged,
         TrackReverseChanged,
 
-        // File operation results
-        FileLoadSucceeded,
-        FileLoadFailed,
-
-        // Project operations
-        ProjectSaved,
-        ProjectSaveFailed,
-
-        // Errors/warnings
-        ErrorOccurred,
-        WarningOccurred
     };
 
     struct Event
