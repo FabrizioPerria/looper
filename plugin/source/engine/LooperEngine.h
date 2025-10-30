@@ -40,37 +40,19 @@ public:
     void prepareToPlay (double sampleRate, int maxBlockSize, int numTracks, int numChannels);
     void releaseResources();
 
-    void addTrack();
     void selectTrack (int trackIndex);
-    void removeTrack (int trackIndex);
 
     void selectNextTrack() { selectTrack ((activeTrackIndex + 1) % numTracks); }
     void selectPreviousTrack() { selectTrack ((activeTrackIndex - 1 + numTracks) % numTracks); }
 
-    int getActiveTrackIndex() const { return activeTrackIndex; }
     int getNumTracks() const { return numTracks; }
-    int trackBeingChanged() const { return nextTrackIndex >= 0 ? nextTrackIndex : activeTrackIndex; }
 
-    LoopTrack* getActiveTrack() const;
     LoopTrack* getTrackByIndex (int trackIndex) const;
     AudioToUIBridge* getUIBridgeByIndex (int trackIndex);
 
     void processBlock (const juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages);
 
-    // State queries
-    LooperState getState() const { return currentState; }
-    bool hasPendingAction() const { return pendingAction.isActive(); }
-    int getPendingTrackIndex() const;
-
-    bool isIdle() const { return currentState == LooperState::Idle; }
-    bool isStopped() const { return currentState == LooperState::Stopped; }
-    bool isPlaying() const { return StateConfig::isPlaying (currentState); }
-    bool isRecording() const { return StateConfig::isRecording (currentState); }
-
     // User actions
-    void record();
-    void play();
-    void stop();
     void toggleRecord();
     void togglePlay();
     void toggleReverse (int trackIndex)
@@ -103,7 +85,6 @@ public:
     void undo (int trackIndex);
     void redo (int trackIndex);
     void clear (int trackIndex);
-    void cancelRecording();
 
     // Track controls
     void setOverdubGainsForTrack (int trackIndex, double oldGain, double newGain);
@@ -175,6 +156,14 @@ private:
     void processCommandsFromMessageBus();
 
     bool shouldTrackPlay (int trackIndex) const;
+
+    void addTrack();
+    void removeTrack (int trackIndex);
+    LoopTrack* getActiveTrack() const;
+    void record();
+    void play();
+    void stop();
+    void cancelRecording();
 
     const std::unordered_map<EngineMessageBus::CommandType, std::function<void (const EngineMessageBus::Command&)>> commandHandlers = {
         { EngineMessageBus::CommandType::TogglePlay, [this] (const auto& /*cmd*/) { togglePlay(); } },

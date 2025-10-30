@@ -235,9 +235,9 @@ void LooperEngine::cancelRecording()
     messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::RecordingStateChanged, activeTrackIndex, false));
 }
 
-void LooperEngine::toggleRecord() { isRecording() ? stop() : record(); }
+void LooperEngine::toggleRecord() { StateConfig::isRecording (currentState) ? stop() : record(); }
 
-void LooperEngine::togglePlay() { isPlaying() ? stop() : play(); }
+void LooperEngine::togglePlay() { StateConfig::isPlaying (currentState) ? stop() : play(); }
 
 void LooperEngine::selectTrack (int trackIndex)
 {
