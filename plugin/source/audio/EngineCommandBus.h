@@ -75,41 +75,32 @@ public:
             payload;
 
         // Convenience constructors
-        static Command setVolume (int track, float volume) { return { CommandType::SetVolume, track, volume }; }
-
-        static Command setMute (int track, bool muted) { return { CommandType::SetMute, track, muted }; }
-
-        static Command setSolo (int track, bool soloed) { return { CommandType::SetSolo, track, soloed }; }
-
-        static Command setPlaybackSpeed (int track, float speed) { return { CommandType::SetPlaybackSpeed, track, speed }; }
-
-        static Command setPlaybackPitch (int track, float pitch) { return { CommandType::SetPlaybackPitch, track, pitch }; }
-
-        static Command setKeepPitch (int track, bool keep) { return { CommandType::SetKeepPitch, track, keep }; }
-
-        static Command setPlaybackDirection (int track, bool forward) { return { CommandType::SetPlaybackDirection, track, forward }; }
-
-        static Command loadAudioFile (int track, const juce::File& file) { return { CommandType::LoadAudioFile, track, file }; }
-
-        static Command loadBackingTrack (int track, const juce::AudioBuffer<float>& buffer)
-        {
-            Command cmd;
-            cmd.type = CommandType::LoadBackingTrack;
-            cmd.trackIndex = track;
-            cmd.payload = buffer;
-            return cmd;
-        }
-
-        static Command setOverdubGains (int track, float oldGain, float newGain)
-        {
-            return { CommandType::SetOverdubGains, track, std::make_pair (oldGain, newGain) };
-        }
-
-        static Command midiMessage (const juce::MidiBuffer& buffer) { return { CommandType::MidiMessage, -1, buffer }; }
-
-        static Command setMetronomeEnabled (bool enabled) { return { CommandType::SetMetronomeEnabled, -1, enabled }; }
-
-        static Command setMetronomeBPM (float bpm) { return { CommandType::SetMetronomeBPM, -1, bpm }; }
+        // static Command setVolume (int track, float volume) { return { CommandType::SetVolume, track, volume }; }
+        //
+        // static Command setMute (int track, bool muted) { return { CommandType::SetMute, track, muted }; }
+        //
+        // static Command setSolo (int track, bool soloed) { return { CommandType::SetSolo, track, soloed }; }
+        //
+        // static Command setPlaybackSpeed (int track, float speed) { return { CommandType::SetPlaybackSpeed, track, speed }; }
+        //
+        // static Command setPlaybackPitch (int track, float pitch) { return { CommandType::SetPlaybackPitch, track, pitch }; }
+        //
+        // static Command setKeepPitch (int track, bool keep) { return { CommandType::SetKeepPitch, track, keep }; }
+        //
+        // static Command setPlaybackDirection (int track, bool forward) { return { CommandType::SetPlaybackDirection, track, forward }; }
+        //
+        // static Command loadAudioFile (int track, const juce::File& file) { return { CommandType::LoadAudioFile, track, file }; }
+        //
+        // static Command setOverdubGains (int track, float oldGain, float newGain)
+        // {
+        //     return { CommandType::SetOverdubGains, track, std::make_pair (oldGain, newGain) };
+        // }
+        //
+        // static Command midiMessage (const juce::MidiBuffer& buffer) { return { CommandType::MidiMessage, -1, buffer }; }
+        //
+        // static Command setMetronomeEnabled (bool enabled) { return { CommandType::SetMetronomeEnabled, -1, enabled }; }
+        //
+        // static Command setMetronomeBPM (float bpm) { return { CommandType::SetMetronomeBPM, -1, bpm }; }
     };
 
     // ============================================================================
@@ -118,6 +109,13 @@ public:
 
     enum class EventType : uint8_t
     {
+        NewOverdubGainLevels,
+        OldOverdubGainLevels,
+        NormalizeStateChanged,
+
+        RecordingStateChanged,
+        PlaybackStateChanged,
+
         // Track state changes (non-real-time, complementary to EngineStateToUIBridge)
         TrackVolumeChanged,
         TrackMuteChanged,

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "audio/EngineCommandBus.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
@@ -7,8 +8,8 @@
 class LevelComponent : public juce::Component
 {
 public:
-    LevelComponent (MidiCommandDispatcher* dispatcher, int trackIdx, juce::String label, int cc)
-        : midiDispatcher (dispatcher), trackIndex (trackIdx)
+    LevelComponent (EngineMessageBus* engineMessageBus, int trackIdx, juce::String label, int cc)
+        : uiToEngineBus (engineMessageBus), trackIndex (trackIdx)
     {
         knobLabel.setText (label, juce::dontSendNotification);
         knobLabel.setFont (LooperTheme::Fonts::getBoldFont (9.0f));
@@ -20,7 +21,15 @@ public:
         slider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
         slider.setRange (0.0, 1.0, 0.01);
         slider.setValue (0.75);
-        slider.onValueChange = [this, cc]() { midiDispatcher->sendControlChangeToEngine (cc, trackIndex, slider.getValue()); };
+        slider.onValueChange = [this, cc]()
+        {
+            auto ccValue = (int) std::clamp (slider.getValue() * 127.0, 0.0, 127.0);
+            juce::MidiBuffer midiBuffer;
+            juce::MidiMessage msg = juce::MidiMessage::controllerEvent (1, (juce::uint8) cc, (juce::uint8) ccValue);
+            midiBuffer.addEvent (msg, 0);
+
+            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::MidiMessage, trackIndex, midiBuffer });
+        };
         addAndMakeVisible (slider);
     }
 
@@ -40,7 +49,7 @@ public:
     float getValue() const { return (float) slider.getValue(); }
 
 private:
-    MidiCommandDispatcher* midiDispatcher;
+    EngineMessageBus* uiToEngineBus = nullptr;
     int trackIndex;
 
     juce::Label knobLabel;

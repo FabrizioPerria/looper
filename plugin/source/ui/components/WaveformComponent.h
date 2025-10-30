@@ -1,7 +1,7 @@
 #pragma once
 
 #include "audio/AudioToUIBridge.h"
-#include "audio/UIToEngineBridge.h"
+#include "audio/EngineCommandBus.h"
 #include "juce_gui_basics/juce_gui_basics.h"
 #include "ui/helpers/WaveformCache.h"
 #include "ui/renderers/IRenderer.h"
@@ -11,8 +11,8 @@
 class WaveformComponent : public juce::Component, public juce::Timer, public juce::AsyncUpdater, public juce::FileDragAndDropTarget
 {
 public:
-    WaveformComponent (int trackIdx, AudioToUIBridge* audioBridge, UIToEngineBridge* engineBridge)
-        : trackIndex (trackIdx), bridge (audioBridge), uiToEngineBridge (engineBridge)
+    WaveformComponent (int trackIdx, AudioToUIBridge* audioBridge, EngineMessageBus* engineMessageBus)
+        : trackIndex (trackIdx), bridge (audioBridge), uiToEngineBus (engineMessageBus)
     {
         renderer = std::make_unique<LinearRenderer>();
         startTimerHz (60);
@@ -58,18 +58,15 @@ public:
         return false;
     }
 
-    void filesDropped (const juce::StringArray& files, int x, int y) override
+    void filesDropped (const juce::StringArray& files, int /*x*/, int /*y*/) override
     {
         // Load the first audio file that was dropped
-        for (const auto& filepath : files)
-        {
-            juce::File file (filepath);
+        const juce::String filepath = files[0]; // Just take the first file if a group is provided
+        juce::File file (filepath);
 
-            if (isAudioFile (file))
-            {
-                uiToEngineBridge->updateAudioFile (file, trackIndex);
-                break; // Load only the first valid audio file
-            }
+        if (isAudioFile (file))
+        {
+            uiToEngineBus->pushCommand ({ EngineMessageBus::CommandType::LoadAudioFile, trackIndex, file });
         }
     }
 
@@ -80,7 +77,7 @@ private:
     WaveformCache cache;
     std::unique_ptr<IRenderer> renderer;
     AudioToUIBridge* bridge = nullptr;
-    UIToEngineBridge* uiToEngineBridge = nullptr;
+    EngineMessageBus* uiToEngineBus = nullptr;
     juce::ThreadPool backgroundProcessor { 1 };
 
     // State tracking

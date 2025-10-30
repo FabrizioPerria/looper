@@ -66,24 +66,15 @@ public:
         addAndMakeVisible (trackEditComponent);
         addAndMakeVisible (volumesComponent);
 
-        // pitchFader.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-        // pitchFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-        // pitchFader.setValue (0.0);
-        // pitchFader.onValueChange = [this]()
-        // { midiDispatcher.sendControlChangeToEngine (MidiNotes::PITCH_SHIFT_CC, trackIndex, pitchFader.getValue() + 12.0); };
-        // addAndMakeVisible (pitchFader);
-
         updateControlsFromEngine();
         startTimerHz (10);
     }
 
     ~TrackComponent() override { stopTimer(); }
 
-    void timerCallback() override { updateControlsFromEngine(); }
-
     int getTrackIndex() const { return trackIndex; }
 
-    void updateControlsFromEngine()
+    void timerCallback() override
     {
         float currentVolume = midiDispatcher->getCurrentVolume (trackIndex);
         if (std::abs (volumeFader.getValue() - currentVolume) > 0.001)
