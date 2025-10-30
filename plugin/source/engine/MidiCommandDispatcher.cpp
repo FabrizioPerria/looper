@@ -12,40 +12,13 @@ static void executeRedo (LooperEngine& engine, int trackIndex) { engine.redo (tr
 static void executeClear (LooperEngine& engine, int trackIndex) { engine.clear (trackIndex); }
 static void executeNextTrack (LooperEngine& engine, int) { engine.selectNextTrack(); }
 static void executePrevTrack (LooperEngine& engine, int) { engine.selectPreviousTrack(); }
-static void executeToggleSolo (LooperEngine& engine, int trackIndex)
-{
-    auto* track = engine.getTrackByIndex (trackIndex);
-    if (track) engine.setTrackSoloed (trackIndex, ! track->isSoloed());
-}
-static void executeToggleMute (LooperEngine& engine, int trackIndex)
-{
-    auto* track = engine.getTrackByIndex (trackIndex);
-    if (track) engine.setTrackMuted (trackIndex, ! track->isMuted());
-}
-static void executeToggleReverse (LooperEngine& engine, int trackIndex)
-{
-    auto* track = engine.getTrackByIndex (trackIndex);
-    if (track)
-    {
-        if (track->isPlaybackDirectionForward())
-            track->setPlaybackDirectionBackward();
-        else
-            track->setPlaybackDirectionForward();
-    }
-}
-static void executeToggleKeepPitch (LooperEngine& engine, int trackIndex)
-{
-    bool current = engine.getKeepPitchWhenChangingSpeed (trackIndex);
-    engine.setKeepPitchWhenChangingSpeed (trackIndex, ! current);
-}
-static void executeVolumeNormalize (LooperEngine& engine, int trackIndex)
-{
-    auto* track = engine.getTrackByIndex (trackIndex);
-    if (track)
-    {
-        track->toggleNormalizingOutput();
-    }
-}
+static void executeToggleSolo (LooperEngine& engine, int trackIndex) { engine.toggleSolo (trackIndex); }
+static void executeToggleMute (LooperEngine& engine, int trackIndex) { engine.toggleMute (trackIndex); }
+static void executeToggleReverse (LooperEngine& engine, int trackIndex) { engine.toggleReverse (trackIndex); }
+
+static void executeToggleKeepPitch (LooperEngine& engine, int trackIndex) { engine.toggleKeepPitchWhenChangingSpeed (trackIndex); }
+
+static void executeVolumeNormalize (LooperEngine& engine, int trackIndex) { engine.toggleVolumeNormalize (trackIndex); }
 
 static void executeSelectTrack (LooperEngine& engine, int, int value)
 {
@@ -82,8 +55,7 @@ static void executeSetOldOverdubGain (LooperEngine& engine, int trackIndex, int 
 static void executePitchShift (LooperEngine& engine, int trackIndex, int value)
 {
     float semitones = juce::jmap ((float) value, 0.0f, 127.0f, -2.0f, 2.0f);
-    auto* track = engine.getTrackByIndex (trackIndex);
-    if (track) track->setPlaybackPitch (semitones);
+    engine.setTrackPitch (trackIndex, semitones);
 }
 
 static void executeNone (LooperEngine&, int) {}

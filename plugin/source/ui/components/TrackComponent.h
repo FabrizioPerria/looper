@@ -34,28 +34,24 @@ public:
 
         muteButton.setButtonText ("MUTE");
         muteButton.setComponentID ("mute");
-        muteButton.setClickingTogglesState (true);
         muteButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleMute, trackIndex, {} }); };
         addAndMakeVisible (muteButton);
 
         soloButton.setButtonText ("SOLO");
         soloButton.setComponentID ("solo");
-        soloButton.setClickingTogglesState (true);
         soloButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleSolo, trackIndex, {} }); };
         addAndMakeVisible (soloButton);
 
         lockPitchButton.setButtonText ("LOCK");
         lockPitchButton.setComponentID ("lock");
-        lockPitchButton.setClickingTogglesState (true);
         lockPitchButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::TogglePitchLock, trackIndex, {} }); };
         addAndMakeVisible (lockPitchButton);
 
         reverseButton.setButtonText ("REV");
         reverseButton.setComponentID ("reverse");
-        reverseButton.setClickingTogglesState (true);
         reverseButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleReverse, trackIndex, {} }); };
         addAndMakeVisible (reverseButton);

@@ -73,6 +73,33 @@ public:
     void stop();
     void toggleRecord();
     void togglePlay();
+    void toggleReverse (int trackIndex)
+    {
+        if (isTrackPlaybackForward (trackIndex))
+            setTrackPlaybackDirectionBackward (trackIndex);
+        else
+            setTrackPlaybackDirectionForward (trackIndex);
+    }
+    void toggleSolo (int trackIndex)
+    {
+        auto* track = getTrackByIndex (trackIndex);
+        if (track) setTrackSoloed (trackIndex, ! track->isSoloed());
+    }
+    void toggleMute (int trackIndex)
+    {
+        auto* track = getTrackByIndex (trackIndex);
+        if (track) setTrackMuted (trackIndex, ! track->isMuted());
+    }
+    void toggleVolumeNormalize (int trackIndex)
+    {
+        auto* track = getTrackByIndex (trackIndex);
+        if (track) track->toggleNormalizingOutput();
+    }
+    void toggleKeepPitchWhenChangingSpeed (int trackIndex)
+    {
+        bool current = getKeepPitchWhenChangingSpeed (trackIndex);
+        setKeepPitchWhenChangingSpeed (trackIndex, ! current);
+    }
     void undo (int trackIndex);
     void redo (int trackIndex);
     void clear (int trackIndex);
@@ -94,6 +121,11 @@ public:
     void setTrackSoloed (int trackIndex, bool soloed);
     float getTrackVolume (int trackIndex) const;
     bool isTrackMuted (int trackIndex) const;
+    void setTrackPitch (int trackIndex, float pitch)
+    {
+        auto* track = getTrackByIndex (trackIndex);
+        if (track) track->setPlaybackPitch (pitch);
+    }
 
     void setKeepPitchWhenChangingSpeed (int trackIndex, bool shouldKeepPitch);
     bool getKeepPitchWhenChangingSpeed (int trackIndex) const;
@@ -181,30 +213,11 @@ private:
               }
           } },
 
-        { EngineMessageBus::CommandType::ToggleMute,
-          [this] (const auto& cmd)
-          {
-              if (std::holds_alternative<bool> (cmd.payload))
-              {
-                  auto muted = std::get<bool> (cmd.payload);
-                  setTrackMuted (cmd.trackIndex, muted);
-              }
-          } },
+        { EngineMessageBus::CommandType::ToggleMute, [this] (const auto& cmd) { toggleMute (cmd.trackIndex); } },
 
-        { EngineMessageBus::CommandType::ToggleSolo,
-          [this] (const auto& cmd)
-          {
-              if (std::holds_alternative<bool> (cmd.payload))
-              {
-                  auto soloed = std::get<bool> (cmd.payload);
-                  setTrackSoloed (cmd.trackIndex, soloed);
-              }
-          } },
-        { EngineMessageBus::CommandType::ToggleVolumeNormalize,
-          [this] (const auto& cmd)
-          {
-              // Future implementation
-          } },
+        { EngineMessageBus::CommandType::ToggleSolo, [this] (const auto& cmd) { toggleSolo (cmd.trackIndex); } },
+
+        { EngineMessageBus::CommandType::ToggleVolumeNormalize, [this] (const auto& cmd) { toggleVolumeNormalize (cmd.trackIndex); } },
 
         { EngineMessageBus::CommandType::SetPlaybackSpeed,
           [this] (const auto& cmd)
@@ -215,34 +228,20 @@ private:
                   setTrackPlaybackSpeed (cmd.trackIndex, speed);
               }
           } },
+
         { EngineMessageBus::CommandType::SetPlaybackPitch,
           [this] (const auto& cmd)
           {
-              // Future implementation
-          } },
-
-        { EngineMessageBus::CommandType::TogglePitchLock,
-          [this] (const auto& cmd)
-          {
-              if (std::holds_alternative<bool> (cmd.payload))
+              if (std::holds_alternative<float> (cmd.payload))
               {
-                  auto keepPitch = std::get<bool> (cmd.payload);
-                  setKeepPitchWhenChangingSpeed (cmd.trackIndex, keepPitch);
+                  auto pitch = std::get<float> (cmd.payload);
+                  setTrackPitch (cmd.trackIndex, pitch);
               }
           } },
 
-        { EngineMessageBus::CommandType::ToggleReverse,
-          [this] (const auto& cmd)
-          {
-              if (std::holds_alternative<bool> (cmd.payload))
-              {
-                  auto forward = std::get<bool> (cmd.payload);
-                  if (forward)
-                      setTrackPlaybackDirectionForward (cmd.trackIndex);
-                  else
-                      setTrackPlaybackDirectionBackward (cmd.trackIndex);
-              }
-          } },
+        { EngineMessageBus::CommandType::TogglePitchLock, [this] (const auto& cmd) { toggleKeepPitchWhenChangingSpeed (cmd.trackIndex); } },
+
+        { EngineMessageBus::CommandType::ToggleReverse, [this] (const auto& cmd) { toggleReverse (cmd.trackIndex); } },
 
         { EngineMessageBus::CommandType::LoadAudioFile,
           [this] (const auto& cmd)
