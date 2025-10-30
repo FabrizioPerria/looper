@@ -1,35 +1,29 @@
 #pragma once
+#include "engine/LooperEngine.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/GlobalBarComponent.h"
 #include "ui/components/TrackComponent.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
-class LooperEditor : public juce::Component, public juce::Timer
+class LooperEditor : public juce::Component
 {
 public:
     LooperEditor (LooperEngine* engine) : looperEngine (engine)
     {
-        // midiDispatcher = std::make_unique<MidiCommandDispatcher> (engine, engine->getUIToEngineBridge());
-        globalBar = std::make_unique<GlobalControlBar> (midiDispatcher.get(), engine->getEngineStateBridge());
+        globalBar = std::make_unique<GlobalControlBar> (engine->getMessageBus(), engine->getEngineStateBridge());
 
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {
-            auto* channel = new TrackComponent (midiDispatcher.get(),
-                                                i,
-                                                engine->getUIBridgeByIndex (i),
-                                                engine->getEngineStateBridge(),
-                                                engine->getUIToEngineBridge());
+            auto* channel = new TrackComponent (engine->getMessageBus(), i, engine->getUIBridgeByIndex (i), engine->getEngineStateBridge());
             channels.add (channel);
             addAndMakeVisible (channel);
         }
 
         addAndMakeVisible (*globalBar);
-
-        startTimerHz (10);
     }
 
-    ~LooperEditor() override { stopTimer(); }
+    ~LooperEditor() override {}
 
     void paint (juce::Graphics& g) override
     {
@@ -59,20 +53,9 @@ public:
 
 private:
     LooperEngine* looperEngine;
-    std::unique_ptr<MidiCommandDispatcher> midiDispatcher;
 
     std::unique_ptr<GlobalControlBar> globalBar;
     juce::OwnedArray<TrackComponent> channels;
-
-    void timerCallback() override
-    {
-        // Update active track highlighting
-        int activeTrackIndex = looperEngine->getActiveTrackIndex();
-        for (int i = 0; i < channels.size(); ++i)
-        {
-            channels[i]->setActive (i == activeTrackIndex);
-        }
-    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LooperEditor)
 };

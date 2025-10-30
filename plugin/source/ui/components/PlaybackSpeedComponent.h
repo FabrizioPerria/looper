@@ -1,4 +1,5 @@
 #pragma once
+#include "audio/EngineCommandBus.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
@@ -74,7 +75,7 @@ private:
 class PlaybackSpeedComponent : public juce::Component
 {
 public:
-    PlaybackSpeedComponent (MidiCommandDispatcher* dispatcher, int trackIdx) : trackIndex (trackIdx), midiDispatcher (dispatcher)
+    PlaybackSpeedComponent (EngineMessageBus* engineMessageBus, int trackIdx) : trackIndex (trackIdx), uiToEngineBus (engineMessageBus)
     {
         titleLabel.setText ("SPEED", juce::dontSendNotification);
         titleLabel.setFont (LooperTheme::Fonts::getBoldFont (9.0f));
@@ -84,9 +85,19 @@ public:
 
         speedSlider.setValue (1.0);
         speedSlider.onValueChange = [this]()
-        { midiDispatcher->sendControlChangeToEngine (MidiNotes::PLAYBACK_SPEED_CC, trackIndex, speedSlider.getValue()); };
+        {
+            juce::MidiBuffer midiBuffer;
+            juce::MidiMessage msg = juce::MidiMessage::controllerEvent (1,
+                                                                        MidiNotes::PLAYBACK_SPEED_CC,
+                                                                        (juce::uint8) ((speedSlider.getValue() - 0.5) / 1.5 * 127.0));
+            midiBuffer.addEvent (msg, 0);
+        };
         addAndMakeVisible (speedSlider);
     }
+
+    void setValue (double newValue, juce::NotificationType notification) { speedSlider.setValue (newValue, notification); }
+
+    double getValue() const { return speedSlider.getValue(); }
 
     void resized() override
     {
@@ -100,7 +111,7 @@ private:
     juce::Label titleLabel;
     PlaybackSpeedSlider speedSlider;
     int trackIndex;
-    MidiCommandDispatcher* midiDispatcher;
+    EngineMessageBus* uiToEngineBus;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PlaybackSpeedComponent)
 };

@@ -33,14 +33,14 @@ public:
         SelectTrack,
 
         SetVolume,
-        SetMute,
-        SetSolo,
-        VolumeNormalizeToggle,
+        ToggleMute,
+        ToggleSolo,
+        ToggleVolumeNormalize,
 
         SetPlaybackSpeed,
         SetPlaybackPitch,
-        SetKeepPitch,
-        SetPlaybackDirection,
+        TogglePitchLock,
+        ToggleReverse,
 
         // File operations
         LoadAudioFile,
@@ -73,34 +73,6 @@ public:
                      std::pair<float, float>   // Two floats (overdub gains)
                      >
             payload;
-
-        // Convenience constructors
-        // static Command setVolume (int track, float volume) { return { CommandType::SetVolume, track, volume }; }
-        //
-        // static Command setMute (int track, bool muted) { return { CommandType::SetMute, track, muted }; }
-        //
-        // static Command setSolo (int track, bool soloed) { return { CommandType::SetSolo, track, soloed }; }
-        //
-        // static Command setPlaybackSpeed (int track, float speed) { return { CommandType::SetPlaybackSpeed, track, speed }; }
-        //
-        // static Command setPlaybackPitch (int track, float pitch) { return { CommandType::SetPlaybackPitch, track, pitch }; }
-        //
-        // static Command setKeepPitch (int track, bool keep) { return { CommandType::SetKeepPitch, track, keep }; }
-        //
-        // static Command setPlaybackDirection (int track, bool forward) { return { CommandType::SetPlaybackDirection, track, forward }; }
-        //
-        // static Command loadAudioFile (int track, const juce::File& file) { return { CommandType::LoadAudioFile, track, file }; }
-        //
-        // static Command setOverdubGains (int track, float oldGain, float newGain)
-        // {
-        //     return { CommandType::SetOverdubGains, track, std::make_pair (oldGain, newGain) };
-        // }
-        //
-        // static Command midiMessage (const juce::MidiBuffer& buffer) { return { CommandType::MidiMessage, -1, buffer }; }
-        //
-        // static Command setMetronomeEnabled (bool enabled) { return { CommandType::SetMetronomeEnabled, -1, enabled }; }
-        //
-        // static Command setMetronomeBPM (float bpm) { return { CommandType::SetMetronomeBPM, -1, bpm }; }
     };
 
     // ============================================================================
@@ -116,12 +88,17 @@ public:
         RecordingStateChanged,
         PlaybackStateChanged,
 
+        ActiveTrackChanged,
+        PendingTrackChanged,
+
         // Track state changes (non-real-time, complementary to EngineStateToUIBridge)
         TrackVolumeChanged,
         TrackMuteChanged,
         TrackSoloChanged,
         TrackSpeedChanged,
         TrackPitchChanged,
+        TrackPitchLockChanged,
+        TrackReverseChanged,
 
         // File operation results
         FileLoadSucceeded,
@@ -143,23 +120,11 @@ public:
 
         std::variant<std::monostate,
                      float,
+                     int,
                      bool,
                      juce::String // Error messages, file paths, etc.
                      >
             data;
-
-        static Event trackVolumeChanged (int track, float volume) { return { EventType::TrackVolumeChanged, track, volume }; }
-
-        static Event trackMuteChanged (int track, bool muted) { return { EventType::TrackMuteChanged, track, muted }; }
-
-        static Event fileLoadSucceeded (int track, const juce::String& filePath)
-        {
-            return { EventType::FileLoadSucceeded, track, filePath };
-        }
-
-        static Event fileLoadFailed (int track, const juce::String& errorMsg) { return { EventType::FileLoadFailed, track, errorMsg }; }
-
-        static Event errorOccurred (const juce::String& message) { return { EventType::ErrorOccurred, -1, message }; }
     };
 
     // Listener interface - components implement this to receive events

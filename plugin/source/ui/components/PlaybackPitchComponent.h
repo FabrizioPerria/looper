@@ -1,4 +1,5 @@
 #pragma once
+#include "audio/EngineCommandBus.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
@@ -54,7 +55,7 @@ private:
 class PlaybackPitchComponent : public juce::Component
 {
 public:
-    PlaybackPitchComponent (MidiCommandDispatcher* dispatcher, int trackIdx) : trackIndex (trackIdx), midiDispatcher (dispatcher)
+    PlaybackPitchComponent (EngineMessageBus* engineMessageBus, int trackIdx) : trackIndex (trackIdx), uiToEngineBus (engineMessageBus)
     {
         titleLabel.setText ("PITCH", juce::dontSendNotification);
         titleLabel.setFont (LooperTheme::Fonts::getBoldFont (9.0f));
@@ -68,7 +69,12 @@ public:
             // // Convert float semitones to 0-127 MIDI range
             // float semitones = (float) pitchSlider.getValue(); // -2.0 to +2.0
             // int midiValue = juce::jmap (semitones, -2.0f, 2.0f, 0.0f, 127.0f);
-            midiDispatcher->sendControlChangeToEngine (MidiNotes::PITCH_SHIFT_CC, trackIndex, pitchSlider.getValue());
+            juce::MidiBuffer midiBuffer;
+            juce::MidiMessage msg = juce::MidiMessage::controllerEvent (1,
+                                                                        MidiNotes::PITCH_SHIFT_CC,
+                                                                        (juce::uint8)
+                                                                            juce::jmap (pitchSlider.getValue(), -2.0, 2.0, 0.0, 127.0));
+            midiBuffer.addEvent (msg, 0);
         };
         addAndMakeVisible (pitchSlider);
     }
@@ -88,7 +94,7 @@ private:
     juce::Label titleLabel;
     PlaybackPitchSlider pitchSlider;
     int trackIndex;
-    MidiCommandDispatcher* midiDispatcher;
+    EngineMessageBus* uiToEngineBus;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PlaybackPitchComponent)
 };

@@ -19,7 +19,7 @@ public:
         normalizeButton.setClickingTogglesState (true);
         normalizeButton.onClick = [this]()
         {
-            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::VolumeNormalizeToggle, trackIndex, {} });
+            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleVolumeNormalize, trackIndex, {} });
         };
         addAndMakeVisible (normalizeButton);
 
