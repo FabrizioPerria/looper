@@ -1,7 +1,6 @@
 #include "MidiCommandDispatcher.h"
 #include "LooperEngine.h"
 
-#include "LooperEngine.h" // NOW we can include it!
 #include "MidiCommandDispatcher.h"
 
 namespace CommandExecutors
@@ -22,11 +21,6 @@ static void executeToggleMute (LooperEngine& engine, int trackIndex)
 {
     auto* track = engine.getTrackByIndex (trackIndex);
     if (track) engine.setTrackMuted (trackIndex, ! track->isMuted());
-}
-static void executeLoadFile (LooperEngine& engine, int trackIndex)
-{
-    juce::File defaultFile = juce::File::getSpecialLocation (juce::File::userDesktopDirectory).getChildFile ("backing.wav");
-    engine.loadWaveFileToTrack (defaultFile, trackIndex);
 }
 static void executeToggleReverse (LooperEngine& engine, int trackIndex)
 {
@@ -107,7 +101,6 @@ const CommandFunc COMMAND_DISPATCH_TABLE[(size_t) MidiCommandId::COUNT] = {
     [(size_t) MidiCommandId::PrevTrack] = CommandExecutors::executePrevTrack,
     [(size_t) MidiCommandId::ToggleSolo] = CommandExecutors::executeToggleSolo,
     [(size_t) MidiCommandId::ToggleMute] = CommandExecutors::executeToggleMute,
-    [(size_t) MidiCommandId::LoadFile] = CommandExecutors::executeLoadFile,
     [(size_t) MidiCommandId::ToggleReverse] = CommandExecutors::executeToggleReverse,
     [(size_t) MidiCommandId::ToggleKeepPitch] = CommandExecutors::executeToggleKeepPitch,
     [(size_t) MidiCommandId::VolumeNormalize] = CommandExecutors::executeVolumeNormalize,

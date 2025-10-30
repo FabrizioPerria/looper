@@ -1,8 +1,8 @@
 #pragma once
 
 #include "audio/AudioToUIBridge.h"
+#include "audio/EngineCommandBus.h"
 #include "audio/EngineStateToUIBridge.h"
-#include "audio/UIToEngineBridge.h"
 #include "engine/LoopTrack.h"
 #include "engine/LooperStateMachine.h"
 #include <JuceHeader.h>
@@ -31,7 +31,7 @@ struct PendingAction
     bool isActive() const { return type != Type::None; }
 };
 
-class LooperEngine : public juce::Timer
+class LooperEngine
 {
 public:
     LooperEngine();
@@ -100,7 +100,8 @@ public:
     void handleMidiCommand (const juce::MidiBuffer& midiMessages);
 
     EngineStateToUIBridge* getEngineStateBridge() const { return engineStateBridge.get(); }
-    UIToEngineBridge* getUIToEngineBridge() const { return uiToEngineBridge.get(); }
+
+    EngineMessageBus* getMessageBus() const { return messageBus.get(); }
 
 private:
     // State machine
@@ -108,7 +109,7 @@ private:
     LooperState currentState = LooperState::Idle;
     PendingAction pendingAction;
     std::unique_ptr<EngineStateToUIBridge> engineStateBridge = std::make_unique<EngineStateToUIBridge>();
-    std::unique_ptr<UIToEngineBridge> uiToEngineBridge = std::make_unique<UIToEngineBridge>();
+    std::unique_ptr<EngineMessageBus> messageBus = std::make_unique<EngineMessageBus>();
 
     // Engine data
     double sampleRate = 0.0;
@@ -138,19 +139,139 @@ private:
     void setPendingAction (PendingAction::Type type, int trackIndex, bool waitForWrap);
     void processPendingActions();
     void setupMidiCommands();
+    void processCommandsFromMessageBus();
 
     bool shouldTrackPlay (int trackIndex) const;
 
-    void timerCallback() override
-    {
-        if (uiToEngineBridge->hasNewFile())
-        {
-            juce::File temp;
-            int trackIndex;
-            uiToEngineBridge->fetchAudioFileForTrack (temp, trackIndex);
-            loadWaveFileToTrack (temp, trackIndex);
-        }
-    }
+    const std::unordered_map<EngineMessageBus::CommandType, std::function<void (const EngineMessageBus::Command&)>> commandHandlers = {
+        { EngineMessageBus::CommandType::TogglePlay, [this] (const auto& /*cmd*/) { togglePlay(); } },
+        { EngineMessageBus::CommandType::ToggleRecord, [this] (const auto& /*cmd*/) { toggleRecord(); } },
+        { EngineMessageBus::CommandType::Undo,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) undo (cmd.trackIndex);
+          } },
+        { EngineMessageBus::CommandType::Redo,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) redo (cmd.trackIndex);
+          } },
+        { EngineMessageBus::CommandType::Clear,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) clear (cmd.trackIndex);
+          } },
+        { EngineMessageBus::CommandType::NextTrack, [this] (const auto& /*cmd*/) { selectNextTrack(); } },
+        { EngineMessageBus::CommandType::PreviousTrack, [this] (const auto& /*cmd*/) { selectPreviousTrack(); } },
+
+        { EngineMessageBus::CommandType::SelectTrack,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) selectTrack (cmd.trackIndex);
+          } },
+
+        { EngineMessageBus::CommandType::SetVolume,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<float> (cmd.payload))
+              {
+                  auto volume = std::get<float> (cmd.payload);
+                  setTrackVolume (cmd.trackIndex, volume);
+              }
+          } },
+
+        { EngineMessageBus::CommandType::SetMute,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<bool> (cmd.payload))
+              {
+                  auto muted = std::get<bool> (cmd.payload);
+                  setTrackMuted (cmd.trackIndex, muted);
+              }
+          } },
+
+        { EngineMessageBus::CommandType::SetSolo,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<bool> (cmd.payload))
+              {
+                  auto soloed = std::get<bool> (cmd.payload);
+                  setTrackSoloed (cmd.trackIndex, soloed);
+              }
+          } },
+        { EngineMessageBus::CommandType::VolumeNormalizeToggle,
+          [this] (const auto& cmd)
+          {
+              // Future implementation
+          } },
+
+        { EngineMessageBus::CommandType::SetPlaybackSpeed,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<float> (cmd.payload))
+              {
+                  auto speed = std::get<float> (cmd.payload);
+                  setTrackPlaybackSpeed (cmd.trackIndex, speed);
+              }
+          } },
+        { EngineMessageBus::CommandType::SetPlaybackPitch,
+          [this] (const auto& cmd)
+          {
+              // Future implementation
+          } },
+
+        { EngineMessageBus::CommandType::SetKeepPitch,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<bool> (cmd.payload))
+              {
+                  auto keepPitch = std::get<bool> (cmd.payload);
+                  setKeepPitchWhenChangingSpeed (cmd.trackIndex, keepPitch);
+              }
+          } },
+
+        { EngineMessageBus::CommandType::SetPlaybackDirection,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<bool> (cmd.payload))
+              {
+                  auto forward = std::get<bool> (cmd.payload);
+                  if (forward)
+                      setTrackPlaybackDirectionForward (cmd.trackIndex);
+                  else
+                      setTrackPlaybackDirectionBackward (cmd.trackIndex);
+              }
+          } },
+
+        { EngineMessageBus::CommandType::LoadAudioFile,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<juce::File> (cmd.payload))
+              {
+                  auto file = std::get<juce::File> (cmd.payload);
+                  loadWaveFileToTrack (file, cmd.trackIndex);
+              }
+          } },
+        { EngineMessageBus::CommandType::SetOverdubGains,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::pair<float, float>> (cmd.payload))
+              {
+                  auto gains = std::get<std::pair<float, float>> (cmd.payload);
+                  setOverdubGainsForTrack (cmd.trackIndex, gains.first, gains.second);
+              }
+          } },
+        { EngineMessageBus::CommandType::MidiMessage,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<juce::MidiBuffer> (cmd.payload))
+              {
+                  auto midiBuffer = std::get<juce::MidiBuffer> (cmd.payload);
+                  handleMidiCommand (midiBuffer);
+              }
+          } },
+
+    };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LooperEngine)
 };

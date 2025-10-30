@@ -5,12 +5,8 @@
 #include "profiler/PerfettoProfiler.h"
 #include <algorithm>
 
-LooperEngine::LooperEngine() { startTimerHz (30); }
-LooperEngine::~LooperEngine()
-{
-    releaseResources();
-    stopTimer();
-}
+LooperEngine::LooperEngine() {}
+LooperEngine::~LooperEngine() { releaseResources(); }
 
 void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int newNumTracks, int newNumChannels)
 {
@@ -314,8 +310,9 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
 {
     PERFETTO_FUNCTION();
 
+    processCommandsFromMessageBus();
+
     juce::MidiBuffer outBuffer;
-    uiToEngineBridge->fetchNextMidiBuffer (outBuffer);
     midiMessages.addEvents (outBuffer, 0, buffer.getNumSamples(), 0);
 
     handleMidiCommand (midiMessages);
@@ -328,6 +325,7 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     processPendingActions();
     auto ctx = createStateContext (buffer);
     stateMachine.processAudio (currentState, ctx);
+
     updateUIBridge (ctx, wasRecording);
 
     // Update global engine state for transport controls
@@ -336,6 +334,21 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
                                               activeTrackIndex,
                                               nextTrackIndex,
                                               numTracks);
+}
+
+void LooperEngine::processCommandsFromMessageBus()
+{
+    PERFETTO_FUNCTION();
+
+    EngineMessageBus::Command cmd;
+    while (messageBus->popCommand (cmd))
+    {
+        auto it = commandHandlers.find (cmd.type);
+        if (it != commandHandlers.end())
+        {
+            it->second (cmd);
+        }
+    }
 }
 
 int LooperEngine::getPendingTrackIndex() const
