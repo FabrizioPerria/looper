@@ -190,6 +190,7 @@ void LooperEngine::record()
     LooperState targetState = trackHasContent() ? LooperState::Overdubbing : LooperState::Recording;
     transitionTo (targetState);
     messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::RecordingStateChanged, activeTrackIndex, true));
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::PlaybackStateChanged, activeTrackIndex, true));
 }
 
 void LooperEngine::play()

@@ -16,7 +16,6 @@ public:
         // recButton.setClickingTogglesState (true);
         recButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleRecord, -1, {} }); };
-        // recButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::TOGGLE_RECORD_BUTTON); };
         addAndMakeVisible (recButton);
 
         playButton.setButtonText ("PLAY");
@@ -37,6 +36,7 @@ public:
         nextButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::NextTrack, -1, {} }); };
         addAndMakeVisible (nextButton);
+
         uiToEngineBus->addListener (this);
     }
 

@@ -75,6 +75,7 @@ public:
                                                                         (juce::uint8)
                                                                             juce::jmap (pitchSlider.getValue(), -2.0, 2.0, 0.0, 127.0));
             midiBuffer.addEvent (msg, 0);
+            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::MidiMessage, trackIndex, midiBuffer });
         };
         addAndMakeVisible (pitchSlider);
     }

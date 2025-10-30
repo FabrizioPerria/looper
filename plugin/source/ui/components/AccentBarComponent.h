@@ -14,7 +14,9 @@ public:
         setInterceptsMouseClicks (true, false);
         isTrackActive = false;
         isPendingTrack = false;
+        uiToEngineBus->addListener (this);
     }
+    ~AccentBar() override { uiToEngineBus->removeListener (this); }
 
     void paint (juce::Graphics& g) override
     {

@@ -91,6 +91,7 @@ public:
                                                                         MidiNotes::PLAYBACK_SPEED_CC,
                                                                         (juce::uint8) ((speedSlider.getValue() - 0.5) / 1.5 * 127.0));
             midiBuffer.addEvent (msg, 0);
+            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::MidiMessage, trackIndex, midiBuffer });
         };
         addAndMakeVisible (speedSlider);
     }

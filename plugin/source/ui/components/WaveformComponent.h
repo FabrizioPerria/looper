@@ -46,16 +46,10 @@ public:
 
     bool isInterestedInFileDrag (const juce::StringArray& files) override
     {
-        // Check if any of the dragged files are audio files
-        for (const auto& file : files)
-        {
-            if (file.endsWithIgnoreCase (".mp3") || file.endsWithIgnoreCase (".wav") || file.endsWithIgnoreCase (".aiff")
-                || file.endsWithIgnoreCase (".aif") || file.endsWithIgnoreCase (".m4a") || file.endsWithIgnoreCase (".flac"))
-            {
-                return true;
-            }
-        }
-        return false;
+        const juce::String file = files[0]; // Just take the first file if a group is provided
+
+        return (file.endsWithIgnoreCase (".mp3") || file.endsWithIgnoreCase (".wav") || file.endsWithIgnoreCase (".aiff")
+                || file.endsWithIgnoreCase (".aif") || file.endsWithIgnoreCase (".m4a") || file.endsWithIgnoreCase (".flac"));
     }
 
     void filesDropped (const juce::StringArray& files, int /*x*/, int /*y*/) override
