@@ -76,8 +76,8 @@ TEST (LoopTrackPrepare, StateReset)
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
     juce::AudioBuffer<float> input (numChannels, maxBlock);
     input.clear();
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, false);
+    track.finalizeLayer (false);
 
     EXPECT_GT (track.getTrackLengthSamples(), 0);
 
@@ -166,7 +166,7 @@ TEST (LoopTrackRecord, ProcessFullBlockCopiesInput)
     juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     auto* readPtr = input.getReadPointer (0);
 
-    track.processRecord (input, numSamples);
+    track.processRecord (input, numSamples, false);
 
     const auto* loopBuffer = track.getAudioBuffer();
     auto* loopPtr = loopBuffer->getReadPointer (0);
@@ -178,8 +178,8 @@ TEST (LoopTrackRecord, ProcessFullBlockCopiesInput)
     EXPECT_EQ (track.getTrackLengthSamples(), 0);
 
     // process another block and check it appends correctly
-    track.processRecord (input, numSamples);
-    track.finalizeLayer();
+    track.processRecord (input, numSamples, false);
+    track.finalizeLayer (false);
     loopPtr = loopBuffer->getReadPointer (0);
     for (int i = 0; i < numSamples; ++i)
     {
@@ -204,7 +204,7 @@ TEST (LoopTrackRecord, ProcessPartialBlockCopiesInput)
     juce::AudioBuffer<float> input = createSquareTestBuffer (numChannels, numSamples, sr, 440.0f);
     auto* readPtr = input.getReadPointer (0);
 
-    track.processRecord (input, numSamples);
+    track.processRecord (input, numSamples, false);
 
     const auto* loopBuffer = track.getAudioBuffer();
     auto* loopPtr = loopBuffer->getReadPointer (0);
@@ -240,10 +240,10 @@ TEST (LoopTrackRecord, RecordingMultipleBlocks)
             }
         }
 
-        track.processRecord (input, maxBlock);
+        track.processRecord (input, maxBlock, block > 0);
     }
 
-    track.finalizeLayer();
+    track.finalizeLayer (true);
 
     EXPECT_EQ (track.getTrackLengthSamples(), numBlocks * maxBlock);
 }
@@ -321,7 +321,7 @@ TEST (LoopTrackPlayback, PlaybackEmptyBufferProducesNothing)
 
     juce::AudioBuffer<float> output (numChannels, maxBlock);
     output.clear();
-    track.processPlayback (output, maxBlock);
+    track.processPlayback (output, maxBlock, false);
 
     // Should be silent
     for (int ch = 0; ch < numChannels; ++ch)
@@ -356,13 +356,13 @@ TEST (LoopTrackPlayback, PlaybackReproducesRecordedAudio)
         }
     }
 
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, false);
+    track.finalizeLayer (false);
 
     // Play back
     juce::AudioBuffer<float> output (numChannels, maxBlock);
     output.clear();
-    track.processPlayback (output, maxBlock);
+    track.processPlayback (output, maxBlock, false);
 
     // Should have audio
     float rms = output.getRMSLevel (0, 0, maxBlock);
@@ -392,8 +392,8 @@ TEST (LoopTrackPlayback, LoopWrapsAround)
         }
     }
 
-    track.processRecord (input, 1000);
-    track.finalizeLayer();
+    track.processRecord (input, 1000, false);
+    track.finalizeLayer (false);
 
     int loopLength = track.getTrackLengthSamples();
     EXPECT_EQ (loopLength, 1000);
@@ -403,7 +403,7 @@ TEST (LoopTrackPlayback, LoopWrapsAround)
     {
         juce::AudioBuffer<float> output (numChannels, maxBlock);
         output.clear();
-        track.processPlayback (output, maxBlock);
+        track.processPlayback (output, maxBlock, false);
 
         // Should always have audio
         float rms = output.getRMSLevel (0, 0, maxBlock);
@@ -429,18 +429,18 @@ TEST (LoopTrackPlayback, HasWrappedAroundDetection)
     // Record short loop
     juce::AudioBuffer<float> input (numChannels, 200);
     input.clear();
-    track.processRecord (input, 200);
-    track.finalizeLayer();
+    track.processRecord (input, 200, false);
+    track.finalizeLayer (false);
 
     // First playback - no wrap
     juce::AudioBuffer<float> output (numChannels, maxBlock);
     output.clear();
-    track.processPlayback (output, maxBlock);
+    track.processPlayback (output, maxBlock, false);
     EXPECT_FALSE (track.hasWrappedAround());
 
     // Second playback - should wrap
     output.clear();
-    track.processPlayback (output, maxBlock);
+    track.processPlayback (output, maxBlock, false);
     EXPECT_TRUE (track.hasWrappedAround());
 }
 
@@ -466,8 +466,8 @@ TEST (LoopTrackOverdub, OverdubAddsToExistingLayer)
     for (int i = 0; i < maxBlock; ++i)
         data1[i] = 0.3f;
 
-    track.processRecord (input1, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input1, maxBlock, false);
+    track.finalizeLayer (false);
 
     int loopLength = track.getTrackLengthSamples();
 
@@ -478,8 +478,8 @@ TEST (LoopTrackOverdub, OverdubAddsToExistingLayer)
     for (int i = 0; i < maxBlock; ++i)
         data2[i] = 0.2f;
 
-    track.processRecord (input2, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input2, maxBlock, true);
+    track.finalizeLayer (true);
 
     // Length should not change
     EXPECT_EQ (track.getTrackLengthSamples(), loopLength);
@@ -487,7 +487,7 @@ TEST (LoopTrackOverdub, OverdubAddsToExistingLayer)
     // Play back and verify it's louder (combined)
     juce::AudioBuffer<float> output (numChannels, maxBlock);
     output.clear();
-    track.processPlayback (output, maxBlock);
+    track.processPlayback (output, maxBlock, false);
 
     float rms = output.getRMSLevel (0, 0, maxBlock);
     EXPECT_GT (rms, 0.25f); // Should be higher than either input alone
@@ -511,14 +511,14 @@ TEST (LoopTrackUndo, UndoRestoresPreviousState)
     // Record first layer
     juce::AudioBuffer<float> input (numChannels, maxBlock);
     input.clear();
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, false);
+    track.finalizeLayer (false);
 
     int firstLength = track.getTrackLengthSamples();
 
     // Record overdub
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, true);
+    track.finalizeLayer (true);
 
     // Undo should restore first length
     track.undo();
@@ -555,11 +555,11 @@ TEST (LoopTrackRedo, RedoRestoresUndoneState)
     // Record two layers
     juce::AudioBuffer<float> input (numChannels, maxBlock);
     input.clear();
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, false);
+    track.finalizeLayer (false);
 
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, true);
+    track.finalizeLayer (true);
 
     int secondLength = track.getTrackLengthSamples();
 
@@ -587,8 +587,8 @@ TEST (LoopTrackClear, ClearResetsAllState)
     // Record something
     juce::AudioBuffer<float> input (numChannels, maxBlock);
     input.clear();
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, false);
+    track.finalizeLayer (false);
 
     EXPECT_GT (track.getTrackLengthSamples(), 0);
 
@@ -642,24 +642,24 @@ TEST (LoopTrackVolume, VolumeAffectsPlayback)
         for (int i = 0; i < maxBlock; ++i)
             data[i] = 0.5f;
     }
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, false);
+    track.finalizeLayer (false);
 
     // Play at full volume
     track.setTrackVolume (1.0f);
     juce::AudioBuffer<float> output1 (numChannels, maxBlock);
     output1.clear();
-    track.processPlayback (output1, maxBlock);
+    track.processPlayback (output1, maxBlock, false);
     float rms1 = output1.getRMSLevel (0, 0, maxBlock);
 
     // Reset and play at half volume
     track.clear();
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, false);
+    track.finalizeLayer (false);
     track.setTrackVolume (0.5f);
     juce::AudioBuffer<float> output2 (numChannels, maxBlock);
     output2.clear();
-    track.processPlayback (output2, maxBlock);
+    track.processPlayback (output2, maxBlock, false);
     float rms2 = output2.getRMSLevel (0, 0, maxBlock);
 
     EXPECT_LT (rms2, rms1);
@@ -748,14 +748,14 @@ TEST (LoopTrackSpeed, SlowPlaybackWorks)
         for (int i = 0; i < 10000; ++i)
             data[i] = 0.5f;
     }
-    track.processRecord (input, 10000);
-    track.finalizeLayer();
+    track.processRecord (input, 10000, false);
+    track.finalizeLayer (false);
 
     // Play at half speed
     track.setPlaybackSpeed (0.5f);
     juce::AudioBuffer<float> output (numChannels, maxBlock);
     output.clear();
-    track.processPlayback (output, maxBlock);
+    track.processPlayback (output, maxBlock, false);
 
     // Should have audio
     float rms = output.getRMSLevel (0, 0, maxBlock);
@@ -781,14 +781,14 @@ TEST (LoopTrackSpeed, FastPlaybackWorks)
         for (int i = 0; i < 10000; ++i)
             data[i] = 0.5f;
     }
-    track.processRecord (input, 10000);
-    track.finalizeLayer();
+    track.processRecord (input, 10000, false);
+    track.finalizeLayer (false);
 
     // Play at double speed
     track.setPlaybackSpeed (2.0f);
     juce::AudioBuffer<float> output (numChannels, maxBlock);
     output.clear();
-    track.processPlayback (output, maxBlock);
+    track.processPlayback (output, maxBlock, false);
 
     // Should have audio
     float rms = output.getRMSLevel (0, 0, maxBlock);
@@ -856,14 +856,14 @@ TEST (LoopTrackDirection, ReversePlaybackWorks)
         for (int i = 0; i < 10000; ++i)
             data[i] = 0.5f;
     }
-    track.processRecord (input, 10000);
-    track.finalizeLayer();
+    track.processRecord (input, 10000, false);
+    track.finalizeLayer (false);
 
     // Play in reverse
     track.setPlaybackDirectionBackward();
     juce::AudioBuffer<float> output (numChannels, maxBlock);
     output.clear();
-    track.processPlayback (output, maxBlock);
+    track.processPlayback (output, maxBlock, false);
 
     // Should have audio
     float rms = output.getRMSLevel (0, 0, maxBlock);
@@ -902,7 +902,7 @@ TEST (LoopTrackBacking, LoadBackingTrack)
     // Should be able to play it back
     juce::AudioBuffer<float> output (numChannels, maxBlock);
     output.clear();
-    track.processPlayback (output, maxBlock);
+    track.processPlayback (output, maxBlock, false);
 
     float rms = output.getRMSLevel (0, 0, maxBlock);
     EXPECT_GT (rms, 0.0f);
@@ -950,8 +950,8 @@ TEST (LoopTrackCrossfade, SetCrossfadeLength)
         for (int i = 0; i < 10000; ++i)
             data[i] = 0.5f;
     }
-    track.processRecord (input, 10000);
-    track.finalizeLayer();
+    track.processRecord (input, 10000, false);
+    track.finalizeLayer (false);
 
     // Just verify it doesn't crash
     EXPECT_GT (track.getTrackLengthSamples(), 0);
@@ -977,8 +977,8 @@ TEST (LoopTrackOverdubGain, SetOverdubGains)
     // Just verify it doesn't crash and can be used
     juce::AudioBuffer<float> input (numChannels, maxBlock);
     input.clear();
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, false);
+    track.finalizeLayer (false);
 }
 
 // ============================================================================
@@ -999,15 +999,15 @@ TEST (LoopTrackPosition, ReadPositionAdvances)
     // Record
     juce::AudioBuffer<float> input (numChannels, 10000);
     input.clear();
-    track.processRecord (input, 10000);
-    track.finalizeLayer();
+    track.processRecord (input, 10000, false);
+    track.finalizeLayer (false);
 
     int pos1 = track.getCurrentReadPosition();
 
     // Playback should advance position
     juce::AudioBuffer<float> output (numChannels, maxBlock);
     output.clear();
-    track.processPlayback (output, maxBlock);
+    track.processPlayback (output, maxBlock, false);
 
     int pos2 = track.getCurrentReadPosition();
 
@@ -1028,7 +1028,7 @@ TEST (LoopTrackPosition, WritePositionAdvances)
 
     juce::AudioBuffer<float> input (numChannels, maxBlock);
     input.clear();
-    track.processRecord (input, maxBlock);
+    track.processRecord (input, maxBlock, false);
 
     int pos2 = track.getCurrentWritePosition();
 
@@ -1052,8 +1052,8 @@ TEST (LoopTrackRelease, ReleaseResourcesClearsEverything)
     // Record something
     juce::AudioBuffer<float> input (numChannels, maxBlock);
     input.clear();
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, false);
+    track.finalizeLayer (false);
 
     track.releaseResources();
 
@@ -1079,8 +1079,8 @@ TEST (LoopTrackDuration, GetLoopDurationSeconds)
     // Record 1 second of audio
     juce::AudioBuffer<float> input (numChannels, 48000);
     input.clear();
-    track.processRecord (input, 48000);
-    track.finalizeLayer();
+    track.processRecord (input, 48000, false);
+    track.finalizeLayer (false);
 
     int duration = track.getLoopDurationSeconds();
     EXPECT_EQ (duration, 1);

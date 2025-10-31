@@ -22,8 +22,8 @@ protected:
             for (int i = 0; i < samples; ++i)
                 data[i] = amplitude;
         }
-        track.processRecord (input, samples);
-        track.finalizeLayer();
+        track.processRecord (input, samples, false);
+        track.finalizeLayer (false);
     }
 
     LoopTrack track;
@@ -43,14 +43,14 @@ TEST_F (LoopTrackStateManagementTest, UndoRestoresPreviousState)
     // Record first layer
     juce::AudioBuffer<float> input (numChannels, maxBlockSize);
     input.clear();
-    track.processRecord (input, maxBlockSize);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlockSize, false);
+    track.finalizeLayer (false);
 
     int firstLength = track.getTrackLengthSamples();
 
     // Record overdub
-    track.processRecord (input, maxBlockSize);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlockSize, true);
+    track.finalizeLayer (true);
 
     // Undo should restore first length
     track.undo();
@@ -142,8 +142,8 @@ TEST (UndoIssueReproduction, ExactIssueScenario)
         for (int i = 0; i < maxBlockSize; ++i)
             data[i] = 0.5f;
     }
-    track.processRecord (input1, maxBlockSize);
-    track.finalizeLayer();
+    track.processRecord (input1, maxBlockSize, false);
+    track.finalizeLayer (false);
 
     // Verify first loop is recorded
     float firstLoopValue = track.getAudioBuffer()->getSample (0, 10);
@@ -159,8 +159,8 @@ TEST (UndoIssueReproduction, ExactIssueScenario)
         for (int i = 0; i < maxBlockSize; ++i)
             data[i] = 0.3f;
     }
-    track.processRecord (input2, maxBlockSize);
-    track.finalizeLayer();
+    track.processRecord (input2, maxBlockSize, true);
+    track.finalizeLayer (true);
 
     // Verify overdub combined the audio
     float overdubValue = track.getAudioBuffer()->getSample (0, 10);
@@ -198,8 +198,8 @@ TEST (UndoIssueReproduction, ExactIssueScenario)
         for (int i = 0; i < maxBlockSize; ++i)
             data[i] = 0.2f;
     }
-    track.processRecord (input3, maxBlockSize);
-    track.finalizeLayer();
+    track.processRecord (input3, maxBlockSize, true);
+    track.finalizeLayer (true);
 
     float afterSecondOverdub = track.getAudioBuffer()->getSample (0, 10);
     std::cout << "After second overdub value at sample 10: " << afterSecondOverdub << std::endl;
@@ -214,8 +214,6 @@ TEST (UndoIssueReproduction, ExactIssueScenario)
     std::cout << "After third undo value at sample 10: " << afterThirdUndo << std::endl;
     EXPECT_NEAR (afterThirdUndo, 0.5f, 0.01f) << "Should restore to first loop again";
 }
-// Ultimate diagnostic test - run this and send me the output!
-// This will show us exactly what's in each buffer at each step
 
 #include "engine/LoopTrack.h"
 #include "engine/UndoManager.h"
@@ -425,8 +423,8 @@ TEST (UndoIssueReproduction, MultipleOverdubUndoCycles)
         for (int i = 0; i < maxBlockSize; ++i)
             data[i] = 0.5f;
     }
-    track.processRecord (baseInput, maxBlockSize);
-    track.finalizeLayer();
+    track.processRecord (baseInput, maxBlockSize, false);
+    track.finalizeLayer (false);
 
     float baseValue = track.getAudioBuffer()->getSample (0, 10);
     std::cout << "Base value: " << baseValue << std::endl;
@@ -445,8 +443,8 @@ TEST (UndoIssueReproduction, MultipleOverdubUndoCycles)
             for (int i = 0; i < maxBlockSize; ++i)
                 data[i] = overdubAmount;
         }
-        track.processRecord (overdubInput, maxBlockSize);
-        track.finalizeLayer();
+        track.processRecord (overdubInput, maxBlockSize, true);
+        track.finalizeLayer (true);
 
         float afterOverdub = track.getAudioBuffer()->getSample (0, 10);
         std::cout << "  After overdub: " << afterOverdub << std::endl;
@@ -470,8 +468,8 @@ TEST_F (LoopTrackStateManagementTest, UndoRestoresNormalizedFirstLayer)
         for (int i = 0; i < maxBlockSize; ++i)
             data[i] = 0.5f;
     }
-    track.processRecord (input1, maxBlockSize);
-    track.finalizeLayer();
+    track.processRecord (input1, maxBlockSize, false);
+    track.finalizeLayer (false);
 
     // After normalization, it should be 0.9 (0.5 * (0.9/0.5))
     float firstLayerNormalized = track.getAudioBuffer()->getSample (0, 10);
@@ -485,8 +483,8 @@ TEST_F (LoopTrackStateManagementTest, UndoRestoresNormalizedFirstLayer)
         for (int i = 0; i < maxBlockSize; ++i)
             data[i] = 0.3f;
     }
-    track.processRecord (input2, maxBlockSize);
-    track.finalizeLayer();
+    track.processRecord (input2, maxBlockSize, true);
+    track.finalizeLayer (true);
 
     float afterOverdub = track.getAudioBuffer()->getSample (0, 10);
     std::cout << "After overdub: " << afterOverdub << std::endl;
@@ -521,11 +519,11 @@ TEST_F (LoopTrackStateManagementTest, RedoRestoresUndoneState)
     // Record two layers
     juce::AudioBuffer<float> input (numChannels, maxBlockSize);
     input.clear();
-    track.processRecord (input, maxBlockSize);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlockSize, false);
+    track.finalizeLayer (false);
 
-    track.processRecord (input, maxBlockSize);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlockSize, true);
+    track.finalizeLayer (true);
 
     int secondLength = track.getTrackLengthSamples();
 
@@ -578,7 +576,7 @@ TEST_F (LoopTrackStateManagementTest, RedoPreservesAudioContent)
     // Get RMS after overdub
     juce::AudioBuffer<float> output1 (numChannels, maxBlockSize);
     output1.clear();
-    track.processPlayback (output1, maxBlockSize);
+    track.processPlayback (output1, maxBlockSize, false);
     float rms1 = output1.getRMSLevel (0, 0, maxBlockSize);
 
     // Undo and redo
@@ -588,7 +586,7 @@ TEST_F (LoopTrackStateManagementTest, RedoPreservesAudioContent)
     // Verify audio matches
     juce::AudioBuffer<float> output2 (numChannels, maxBlockSize);
     output2.clear();
-    track.processPlayback (output2, maxBlockSize);
+    track.processPlayback (output2, maxBlockSize, false);
     float rms2 = output2.getRMSLevel (0, 0, maxBlockSize);
 
     EXPECT_NEAR (rms1, rms2, 0.01f);
@@ -638,7 +636,7 @@ TEST_F (LoopTrackStateManagementTest, ClearMakesBufferSilent)
 
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     // Should be silent
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
@@ -670,7 +668,7 @@ TEST_F (LoopTrackStateManagementTest, ClearAllowsNewRecording)
 
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
     EXPECT_GT (rms, 0.0f);
@@ -734,7 +732,7 @@ TEST_F (LoopTrackStateManagementTest, StatePreservedAcrossPlayback)
     for (int i = 0; i < 10; ++i)
     {
         output.clear();
-        track.processPlayback (output, maxBlockSize);
+        track.processPlayback (output, maxBlockSize, false);
     }
 
     // Undo should still work

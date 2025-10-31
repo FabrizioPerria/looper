@@ -22,8 +22,8 @@ protected:
             for (int i = 0; i < samples; ++i)
                 data[i] = amplitude;
         }
-        track.processRecord (input, samples);
-        track.finalizeLayer();
+        track.processRecord (input, samples, false);
+        track.finalizeLayer (false);
     }
 
     LoopTrack track;
@@ -58,7 +58,7 @@ TEST_F (LoopTrackTimeManagementTest, SlowPlaybackWorks)
     track.setPlaybackSpeed (0.5f);
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     // Should have audio
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
@@ -73,7 +73,7 @@ TEST_F (LoopTrackTimeManagementTest, FastPlaybackWorks)
     track.setPlaybackSpeed (2.0f);
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     // Should have audio
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
@@ -92,7 +92,7 @@ TEST_F (LoopTrackTimeManagementTest, DJSlowdown)
         track.setPlaybackSpeed (speed);
         juce::AudioBuffer<float> output (numChannels, maxBlockSize);
         output.clear();
-        track.processPlayback (output, maxBlockSize);
+        track.processPlayback (output, maxBlockSize, false);
 
         // Should produce audio at all speeds
         float rms = output.getRMSLevel (0, 0, maxBlockSize);
@@ -118,7 +118,7 @@ TEST_F (LoopTrackTimeManagementTest, ExtendedPlaybackAllSpeeds)
         {
             juce::AudioBuffer<float> output (numChannels, maxBlockSize);
             output.clear();
-            track.processPlayback (output, maxBlockSize);
+            track.processPlayback (output, maxBlockSize, false);
 
             // Should never produce silence or invalid position
             float rms = output.getRMSLevel (0, 0, maxBlockSize);
@@ -144,7 +144,7 @@ TEST_F (LoopTrackTimeManagementTest, RapidSpeedChanges)
             track.setPlaybackSpeed (speed);
             juce::AudioBuffer<float> output (numChannels, maxBlockSize);
             output.clear();
-            track.processPlayback (output, maxBlockSize);
+            track.processPlayback (output, maxBlockSize, false);
 
             // Should remain stable
             float rms = output.getRMSLevel (0, 0, maxBlockSize);
@@ -179,7 +179,7 @@ TEST_F (LoopTrackTimeManagementTest, ReversePlaybackWorks)
     track.setPlaybackDirectionBackward();
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     // Should have audio
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
@@ -192,7 +192,7 @@ TEST_F (LoopTrackTimeManagementTest, BackspinEffect)
 
     // Move forward a bit
     juce::AudioBuffer<float> dummy (numChannels, 10000);
-    track.processPlayback (dummy, 10000);
+    track.processPlayback (dummy, 10000, false);
     int forwardPos = track.getCurrentReadPosition();
 
     // Quick reverse (backspin effect)
@@ -204,7 +204,7 @@ TEST_F (LoopTrackTimeManagementTest, BackspinEffect)
     {
         juce::AudioBuffer<float> output (numChannels, maxBlockSize);
         output.clear();
-        track.processPlayback (output, maxBlockSize);
+        track.processPlayback (output, maxBlockSize, false);
     }
 
     int backspinPos = track.getCurrentReadPosition();
@@ -221,7 +221,7 @@ TEST_F (LoopTrackTimeManagementTest, BackspinEffect)
     {
         juce::AudioBuffer<float> output (numChannels, maxBlockSize);
         output.clear();
-        track.processPlayback (output, maxBlockSize);
+        track.processPlayback (output, maxBlockSize, false);
     }
 
     // Just verify the system is still stable (doesn't crash)
@@ -234,7 +234,7 @@ TEST_F (LoopTrackTimeManagementTest, RapidDirectionChanges)
 
     // Move to middle
     juce::AudioBuffer<float> dummy (numChannels, 24000);
-    track.processPlayback (dummy, 24000);
+    track.processPlayback (dummy, 24000, false);
 
     int trackLength = track.getTrackLengthSamples();
 
@@ -248,7 +248,7 @@ TEST_F (LoopTrackTimeManagementTest, RapidDirectionChanges)
 
         juce::AudioBuffer<float> output (numChannels, maxBlockSize);
         output.clear();
-        track.processPlayback (output, maxBlockSize);
+        track.processPlayback (output, maxBlockSize, false);
 
         // Position should remain valid
         int pos = track.getCurrentReadPosition();
@@ -265,7 +265,7 @@ TEST_F (LoopTrackTimeManagementTest, RapidDirectionChanges)
     {
         juce::AudioBuffer<float> output (numChannels, maxBlockSize);
         output.clear();
-        track.processPlayback (output, maxBlockSize);
+        track.processPlayback (output, maxBlockSize, false);
 
         float rms = output.getRMSLevel (0, 0, maxBlockSize);
         if (rms > 0.0f)
@@ -309,7 +309,7 @@ TEST_F (LoopTrackTimeManagementTest, ExtremeSpeedAndDirection)
         {
             juce::AudioBuffer<float> output (numChannels, maxBlockSize);
             output.clear();
-            track.processPlayback (output, maxBlockSize);
+            track.processPlayback (output, maxBlockSize, false);
 
             // Should remain stable even at extremes
             float rms = output.getRMSLevel (0, 0, maxBlockSize);
@@ -346,7 +346,7 @@ TEST_F (LoopTrackTimeManagementTest, KeepPitchDoesNotCrashDuringPlayback)
 
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     // Should produce audio without crashing
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
@@ -363,21 +363,21 @@ TEST_F (LoopTrackTimeManagementTest, PitchModeChangeDuringPlayback)
     track.setKeepPitchWhenChangingSpeed (false);
     juce::AudioBuffer<float> output1 (numChannels, maxBlockSize);
     output1.clear();
-    track.processPlayback (output1, maxBlockSize);
+    track.processPlayback (output1, maxBlockSize, false);
     EXPECT_GT (output1.getRMSLevel (0, 0, maxBlockSize), 0.0f);
 
     // Switch to pitch preservation mid-playback
     track.setKeepPitchWhenChangingSpeed (true);
     juce::AudioBuffer<float> output2 (numChannels, maxBlockSize);
     output2.clear();
-    track.processPlayback (output2, maxBlockSize);
+    track.processPlayback (output2, maxBlockSize, false);
     EXPECT_GT (output2.getRMSLevel (0, 0, maxBlockSize), 0.0f);
 
     // Switch back
     track.setKeepPitchWhenChangingSpeed (false);
     juce::AudioBuffer<float> output3 (numChannels, maxBlockSize);
     output3.clear();
-    track.processPlayback (output3, maxBlockSize);
+    track.processPlayback (output3, maxBlockSize, false);
     EXPECT_GT (output3.getRMSLevel (0, 0, maxBlockSize), 0.0f);
 }
 
