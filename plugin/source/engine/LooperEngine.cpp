@@ -369,11 +369,6 @@ void LooperEngine::processCommandsFromMessageBus()
     }
 }
 
-int LooperEngine::getPendingTrackIndex() const
-{
-    return (pendingAction.type == PendingAction::Type::SwitchTrack) ? pendingAction.targetTrackIndex : -1;
-}
-
 void LooperEngine::setPendingAction (PendingAction::Type type, int trackIndex, bool waitForWrap)
 {
     pendingAction.type = type;
@@ -524,7 +519,7 @@ void LooperEngine::setTrackPlaybackDirectionForward (int trackIndex)
     if (track)
     {
         track->setPlaybackDirectionForward();
-        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackReverseChanged, trackIndex, true));
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackReverseDirection, trackIndex, false));
     }
 }
 
@@ -534,7 +529,7 @@ void LooperEngine::setTrackPlaybackDirectionBackward (int trackIndex)
     if (track)
     {
         track->setPlaybackDirectionBackward();
-        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackReverseChanged, trackIndex, true));
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackReverseDirection, trackIndex, true));
     }
 }
 

@@ -159,7 +159,7 @@ private:
 
     constexpr static EngineMessageBus::EventType subscribedEvents[] = {
         EngineMessageBus::EventType::TrackMuteChanged,      EngineMessageBus::EventType::TrackSoloChanged,
-        EngineMessageBus::EventType::TrackPitchLockChanged, EngineMessageBus::EventType::TrackReverseChanged,
+        EngineMessageBus::EventType::TrackPitchLockChanged, EngineMessageBus::EventType::TrackReverseDirection,
         EngineMessageBus::EventType::TrackVolumeChanged,    EngineMessageBus::EventType::TrackSpeedChanged,
         EngineMessageBus::EventType::TrackPitchChanged,     EngineMessageBus::EventType::ActiveTrackChanged
     };
@@ -194,7 +194,7 @@ private:
                     lockPitchButton.setToggleState (isPitchLocked, juce::dontSendNotification);
                 }
                 break;
-            case EngineMessageBus::EventType::TrackReverseChanged:
+            case EngineMessageBus::EventType::TrackReverseDirection:
                 if (std::holds_alternative<bool> (event.data))
                 {
                     bool isReversed = std::get<bool> (event.data);

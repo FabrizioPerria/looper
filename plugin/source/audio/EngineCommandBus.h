@@ -98,7 +98,7 @@ public:
         TrackSpeedChanged,
         TrackPitchChanged,
         TrackPitchLockChanged,
-        TrackReverseChanged,
+        TrackReverseDirection,
 
     };
 
