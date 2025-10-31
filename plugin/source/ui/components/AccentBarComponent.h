@@ -48,10 +48,9 @@ public:
 
     void mouseExit (const juce::MouseEvent&) override { setMouseCursor (juce::MouseCursor::NormalCursor); }
 
-    constexpr static EngineMessageBus::EventType subscribedEvents[] = {
-        EngineMessageBus::EventType::ActiveTrackChanged,
-        EngineMessageBus::EventType::PendingTrackChanged,
-    };
+    constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::ActiveTrackChanged,
+                                                                        EngineMessageBus::EventType::PendingTrackChanged,
+                                                                        EngineMessageBus::EventType::ActiveTrackCleared };
 
     void handleEngineEvent (const EngineMessageBus::Event& event) override
     {
@@ -67,6 +66,7 @@ public:
                 {
                     int activeTrack = std::get<int> (event.data);
                     isTrackActive = (activeTrack == trackIndex);
+                    isPendingTrack = false;
                 }
                 break;
             case EngineMessageBus::EventType::PendingTrackChanged:
@@ -74,11 +74,17 @@ public:
                 {
                     int pendingTrack = std::get<int> (event.data);
                     isPendingTrack = (pendingTrack == trackIndex);
+                    isTrackActive = false;
                 }
+                break;
+            case EngineMessageBus::EventType::ActiveTrackCleared:
+                isTrackActive = false;
+                isPendingTrack = false;
                 break;
             default:
                 throw juce::String ("Unhandled event type in AccentBar: ") + juce::String ((int) event.type);
         }
+        repaint();
     }
 
 private:
@@ -86,8 +92,8 @@ private:
     AudioToUIBridge* audioBridge;
     EngineMessageBus* uiToEngineBus;
     int trackIndex;
-    bool isTrackActive;
-    bool isPendingTrack;
+    std::atomic<bool> isTrackActive { false };
+    std::atomic<bool> isPendingTrack { false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AccentBar)
 };

@@ -90,8 +90,8 @@ public:
 
         ActiveTrackChanged,
         PendingTrackChanged,
+        ActiveTrackCleared,
 
-        // Track state changes (non-real-time, complementary to EngineStateToUIBridge)
         TrackVolumeChanged,
         TrackMuteChanged,
         TrackSoloChanged,

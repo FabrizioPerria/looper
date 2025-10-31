@@ -20,6 +20,8 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
 
     for (int i = 0; i < newNumTracks; ++i)
         addTrack();
+
+    setPendingAction (PendingAction::Type::SwitchTrack, 0, false);
 }
 
 void LooperEngine::releaseResources()
@@ -86,6 +88,9 @@ bool LooperEngine::trackHasContent() const
 void LooperEngine::switchToTrackImmediately (int trackIndex)
 {
     PERFETTO_FUNCTION();
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::ActiveTrackCleared,
+                                                         activeTrackIndex,
+                                                         activeTrackIndex));
     activeTrackIndex = trackIndex;
     nextTrackIndex = -1;
 
@@ -400,8 +405,7 @@ void LooperEngine::processPendingActions()
                 && pendingAction.targetTrackIndex != activeTrackIndex)
             {
                 transitionTo (LooperState::Transitioning);
-                activeTrackIndex = pendingAction.targetTrackIndex;
-                nextTrackIndex = -1;
+                switchToTrackImmediately (pendingAction.targetTrackIndex);
 
                 auto* newTrack = getActiveTrack();
                 if (newTrack && newTrack->getTrackLengthSamples() > 0)

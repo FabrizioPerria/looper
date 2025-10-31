@@ -161,7 +161,8 @@ private:
         EngineMessageBus::EventType::TrackMuteChanged,      EngineMessageBus::EventType::TrackSoloChanged,
         EngineMessageBus::EventType::TrackPitchLockChanged, EngineMessageBus::EventType::TrackReverseDirection,
         EngineMessageBus::EventType::TrackVolumeChanged,    EngineMessageBus::EventType::TrackSpeedChanged,
-        EngineMessageBus::EventType::TrackPitchChanged,     EngineMessageBus::EventType::ActiveTrackChanged
+        EngineMessageBus::EventType::TrackPitchChanged,     EngineMessageBus::EventType::ActiveTrackChanged,
+        EngineMessageBus::EventType::ActiveTrackCleared
     };
 
     void handleEngineEvent (const EngineMessageBus::Event& event) override
@@ -228,6 +229,9 @@ private:
                     int activeTrack = std::get<int> (event.data);
                     setActive (activeTrack == trackIndex);
                 }
+                break;
+            case EngineMessageBus::EventType::ActiveTrackCleared:
+                setActive (false);
                 break;
             default:
                 throw juce::String ("Unhandled event type in TrackComponent: ") + juce::String ((int) event.type);
