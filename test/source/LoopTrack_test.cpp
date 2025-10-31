@@ -240,10 +240,10 @@ TEST (LoopTrackRecord, RecordingMultipleBlocks)
             }
         }
 
-        track.processRecord (input, maxBlock, block > 0);
+        track.processRecord (input, maxBlock, false);
     }
 
-    track.finalizeLayer (true);
+    track.finalizeLayer (false);
 
     EXPECT_EQ (track.getTrackLengthSamples(), numBlocks * maxBlock);
 }

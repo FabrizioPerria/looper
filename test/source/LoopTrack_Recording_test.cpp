@@ -69,8 +69,8 @@ TEST_F (LoopTrackRecordingTest, ProcessFullBlockCopiesInput)
     EXPECT_EQ (testTrack.getTrackLengthSamples(), 0); // Not finalized yet
 
     // Process another block and check it appends correctly
-    testTrack.processRecord (input, numSamples, true);
-    testTrack.finalizeLayer (true);
+    testTrack.processRecord (input, numSamples, false);
+    testTrack.finalizeLayer (false);
     loopPtr = loopBuffer->getReadPointer (0);
     for (int i = 0; i < numSamples; ++i)
     {
@@ -113,10 +113,10 @@ TEST_F (LoopTrackRecordingTest, RecordingMultipleBlocks)
             }
         }
 
-        track.processRecord (input, maxBlockSize, block > 0);
+        track.processRecord (input, maxBlockSize, false);
     }
 
-    track.finalizeLayer (true);
+    track.finalizeLayer (false);
 
     EXPECT_EQ (track.getTrackLengthSamples(), numBlocks * maxBlockSize);
 }
