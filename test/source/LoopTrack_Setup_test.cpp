@@ -63,8 +63,8 @@ TEST_F (LoopTrackSetupTest, StateReset)
     track.prepareToPlay (sr, maxBlock, numChannels, maxSeconds, undoLayers);
     juce::AudioBuffer<float> input (numChannels, maxBlock);
     input.clear();
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, false);
+    track.finalizeLayer (false);
 
     EXPECT_GT (track.getTrackLengthSamples(), 0);
 
@@ -272,8 +272,8 @@ TEST_F (LoopTrackSetupTest, SetCrossfadeLength)
         for (int i = 0; i < 10000; ++i)
             data[i] = 0.5f;
     }
-    track.processRecord (input, 10000);
-    track.finalizeLayer();
+    track.processRecord (input, 10000, false);
+    track.finalizeLayer (false);
 
     // Just verify it doesn't crash
     EXPECT_GT (track.getTrackLengthSamples(), 0);
@@ -295,8 +295,8 @@ TEST_F (LoopTrackSetupTest, SetOverdubGains)
     // Just verify it doesn't crash and can be used
     juce::AudioBuffer<float> input (numChannels, maxBlock);
     input.clear();
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, false);
+    track.finalizeLayer (false);
 }
 
 // ============================================================================
@@ -315,8 +315,8 @@ TEST_F (LoopTrackSetupTest, ReleaseResourcesClearsEverything)
     // Record something
     juce::AudioBuffer<float> input (numChannels, maxBlock);
     input.clear();
-    track.processRecord (input, maxBlock);
-    track.finalizeLayer();
+    track.processRecord (input, maxBlock, false);
+    track.finalizeLayer (false);
 
     track.releaseResources();
 
@@ -356,8 +356,8 @@ TEST_F (LoopTrackSetupTest, GetLoopDurationSeconds)
     // Record 1 second of audio
     juce::AudioBuffer<float> input (numChannels, 48000);
     input.clear();
-    track.processRecord (input, 48000);
-    track.finalizeLayer();
+    track.processRecord (input, 48000, false);
+    track.finalizeLayer (false);
 
     int duration = track.getLoopDurationSeconds();
     EXPECT_EQ (duration, 1);

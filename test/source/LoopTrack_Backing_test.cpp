@@ -44,7 +44,7 @@ TEST_F (LoopTrackBackingTest, LoadBackingTrack)
     // Should be able to play it back
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
     EXPECT_GT (rms, 0.0f);
@@ -82,8 +82,8 @@ TEST_F (LoopTrackBackingTest, LoadBackingTrackReplacesExisting)
         for (int i = 0; i < 1000; ++i)
             data[i] = 0.3f;
     }
-    track.processRecord (input, 1000);
-    track.finalizeLayer();
+    track.processRecord (input, 1000, false);
+    track.finalizeLayer (false);
 
     // Load backing track
     juce::AudioBuffer<float> backingTrack (numChannels, 5000);
@@ -102,7 +102,7 @@ TEST_F (LoopTrackBackingTest, LoadBackingTrackReplacesExisting)
     // Play back and verify different amplitude
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
     EXPECT_GT (rms, 0.5f); // Should be louder than 0.3
@@ -124,7 +124,7 @@ TEST_F (LoopTrackBackingTest, LoadBackingTrackPreservesMultiChannel)
     // Play back
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     // Check that channels are different
     float rms0 = output.getRMSLevel (0, 0, maxBlockSize);
@@ -150,7 +150,7 @@ TEST_F (LoopTrackBackingTest, LoadBackingTrackAllowsOverdub)
     // Get initial RMS
     juce::AudioBuffer<float> output1 (numChannels, maxBlockSize);
     output1.clear();
-    track.processPlayback (output1, maxBlockSize);
+    track.processPlayback (output1, maxBlockSize, false);
     float rms1 = output1.getRMSLevel (0, 0, maxBlockSize);
 
     // Overdub on top
@@ -161,13 +161,13 @@ TEST_F (LoopTrackBackingTest, LoadBackingTrackAllowsOverdub)
         for (int i = 0; i < 5000; ++i)
             data[i] = 0.2f;
     }
-    track.processRecord (overdub, 5000);
-    track.finalizeLayer();
+    track.processRecord (overdub, 5000, true);
+    track.finalizeLayer (true);
 
     // Should be louder now
     juce::AudioBuffer<float> output2 (numChannels, maxBlockSize);
     output2.clear();
-    track.processPlayback (output2, maxBlockSize);
+    track.processPlayback (output2, maxBlockSize, false);
     float rms2 = output2.getRMSLevel (0, 0, maxBlockSize);
 
     EXPECT_GT (rms2, rms1);
@@ -197,15 +197,15 @@ TEST_F (LoopTrackBackingTest, RecordAndPlaybackSingleSample)
     for (int ch = 0; ch < numChannels; ++ch)
         input.setSample (ch, 0, 0.5f);
 
-    track.processRecord (input, 1);
-    track.finalizeLayer();
+    track.processRecord (input, 1, false);
+    track.finalizeLayer (false);
 
     EXPECT_EQ (track.getTrackLengthSamples(), 1);
 
     // Playback should work (though it will immediately loop)
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     // Should have non-zero audio (repeated)
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
@@ -223,15 +223,15 @@ TEST_F (LoopTrackBackingTest, VeryShortLoop)
             data[i] = 0.5f;
     }
 
-    track.processRecord (input, 10);
-    track.finalizeLayer();
+    track.processRecord (input, 10, false);
+    track.finalizeLayer (false);
 
     // Play back much more than loop length
     for (int i = 0; i < 100; ++i)
     {
         juce::AudioBuffer<float> output (numChannels, maxBlockSize);
         output.clear();
-        track.processPlayback (output, maxBlockSize);
+        track.processPlayback (output, maxBlockSize, false);
 
         // Should keep working
         float rms = output.getRMSLevel (0, 0, maxBlockSize);
@@ -252,15 +252,15 @@ TEST_F (LoopTrackBackingTest, RecordExactlyBufferSize)
             data[i] = 0.5f;
     }
 
-    track.processRecord (input, bufferSize);
-    track.finalizeLayer();
+    track.processRecord (input, bufferSize, false);
+    track.finalizeLayer (false);
 
     EXPECT_EQ (track.getTrackLengthSamples(), bufferSize);
 
     // Should play back
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
     EXPECT_GT (rms, 0.0f);
@@ -276,22 +276,22 @@ TEST_F (LoopTrackBackingTest, AlternatingRecordAndPlayback)
         for (int i = 0; i < 1000; ++i)
             data[i] = 0.5f;
     }
-    track.processRecord (input, 1000);
-    track.finalizeLayer();
+    track.processRecord (input, 1000, false);
+    track.finalizeLayer (false);
 
     // Playback
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
     EXPECT_GT (output.getRMSLevel (0, 0, maxBlockSize), 0.0f);
 
     // Overdub
-    track.processRecord (input, 1000);
-    track.finalizeLayer();
+    track.processRecord (input, 1000, true);
+    track.finalizeLayer (true);
 
     // Playback again
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
     EXPECT_GT (output.getRMSLevel (0, 0, maxBlockSize), 0.0f);
 }
 
@@ -305,13 +305,13 @@ TEST_F (LoopTrackBackingTest, NegativeInputSamples)
         for (int i = 0; i < 1000; ++i)
             data[i] = -0.5f;
     }
-    track.processRecord (input, 1000);
-    track.finalizeLayer();
+    track.processRecord (input, 1000, false);
+    track.finalizeLayer (false);
 
     // Should play back correctly
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
     EXPECT_GT (rms, 0.0f);
@@ -339,15 +339,15 @@ TEST_F (LoopTrackBackingTest, SilentInputCreatesLoop)
     juce::AudioBuffer<float> input (numChannels, 1000);
     input.clear();
 
-    track.processRecord (input, 1000);
-    track.finalizeLayer();
+    track.processRecord (input, 1000, false);
+    track.finalizeLayer (false);
 
     EXPECT_EQ (track.getTrackLengthSamples(), 1000);
 
     // Playback should be silent
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
     EXPECT_FLOAT_EQ (rms, 0.0f);
@@ -363,13 +363,13 @@ TEST_F (LoopTrackBackingTest, FullScaleInput)
         for (int i = 0; i < 1000; ++i)
             data[i] = 1.0f;
     }
-    track.processRecord (input, 1000);
-    track.finalizeLayer();
+    track.processRecord (input, 1000, false);
+    track.finalizeLayer (false);
 
     // Should normalize and not clip
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     // Check no samples exceed 1.0
     for (int ch = 0; ch < numChannels; ++ch)

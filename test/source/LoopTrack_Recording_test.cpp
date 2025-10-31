@@ -57,7 +57,7 @@ TEST_F (LoopTrackRecordingTest, ProcessFullBlockCopiesInput)
     juce::AudioBuffer<float> input = createAnotherSquareTestBuffer (testChannels, numSamples, testSampleRate, 440.0f);
     auto* readPtr = input.getReadPointer (0);
 
-    testTrack.processRecord (input, numSamples);
+    testTrack.processRecord (input, numSamples, false);
 
     const auto* loopBuffer = testTrack.getAudioBuffer();
     auto* loopPtr = loopBuffer->getReadPointer (0);
@@ -69,8 +69,8 @@ TEST_F (LoopTrackRecordingTest, ProcessFullBlockCopiesInput)
     EXPECT_EQ (testTrack.getTrackLengthSamples(), 0); // Not finalized yet
 
     // Process another block and check it appends correctly
-    testTrack.processRecord (input, numSamples);
-    testTrack.finalizeLayer();
+    testTrack.processRecord (input, numSamples, false);
+    testTrack.finalizeLayer (false);
     loopPtr = loopBuffer->getReadPointer (0);
     for (int i = 0; i < numSamples; ++i)
     {
@@ -86,7 +86,7 @@ TEST_F (LoopTrackRecordingTest, ProcessPartialBlockCopiesInput)
     juce::AudioBuffer<float> input = createAnotherSquareTestBuffer (numChannels, numSamples, sampleRate, 440.0f);
     auto* readPtr = input.getReadPointer (0);
 
-    track.processRecord (input, numSamples);
+    track.processRecord (input, numSamples, false);
 
     const auto* loopBuffer = track.getAudioBuffer();
     auto* loopPtr = loopBuffer->getReadPointer (0);
@@ -113,10 +113,10 @@ TEST_F (LoopTrackRecordingTest, RecordingMultipleBlocks)
             }
         }
 
-        track.processRecord (input, maxBlockSize);
+        track.processRecord (input, maxBlockSize, false);
     }
 
-    track.finalizeLayer();
+    track.finalizeLayer (false);
 
     EXPECT_EQ (track.getTrackLengthSamples(), numBlocks * maxBlockSize);
 }
@@ -160,7 +160,7 @@ TEST_F (LoopTrackRecordingTest, WritePositionAdvances)
 
     juce::AudioBuffer<float> input (numChannels, maxBlockSize);
     input.clear();
-    track.processRecord (input, maxBlockSize);
+    track.processRecord (input, maxBlockSize, false);
 
     int pos2 = track.getCurrentWritePosition();
 
@@ -172,10 +172,10 @@ TEST_F (LoopTrackRecordingTest, FinalizeLayerSetsLength)
     juce::AudioBuffer<float> input (numChannels, maxBlockSize);
     input.clear();
 
-    track.processRecord (input, maxBlockSize);
+    track.processRecord (input, maxBlockSize, false);
     EXPECT_EQ (track.getTrackLengthSamples(), 0); // Not finalized
 
-    track.finalizeLayer();
+    track.finalizeLayer (false);
     EXPECT_GT (track.getTrackLengthSamples(), 0); // Now finalized
 }
 
@@ -192,8 +192,8 @@ TEST_F (LoopTrackRecordingTest, OverdubAddsToExistingLayer)
     for (int i = 0; i < maxBlockSize; ++i)
         data1[i] = 0.3f;
 
-    track.processRecord (input1, maxBlockSize);
-    track.finalizeLayer();
+    track.processRecord (input1, maxBlockSize, false);
+    track.finalizeLayer (false);
 
     int loopLength = track.getTrackLengthSamples();
 
@@ -204,8 +204,8 @@ TEST_F (LoopTrackRecordingTest, OverdubAddsToExistingLayer)
     for (int i = 0; i < maxBlockSize; ++i)
         data2[i] = 0.2f;
 
-    track.processRecord (input2, maxBlockSize);
-    track.finalizeLayer();
+    track.processRecord (input2, maxBlockSize, true);
+    track.finalizeLayer (true);
 
     // Length should not change during overdub
     EXPECT_EQ (track.getTrackLengthSamples(), loopLength);
@@ -213,7 +213,7 @@ TEST_F (LoopTrackRecordingTest, OverdubAddsToExistingLayer)
     // Play back and verify it's louder (combined)
     juce::AudioBuffer<float> output (numChannels, maxBlockSize);
     output.clear();
-    track.processPlayback (output, maxBlockSize);
+    track.processPlayback (output, maxBlockSize, false);
 
     float rms = output.getRMSLevel (0, 0, maxBlockSize);
     EXPECT_GT (rms, 0.25f); // Should be higher than either input alone
@@ -231,14 +231,14 @@ TEST_F (LoopTrackRecordingTest, OverdubDoesNotChangeLengthDuringCycle)
             data[i] = 0.5f;
     }
 
-    track.processRecord (input, 1000);
-    track.finalizeLayer();
+    track.processRecord (input, 1000, false);
+    track.finalizeLayer (false);
 
     int originalLength = track.getTrackLengthSamples();
 
     // Start overdubbing - record exactly the same length
-    track.processRecord (input, 1000);
-    track.finalizeLayer();
+    track.processRecord (input, 1000, true);
+    track.finalizeLayer (true);
 
     EXPECT_EQ (track.getTrackLengthSamples(), originalLength);
 }
@@ -255,8 +255,8 @@ TEST_F (LoopTrackRecordingTest, OverdubStopsAtLoopEnd)
             data[i] = 0.5f;
     }
 
-    track.processRecord (input, 500);
-    track.finalizeLayer();
+    track.processRecord (input, 500, false);
+    track.finalizeLayer (false);
 
     int originalLength = track.getTrackLengthSamples();
 
@@ -264,7 +264,7 @@ TEST_F (LoopTrackRecordingTest, OverdubStopsAtLoopEnd)
     juce::AudioBuffer<float> longInput (numChannels, 1000);
     longInput.clear();
 
-    track.processRecord (longInput, 1000);
+    track.processRecord (longInput, 1000, true);
 
     // Should have wrapped or stopped at the original length boundary
     EXPECT_LE (track.getCurrentWritePosition(), originalLength);
