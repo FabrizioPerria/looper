@@ -5,12 +5,8 @@
 #include "profiler/PerfettoProfiler.h"
 #include <algorithm>
 
-LooperEngine::LooperEngine() { startTimerHz (30); }
-LooperEngine::~LooperEngine()
-{
-    releaseResources();
-    stopTimer();
-}
+LooperEngine::LooperEngine() {}
+LooperEngine::~LooperEngine() { releaseResources(); }
 
 void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int newNumTracks, int newNumChannels)
 {
@@ -24,6 +20,8 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
 
     for (int i = 0; i < newNumTracks; ++i)
         addTrack();
+
+    setPendingAction (PendingAction::Type::SwitchTrack, 0, false);
 }
 
 void LooperEngine::releaseResources()
@@ -68,44 +66,55 @@ LoopTrack* LooperEngine::getActiveTrack() const
 
 LoopTrack* LooperEngine::getTrackByIndex (int trackIndex) const
 {
+    PERFETTO_FUNCTION();
     if (trackIndex >= 0 && trackIndex < numTracks) return loopTracks[(size_t) trackIndex].get();
     return nullptr;
 }
 
 AudioToUIBridge* LooperEngine::getUIBridgeByIndex (int trackIndex)
 {
+    PERFETTO_FUNCTION();
     if (trackIndex >= 0 && trackIndex < numTracks) return uiBridges[(size_t) trackIndex].get();
     return nullptr;
 }
 
-// Helper implementations
 bool LooperEngine::trackHasContent() const
 {
+    PERFETTO_FUNCTION();
     auto* track = getActiveTrack();
     return track && track->getTrackLengthSamples() > 0;
 }
 
 void LooperEngine::switchToTrackImmediately (int trackIndex)
 {
+    PERFETTO_FUNCTION();
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::ActiveTrackCleared,
+                                                         activeTrackIndex,
+                                                         activeTrackIndex));
     activeTrackIndex = trackIndex;
     nextTrackIndex = -1;
 
     transitionTo (LooperState::Stopped);
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::ActiveTrackChanged, trackIndex, trackIndex));
 }
 
 void LooperEngine::scheduleTrackSwitch (int trackIndex)
 {
+    PERFETTO_FUNCTION();
     setPendingAction (PendingAction::Type::SwitchTrack, trackIndex, true);
     nextTrackIndex = trackIndex;
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::PendingTrackChanged, trackIndex, trackIndex));
 }
 
 void LooperEngine::scheduleFinalizeRecording (int trackIndex)
 {
+    PERFETTO_FUNCTION();
     setPendingAction (PendingAction::Type::FinalizeRecording, trackIndex, false);
 }
 
 StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& buffer)
 {
+    PERFETTO_FUNCTION();
     return StateContext { .track = getActiveTrack(),
                           .bridge = getUIBridgeByIndex (activeTrackIndex),
                           .inputBuffer = &buffer,
@@ -118,6 +127,7 @@ StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& b
 
 int LooperEngine::calculateLengthToShow (const LoopTrack* track, bool isRecording) const
 {
+    PERFETTO_FUNCTION();
     if (! track) return 0;
 
     int length = track->getTrackLengthSamples();
@@ -132,6 +142,7 @@ int LooperEngine::calculateLengthToShow (const LoopTrack* track, bool isRecordin
 
 void LooperEngine::updateUIBridge (StateContext& ctx, bool wasRecording)
 {
+    PERFETTO_FUNCTION();
     if (! ctx.track || ! ctx.bridge) return;
 
     bool nowRecording = StateConfig::isRecording (currentState);
@@ -167,14 +178,13 @@ void LooperEngine::updateUIBridge (StateContext& ctx, bool wasRecording)
                                        shouldShowPlaying);
 }
 
-// State transition
 bool LooperEngine::transitionTo (LooperState newState)
 {
+    PERFETTO_FUNCTION();
     auto ctx = createStateContext (juce::AudioBuffer<float> (numChannels, 0));
     return stateMachine.transition (currentState, newState, ctx);
 }
 
-// User control methods
 void LooperEngine::record()
 {
     PERFETTO_FUNCTION();
@@ -184,6 +194,8 @@ void LooperEngine::record()
 
     LooperState targetState = trackHasContent() ? LooperState::Overdubbing : LooperState::Recording;
     transitionTo (targetState);
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::RecordingStateChanged, activeTrackIndex, true));
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::PlaybackStateChanged, activeTrackIndex, true));
 }
 
 void LooperEngine::play()
@@ -196,6 +208,7 @@ void LooperEngine::play()
     if (trackHasContent())
     {
         transitionTo (LooperState::Playing);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::PlaybackStateChanged, activeTrackIndex, true));
     }
 }
 
@@ -206,22 +219,30 @@ void LooperEngine::stop()
     auto* activeTrack = getActiveTrack();
     if (! activeTrack) return;
 
-    // CRITICAL FIX: When stopping during recording, transition to appropriate state
-    // The state machine exit handler will finalize the recording
     if (StateConfig::isRecording (currentState))
     {
-        // Determine target state based on whether we have content
-        // if (trackHasContent() || activeTrack->isCurrentlyRecording())
         transitionTo (LooperState::Playing);
-        // else
-        //     transitionTo (LooperState::Idle);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::RecordingStateChanged, activeTrackIndex, false));
     }
     else if (StateConfig::isPlaying (currentState))
+    {
         transitionTo (LooperState::Stopped);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::PlaybackStateChanged, activeTrackIndex, false));
+    }
 }
 
-void LooperEngine::toggleRecord() { isRecording() ? stop() : record(); }
-void LooperEngine::togglePlay() { isPlaying() ? stop() : play(); }
+void LooperEngine::cancelRecording()
+{
+    PERFETTO_FUNCTION();
+
+    // Schedule cancel action to be handled via state transition
+    setPendingAction (PendingAction::Type::CancelRecording, activeTrackIndex, false);
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::RecordingStateChanged, activeTrackIndex, false));
+}
+
+void LooperEngine::toggleRecord() { StateConfig::isRecording (currentState) ? stop() : record(); }
+
+void LooperEngine::togglePlay() { StateConfig::isPlaying (currentState) ? stop() : play(); }
 
 void LooperEngine::selectTrack (int trackIndex)
 {
@@ -229,11 +250,9 @@ void LooperEngine::selectTrack (int trackIndex)
     if (trackIndex < 0 || trackIndex >= numTracks) return;
     if (trackIndex == activeTrackIndex) return;
 
-    // CRITICAL FIX: Don't directly cancel recording - let state machine handle it
     if (StateConfig::isRecording (currentState))
     {
-        // Schedule cancel action to be handled via state transition
-        setPendingAction (PendingAction::Type::CancelRecording, trackIndex, false);
+        cancelRecording();
         return;
     }
 
@@ -261,10 +280,10 @@ void LooperEngine::undo (int trackIndex)
     {
         bridge->signalWaveformChanged();
 
-        if (trackIndex == activeTrackIndex && track->getTrackLengthSamples() == 0)
-        {
-            transitionTo (LooperState::Idle);
-        }
+        // if (trackIndex == activeTrackIndex && track->getTrackLengthSamples() == 0)
+        // {
+        //     transitionTo (LooperState::Idle);
+        // }
     }
 }
 
@@ -283,10 +302,10 @@ void LooperEngine::redo (int trackIndex)
     {
         bridge->signalWaveformChanged();
 
-        if (trackIndex == activeTrackIndex && currentState == LooperState::Idle && track->getTrackLengthSamples() > 0)
-        {
-            transitionTo (LooperState::Stopped);
-        }
+        // if (trackIndex == activeTrackIndex && currentState == LooperState::Idle && track->getTrackLengthSamples() > 0)
+        // {
+        //     transitionTo (LooperState::Stopped);
+        // }
     }
 }
 
@@ -314,8 +333,9 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
 {
     PERFETTO_FUNCTION();
 
+    processCommandsFromMessageBus();
+
     juce::MidiBuffer outBuffer;
-    uiToEngineBridge->fetchNextMidiBuffer (outBuffer);
     midiMessages.addEvents (outBuffer, 0, buffer.getNumSamples(), 0);
 
     handleMidiCommand (midiMessages);
@@ -328,6 +348,7 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
     processPendingActions();
     auto ctx = createStateContext (buffer);
     stateMachine.processAudio (currentState, ctx);
+
     updateUIBridge (ctx, wasRecording);
 
     // Update global engine state for transport controls
@@ -338,9 +359,19 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
                                               numTracks);
 }
 
-int LooperEngine::getPendingTrackIndex() const
+void LooperEngine::processCommandsFromMessageBus()
 {
-    return (pendingAction.type == PendingAction::Type::SwitchTrack) ? pendingAction.targetTrackIndex : -1;
+    PERFETTO_FUNCTION();
+
+    EngineMessageBus::Command cmd;
+    while (messageBus->popCommand (cmd))
+    {
+        auto it = commandHandlers.find (cmd.type);
+        if (it != commandHandlers.end())
+        {
+            it->second (cmd);
+        }
+    }
 }
 
 void LooperEngine::setPendingAction (PendingAction::Type type, int trackIndex, bool waitForWrap)
@@ -374,8 +405,7 @@ void LooperEngine::processPendingActions()
                 && pendingAction.targetTrackIndex != activeTrackIndex)
             {
                 transitionTo (LooperState::Transitioning);
-                activeTrackIndex = pendingAction.targetTrackIndex;
-                nextTrackIndex = -1;
+                switchToTrackImmediately (pendingAction.targetTrackIndex);
 
                 auto* newTrack = getActiveTrack();
                 if (newTrack && newTrack->getTrackLengthSamples() > 0)
@@ -437,7 +467,13 @@ void LooperEngine::setOverdubGainsForTrack (int trackIndex, double oldGain, doub
     if (track)
     {
         track->setOverdubGainNew (newGain);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::NewOverdubGainLevels,
+                                                             trackIndex,
+                                                             (float) newGain));
         track->setOverdubGainOld (oldGain);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::OldOverdubGainLevels,
+                                                             trackIndex,
+                                                             (float) oldGain));
     }
 }
 
@@ -474,19 +510,31 @@ void LooperEngine::loadWaveFileToTrack (const juce::File& audioFile, int trackIn
 void LooperEngine::setTrackPlaybackSpeed (int trackIndex, float speed)
 {
     auto* track = getTrackByIndex (trackIndex);
-    if (track) track->setPlaybackSpeed (speed);
+    if (track)
+    {
+        track->setPlaybackSpeed (speed);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackSpeedChanged, trackIndex, speed));
+    }
 }
 
 void LooperEngine::setTrackPlaybackDirectionForward (int trackIndex)
 {
     auto* track = getTrackByIndex (trackIndex);
-    if (track) track->setPlaybackDirectionForward();
+    if (track)
+    {
+        track->setPlaybackDirectionForward();
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackReverseDirection, trackIndex, false));
+    }
 }
 
 void LooperEngine::setTrackPlaybackDirectionBackward (int trackIndex)
 {
     auto* track = getTrackByIndex (trackIndex);
-    if (track) track->setPlaybackDirectionBackward();
+    if (track)
+    {
+        track->setPlaybackDirectionBackward();
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackReverseDirection, trackIndex, true));
+    }
 }
 
 float LooperEngine::getTrackPlaybackSpeed (int trackIndex) const
@@ -504,13 +552,21 @@ bool LooperEngine::isTrackPlaybackForward (int trackIndex) const
 void LooperEngine::setTrackVolume (int trackIndex, float volume)
 {
     auto* track = getTrackByIndex (trackIndex);
-    if (track) track->setTrackVolume (volume);
+    if (track)
+    {
+        track->setTrackVolume (volume);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackVolumeChanged, trackIndex, volume));
+    }
 }
 
 void LooperEngine::setTrackMuted (int trackIndex, bool muted)
 {
     auto* track = getTrackByIndex (trackIndex);
-    if (track) track->setMuted (muted);
+    if (track)
+    {
+        track->setMuted (muted);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackMuteChanged, trackIndex, muted));
+    }
 }
 
 void LooperEngine::setTrackSoloed (int trackIndex, bool soloed)
@@ -532,6 +588,12 @@ void LooperEngine::setTrackSoloed (int trackIndex, bool soloed)
             loopTracks[i]->setSoloed (false);
             loopTracks[i]->setMuted (false);
         }
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackSoloChanged,
+                                                             (int) i,
+                                                             loopTracks[i]->isSoloed()));
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackMuteChanged,
+                                                             (int) i,
+                                                             loopTracks[i]->isMuted()));
     }
 }
 
@@ -550,7 +612,13 @@ bool LooperEngine::isTrackMuted (int trackIndex) const
 void LooperEngine::setKeepPitchWhenChangingSpeed (int trackIndex, bool shouldKeepPitch)
 {
     auto* track = getTrackByIndex (trackIndex);
-    if (track) track->setKeepPitchWhenChangingSpeed (shouldKeepPitch);
+    if (track)
+    {
+        track->setKeepPitchWhenChangingSpeed (shouldKeepPitch);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackPitchLockChanged,
+                                                             trackIndex,
+                                                             shouldKeepPitch));
+    }
 }
 
 bool LooperEngine::getKeepPitchWhenChangingSpeed (int trackIndex) const

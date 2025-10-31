@@ -1,32 +1,35 @@
 #pragma once
+#include "audio/EngineCommandBus.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/LevelComponent.h"
-#include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
-class VolumesComponent : public juce::Component, private juce::Timer
+class VolumesComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    VolumesComponent (MidiCommandDispatcher* dispatcher, int trackIdx)
-        : midiDispatcher (dispatcher)
+    VolumesComponent (EngineMessageBus* engineMessageBus, int trackIdx)
+        : uiToEngineBus (engineMessageBus)
         , trackIndex (trackIdx)
-        , overdubLevelKnob (midiDispatcher, trackIndex, "OVERDUB LEVEL", MidiNotes::OVERDUB_LEVEL_CC)
-        , existingAudioLevelKnob (midiDispatcher, trackIndex, "EXISTING LEVEL", MidiNotes::EXISTING_AUDIO_LEVEL_CC)
+        , overdubLevelKnob (engineMessageBus, trackIndex, "OVERDUB LEVEL", MidiNotes::OVERDUB_LEVEL_CC)
+        , existingAudioLevelKnob (engineMessageBus, trackIndex, "EXISTING LEVEL", MidiNotes::EXISTING_AUDIO_LEVEL_CC)
     {
         normalizeButton.setButtonText ("NORM");
         normalizeButton.setComponentID ("normalize");
         normalizeButton.setClickingTogglesState (true);
-        normalizeButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::VOLUME_NORMALIZE_BUTTON, trackIndex); };
+        normalizeButton.onClick = [this]()
+        {
+            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleVolumeNormalize, trackIndex, {} });
+        };
         addAndMakeVisible (normalizeButton);
 
         addAndMakeVisible (overdubLevelKnob);
         addAndMakeVisible (existingAudioLevelKnob);
 
-        startTimerHz (10);
+        uiToEngineBus->addListener (this);
     }
 
-    ~VolumesComponent() override { stopTimer(); }
+    ~VolumesComponent() override { uiToEngineBus->removeListener (this); }
 
     void paint (juce::Graphics& g) override
     {
@@ -68,7 +71,7 @@ public:
     }
 
 private:
-    MidiCommandDispatcher* midiDispatcher;
+    EngineMessageBus* uiToEngineBus = nullptr;
     int trackIndex;
     bool isUpdatingFromEngine = false;
 
@@ -78,27 +81,48 @@ private:
     juce::Label overdubLabel;
     juce::Label existingLabel;
 
-    void timerCallback() override { updateFromEngine(); }
+    constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::NormalizeStateChanged,
+                                                                        EngineMessageBus::EventType::OldOverdubGainLevels,
+                                                                        EngineMessageBus::EventType::NewOverdubGainLevels };
 
-    void updateFromEngine()
+    void handleEngineEvent (const EngineMessageBus::Event& event) override
     {
-        auto* track = midiDispatcher->getTrackByIndex (trackIndex);
-        if (! track) return;
+        if (event.trackIndex != trackIndex) return;
 
-        isUpdatingFromEngine = true;
+        bool isSubscribed = std::find (std::begin (subscribedEvents), std::end (subscribedEvents), event.type)
+                            != std::end (subscribedEvents);
+        if (! isSubscribed) return;
 
-        normalizeButton.setToggleState (track->isOutputNormalized(), juce::dontSendNotification);
+        switch (event.type)
+        {
+            case EngineMessageBus::EventType::NormalizeStateChanged:
+                if (std::holds_alternative<bool> (event.data))
+                {
+                    auto isNormalized = std::get<bool> (event.data);
+                    normalizeButton.setToggleState (isNormalized, juce::dontSendNotification);
+                }
+                break;
+            case EngineMessageBus::EventType::OldOverdubGainLevels:
+                if (std::holds_alternative<float> (event.data))
+                {
+                    auto oldGain = std::get<float> (event.data);
 
-        double newGain = track->getOverdubGainNew();
-        double oldGain = track->getOverdubGainOld();
+                    if (std::abs (existingAudioLevelKnob.getValue() - oldGain / 2.0) > 0.01)
+                        existingAudioLevelKnob.setValue (oldGain / 2.0, juce::dontSendNotification);
+                }
+                break;
+            case EngineMessageBus::EventType::NewOverdubGainLevels:
+                if (std::holds_alternative<float> (event.data))
+                {
+                    auto newGain = std::get<float> (event.data);
 
-        if (std::abs (overdubLevelKnob.getValue() - newGain / 2.0) > 0.01)
-            overdubLevelKnob.setValue (newGain / 2.0, juce::dontSendNotification);
-
-        if (std::abs (existingAudioLevelKnob.getValue() - oldGain / 2.0) > 0.01)
-            existingAudioLevelKnob.setValue (oldGain / 2.0, juce::dontSendNotification);
-
-        isUpdatingFromEngine = false;
+                    if (std::abs (overdubLevelKnob.getValue() - newGain / 2.0) > 0.01)
+                        overdubLevelKnob.setValue (newGain / 2.0, juce::dontSendNotification);
+                }
+                break;
+            default:
+                throw juce::String ("Unhandled event type in VolumesComponent: ") + juce::String ((int) event.type);
+        }
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VolumesComponent)

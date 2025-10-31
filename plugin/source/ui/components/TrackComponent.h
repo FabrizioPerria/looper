@@ -13,23 +13,19 @@
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
-class TrackComponent : public juce::Component, private juce::Timer
+class TrackComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    TrackComponent (MidiCommandDispatcher* midiCommandDispatcher,
-                    int trackIdx,
-                    AudioToUIBridge* audioBridge,
-                    EngineStateToUIBridge* engineBridge,
-                    UIToEngineBridge* uiToEngineBridge)
+    TrackComponent (EngineMessageBus* engineMessageBus, int trackIdx, AudioToUIBridge* audioBridge, EngineStateToUIBridge* engineBridge)
         : trackIndex (trackIdx)
-        , waveformDisplay (trackIdx, audioBridge, uiToEngineBridge)
-        , accentBar (midiCommandDispatcher, trackIdx, audioBridge, engineBridge)
-        , volumeFader (midiCommandDispatcher, trackIdx, "VOLUME", MidiNotes::TRACK_VOLUME_CC)
-        , speedFader (midiCommandDispatcher, trackIdx)
-        , pitchFader (midiCommandDispatcher, trackIdx)
-        , trackEditComponent (midiCommandDispatcher, trackIdx)
-        , volumesComponent (midiCommandDispatcher, trackIdx)
-        , midiDispatcher (midiCommandDispatcher)
+        , waveformDisplay (trackIdx, audioBridge, engineMessageBus)
+        , accentBar (engineMessageBus, trackIdx, audioBridge, engineBridge)
+        , volumeFader (engineMessageBus, trackIdx, "VOLUME", MidiNotes::TRACK_VOLUME_CC)
+        , speedFader (engineMessageBus, trackIdx)
+        , pitchFader (engineMessageBus, trackIdx)
+        , trackEditComponent (engineMessageBus, trackIdx)
+        , volumesComponent (engineMessageBus, trackIdx)
+        , uiToEngineBus (engineMessageBus)
         , bridge (audioBridge)
     {
         addAndMakeVisible (waveformDisplay);
@@ -38,26 +34,26 @@ public:
 
         muteButton.setButtonText ("MUTE");
         muteButton.setComponentID ("mute");
-        muteButton.setClickingTogglesState (true);
-        muteButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::MUTE_BUTTON, trackIndex); };
+        muteButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleMute, trackIndex, {} }); };
         addAndMakeVisible (muteButton);
 
         soloButton.setButtonText ("SOLO");
         soloButton.setComponentID ("solo");
-        soloButton.setClickingTogglesState (true);
-        soloButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::SOLO_BUTTON, trackIndex); };
+        soloButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleSolo, trackIndex, {} }); };
         addAndMakeVisible (soloButton);
 
         lockPitchButton.setButtonText ("LOCK");
         lockPitchButton.setComponentID ("lock");
-        lockPitchButton.setClickingTogglesState (true);
-        lockPitchButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::KEEP_PITCH_BUTTON, trackIndex); };
+        lockPitchButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::TogglePitchLock, trackIndex, {} }); };
         addAndMakeVisible (lockPitchButton);
 
         reverseButton.setButtonText ("REV");
         reverseButton.setComponentID ("reverse");
-        reverseButton.setClickingTogglesState (true);
-        reverseButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::REVERSE_BUTTON, trackIndex); };
+        reverseButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleReverse, trackIndex, {} }); };
         addAndMakeVisible (reverseButton);
 
         addAndMakeVisible (accentBar);
@@ -66,48 +62,12 @@ public:
         addAndMakeVisible (trackEditComponent);
         addAndMakeVisible (volumesComponent);
 
-        // pitchFader.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-        // pitchFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-        // pitchFader.setValue (0.0);
-        // pitchFader.onValueChange = [this]()
-        // { midiDispatcher.sendControlChangeToEngine (MidiNotes::PITCH_SHIFT_CC, trackIndex, pitchFader.getValue() + 12.0); };
-        // addAndMakeVisible (pitchFader);
-
-        updateControlsFromEngine();
-        startTimerHz (10);
+        uiToEngineBus->addListener (this);
     }
 
-    ~TrackComponent() override { stopTimer(); }
-
-    void timerCallback() override { updateControlsFromEngine(); }
+    ~TrackComponent() override { uiToEngineBus->removeListener (this); }
 
     int getTrackIndex() const { return trackIndex; }
-
-    void updateControlsFromEngine()
-    {
-        float currentVolume = midiDispatcher->getCurrentVolume (trackIndex);
-        if (std::abs (volumeFader.getValue() - currentVolume) > 0.001)
-        {
-            volumeFader.setValue (currentVolume, juce::dontSendNotification);
-        }
-
-        bool currentMuted = midiDispatcher->isMuted (trackIndex);
-        if (muteButton.getToggleState() != currentMuted)
-        {
-            muteButton.setToggleState (currentMuted, juce::dontSendNotification);
-        }
-
-        accentBar.repaint();
-    }
-
-    void setActive (bool shouldBeActive)
-    {
-        if (isActive != shouldBeActive)
-        {
-            isActive = shouldBeActive;
-            repaint();
-        }
-    }
 
     void paint (juce::Graphics& g) override
     {
@@ -185,8 +145,98 @@ private:
 
     VolumesComponent volumesComponent;
 
-    MidiCommandDispatcher* midiDispatcher;
+    EngineMessageBus* uiToEngineBus;
     AudioToUIBridge* bridge;
+
+    void setActive (bool shouldBeActive)
+    {
+        if (isActive != shouldBeActive)
+        {
+            isActive = shouldBeActive;
+            repaint();
+        }
+    }
+
+    constexpr static EngineMessageBus::EventType subscribedEvents[] = {
+        EngineMessageBus::EventType::TrackMuteChanged,      EngineMessageBus::EventType::TrackSoloChanged,
+        EngineMessageBus::EventType::TrackPitchLockChanged, EngineMessageBus::EventType::TrackReverseDirection,
+        EngineMessageBus::EventType::TrackVolumeChanged,    EngineMessageBus::EventType::TrackSpeedChanged,
+        EngineMessageBus::EventType::TrackPitchChanged,     EngineMessageBus::EventType::ActiveTrackChanged,
+        EngineMessageBus::EventType::ActiveTrackCleared
+    };
+
+    void handleEngineEvent (const EngineMessageBus::Event& event) override
+    {
+        if (event.trackIndex != trackIndex) return;
+        bool isSubscribed = std::find (std::begin (subscribedEvents), std::end (subscribedEvents), event.type)
+                            != std::end (subscribedEvents);
+        if (! isSubscribed) return;
+
+        switch (event.type)
+        {
+            case EngineMessageBus::EventType::TrackMuteChanged:
+                if (std::holds_alternative<bool> (event.data))
+                {
+                    bool isMuted = std::get<bool> (event.data);
+                    muteButton.setToggleState (isMuted, juce::dontSendNotification);
+                }
+                break;
+            case EngineMessageBus::EventType::TrackSoloChanged:
+                if (std::holds_alternative<bool> (event.data))
+                {
+                    bool isSoloed = std::get<bool> (event.data);
+                    soloButton.setToggleState (isSoloed, juce::dontSendNotification);
+                }
+                break;
+            case EngineMessageBus::EventType::TrackPitchLockChanged:
+                if (std::holds_alternative<bool> (event.data))
+                {
+                    bool isPitchLocked = std::get<bool> (event.data);
+                    lockPitchButton.setToggleState (isPitchLocked, juce::dontSendNotification);
+                }
+                break;
+            case EngineMessageBus::EventType::TrackReverseDirection:
+                if (std::holds_alternative<bool> (event.data))
+                {
+                    bool isReversed = std::get<bool> (event.data);
+                    reverseButton.setToggleState (isReversed, juce::dontSendNotification);
+                }
+                break;
+            case EngineMessageBus::EventType::TrackVolumeChanged:
+                if (std::holds_alternative<float> (event.data))
+                {
+                    float volume = std::get<float> (event.data);
+                    if (std::abs (volumeFader.getValue() - volume) > 0.001) volumeFader.setValue (volume, juce::dontSendNotification);
+                }
+                break;
+            case EngineMessageBus::EventType::TrackSpeedChanged:
+                if (std::holds_alternative<float> (event.data))
+                {
+                    float speed = std::get<float> (event.data);
+                    if (std::abs (speedFader.getValue() - speed) > 0.001) speedFader.setValue (speed, juce::dontSendNotification);
+                }
+                break;
+            case EngineMessageBus::EventType::TrackPitchChanged:
+                if (std::holds_alternative<float> (event.data))
+                {
+                    float pitch = std::get<float> (event.data);
+                    if (std::abs (pitchFader.getValue() - pitch) > 0.001) pitchFader.setValue (pitch, juce::dontSendNotification);
+                }
+                break;
+            case EngineMessageBus::EventType::ActiveTrackChanged:
+                if (std::holds_alternative<int> (event.data))
+                {
+                    int activeTrack = std::get<int> (event.data);
+                    setActive (activeTrack == trackIndex);
+                }
+                break;
+            case EngineMessageBus::EventType::ActiveTrackCleared:
+                setActive (false);
+                break;
+            default:
+                throw juce::String ("Unhandled event type in TrackComponent: ") + juce::String ((int) event.type);
+        }
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TrackComponent)
 };

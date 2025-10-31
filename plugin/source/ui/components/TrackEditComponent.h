@@ -1,28 +1,30 @@
 #pragma once
 
-#include "engine/MidiCommandConfig.h"
+#include "audio/EngineCommandBus.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
 class TrackEditComponent : public juce::Component
 {
 public:
-    TrackEditComponent (MidiCommandDispatcher* dispatcher, int trackIdx) : midiDispatcher (dispatcher), trackIndex (trackIdx)
+    TrackEditComponent (EngineMessageBus* engineMessageBus, int trackIdx) : uiToEngineBus (engineMessageBus), trackIndex (trackIdx)
     {
         undoButton.setButtonText ("UNDO");
         undoButton.setComponentID ("undo");
-        undoButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::UNDO_BUTTON, trackIndex); };
+        undoButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::Undo, trackIndex, {} }); };
         addAndMakeVisible (undoButton);
 
         redoButton.setButtonText ("REDO");
         redoButton.setComponentID ("redo");
-        redoButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::REDO_BUTTON, trackIndex); };
+        redoButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::Redo, trackIndex, {} }); };
         addAndMakeVisible (redoButton);
 
         clearButton.setButtonText ("CLEAR");
         clearButton.setComponentID ("clear");
-        clearButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::CLEAR_BUTTON, trackIndex); };
+        clearButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::Clear, trackIndex, {} }); };
         addAndMakeVisible (clearButton);
     }
 
@@ -58,7 +60,8 @@ private:
     juce::TextButton redoButton { "REDO" };
     juce::TextButton clearButton { "CLEAR" };
 
-    MidiCommandDispatcher* midiDispatcher;
+    EngineMessageBus* uiToEngineBus;
     int trackIndex;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TrackEditComponent)
 };

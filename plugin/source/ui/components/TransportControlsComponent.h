@@ -1,42 +1,46 @@
 #pragma once
 
+#include "audio/EngineCommandBus.h"
 #include "audio/EngineStateToUIBridge.h"
-#include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
-class TransportControlsComponent : public juce::Component, private juce::Timer
+class TransportControlsComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    TransportControlsComponent (MidiCommandDispatcher* midiCommandDispatcher, EngineStateToUIBridge* bridge)
-        : midiDispatcher (midiCommandDispatcher), engineState (bridge)
+    TransportControlsComponent (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge)
+        : uiToEngineBus (engineMessageBus), engineState (bridge)
     {
         recButton.setButtonText ("REC");
         recButton.setComponentID ("rec");
-        recButton.setClickingTogglesState (true);
-        recButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::TOGGLE_RECORD_BUTTON); };
+        // recButton.setClickingTogglesState (true);
+        recButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleRecord, -1, {} }); };
         addAndMakeVisible (recButton);
 
         playButton.setButtonText ("PLAY");
         playButton.setComponentID ("play");
-        playButton.setClickingTogglesState (true);
-        playButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::TOGGLE_PLAY_BUTTON); };
+        // playButton.setClickingTogglesState (true);
+        playButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::TogglePlay, -1, {} }); };
         addAndMakeVisible (playButton);
 
         prevButton.setButtonText ("PREV");
         prevButton.setComponentID ("prev");
-        prevButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::PREV_TRACK); };
+        prevButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::PreviousTrack, -1, {} }); };
         addAndMakeVisible (prevButton);
 
         nextButton.setButtonText ("NEXT");
         nextButton.setComponentID ("next");
-        nextButton.onClick = [this]() { midiDispatcher->sendCommandToEngine (MidiNotes::NEXT_TRACK); };
+        nextButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::NextTrack, -1, {} }); };
         addAndMakeVisible (nextButton);
-        startTimerHz (10);
+
+        uiToEngineBus->addListener (this);
     }
 
-    ~TransportControlsComponent() override { stopTimer(); }
+    ~TransportControlsComponent() override { uiToEngineBus->removeListener (this); }
 
     void resized() override
     {
@@ -57,15 +61,32 @@ public:
     }
 
 private:
-    void timerCallback() override
-    {
-        bool recording, playing;
-        int activeTrack, pendingTrack, numTracks;
-        engineState->getEngineState (recording, playing, activeTrack, pendingTrack, numTracks);
+    constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::RecordingStateChanged,
+                                                                        EngineMessageBus::EventType::PlaybackStateChanged };
 
-        // Update button states based on new state enum
-        recButton.setToggleState (recording, juce::dontSendNotification);
-        playButton.setToggleState (playing, juce::dontSendNotification);
+    void handleEngineEvent (const EngineMessageBus::Event& event) override
+    {
+        bool isSubscribed = std::find (std::begin (subscribedEvents), std::end (subscribedEvents), event.type)
+                            != std::end (subscribedEvents);
+        if (! isSubscribed) return;
+
+        switch (event.type)
+        {
+            case EngineMessageBus::EventType::RecordingStateChanged:
+            {
+                bool isRecording = std::get<bool> (event.data);
+                recButton.setToggleState (isRecording, juce::dontSendNotification);
+                break;
+            }
+            case EngineMessageBus::EventType::PlaybackStateChanged:
+            {
+                bool isPlaying = std::get<bool> (event.data);
+                playButton.setToggleState (isPlaying, juce::dontSendNotification);
+                break;
+            }
+            default:
+                throw juce::String ("Unhandled event type in TransportControlsComponent" + juce::String (static_cast<int> (event.type)));
+        }
     }
 
     juce::TextButton recButton;
@@ -73,7 +94,7 @@ private:
     juce::TextButton prevButton;
     juce::TextButton nextButton;
 
-    MidiCommandDispatcher* midiDispatcher;
+    EngineMessageBus* uiToEngineBus;
     EngineStateToUIBridge* engineState;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TransportControlsComponent)
