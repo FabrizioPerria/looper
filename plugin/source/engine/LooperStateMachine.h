@@ -66,7 +66,6 @@ inline void recordingProcessAudio (StateContext& ctx)
 inline void recordingOnEnter (StateContext&) {}
 inline void recordingOnExit (StateContext& ctx)
 {
-    // CRITICAL: Ensure recording is finalized when leaving Recording state
     // This is the ONLY place where finalizeLayer should be called for Recording
     if (ctx.track)
     {

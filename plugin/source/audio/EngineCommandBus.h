@@ -42,20 +42,18 @@ public:
         TogglePitchLock,
         ToggleReverse,
 
-        // File operations
         LoadAudioFile,
 
-        // Track editing
         SetOverdubGains,
 
-        // MIDI pass-through (for buttons/notes)
         MidiMessage,
 
-        // Future: Menu items, preferences, etc.
         SetMetronomeEnabled,
         SetMetronomeBPM,
-        SaveProject,
-        LoadProject
+        SetMetronomeTimeSignature,
+        SetMetronomeStrongBeat,
+        DisableMetronomeStrongBeat,
+        SetMetronomeVolume,
     };
 
     struct Command

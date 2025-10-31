@@ -9,6 +9,9 @@ public:
 
     ~Metronome() = default;
 
+    void setEnabled (bool shouldBeEnabled) { enabled = shouldBeEnabled; }
+    bool isEnabled() const { return enabled; }
+
     void setBpm (int newBpm)
     {
         bpm = newBpm;
@@ -23,7 +26,10 @@ public:
 
     void setStrongBeat (int beatIndex, bool isStrong)
     {
-        if (isStrong) strongBeatIndex = beatIndex;
+        if (isStrong)
+            strongBeatIndex = beatIndex;
+        else
+            strongBeatIndex = -1;
     }
 
     void disableStrongBeat() { strongBeatIndex = -1; }
@@ -136,6 +142,7 @@ private:
     int strongBeatIndex;
     int samplesSinceLastBeat;
     int currentClickPosition;
+    bool enabled = false;
 
     struct TimeSignature
     {
