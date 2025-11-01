@@ -189,6 +189,11 @@ void LooperEngine::record()
     auto* activeTrack = getActiveTrack();
     if (! activeTrack) return;
 
+    if (metronome->isEnabled())
+    {
+        metronome->syncToLoopStart();
+    }
+
     LooperState targetState = trackHasContent() ? LooperState::Overdubbing : LooperState::Recording;
     transitionTo (targetState);
     messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::RecordingStateChanged, activeTrackIndex, true));
@@ -201,6 +206,12 @@ void LooperEngine::play()
 
     auto* activeTrack = getActiveTrack();
     if (! activeTrack) return;
+
+    if (metronome->isEnabled())
+    {
+        int readPos = activeTrack->getCurrentReadPosition();
+        metronome->syncToPosition (readPos);
+    }
 
     if (trackHasContent())
     {

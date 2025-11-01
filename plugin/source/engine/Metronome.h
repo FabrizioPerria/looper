@@ -34,6 +34,29 @@ public:
 
     void disableStrongBeat() { strongBeatIndex = -1; }
 
+    void syncToLoopStart()
+    {
+        samplesSinceLastBeat = samplesPerBeat; // This will trigger the beat immediately
+        currentBeat = 0;
+        // Force click initialization
+        bool isStrongBeat = (strongBeatIndex >= 0 && currentBeat == strongBeatIndex);
+        currentClickBuffer = isStrongBeat ? &strongClickBuffer : &weakClickBuffer;
+        currentClickPosition = 0;
+    }
+
+    void syncToPosition (int loopPositionSamples)
+    {
+        if (samplesPerBeat > 0)
+        {
+            int totalBeats = loopPositionSamples / samplesPerBeat;
+            currentBeat = totalBeats % timeSignature.numerator;
+            samplesSinceLastBeat = loopPositionSamples % samplesPerBeat;
+            // Force click initialization regardless of position
+            bool isStrongBeat = (strongBeatIndex >= 0 && currentBeat == strongBeatIndex);
+            currentClickBuffer = isStrongBeat ? &strongClickBuffer : &weakClickBuffer;
+            currentClickPosition = 0;
+        }
+    }
     void prepareToPlay (double currentSampleRate, int samplesPerBlock)
     {
         sampleRate = currentSampleRate;
