@@ -6,8 +6,8 @@ class DraggableToggleButtonComponent : public juce::TextButton
 public:
     DraggableToggleButtonComponent (int maxValues = 16) : maxValueValue (maxValues), currentValue (1)
     {
-        setClickingTogglesState (true);
         updateButtonText();
+        setToggleState (true, juce::dontSendNotification);
     }
 
     void setMaxValue (int max)

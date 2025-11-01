@@ -114,7 +114,7 @@ private:
             float envelope = std::exp (-t * 200.0f); // Fast decay
             float frequency = 1200.0f;               // Higher pitch for strong beat
             float sample = std::sin (2.0f * juce::MathConstants<float>::pi * frequency * t) * envelope;
-            strongClickBuffer.setSample (0, i, sample);
+            strongClickBuffer.setSample (0, i, sample * 2.0f); // Louder
         }
 
         // Generate weak click (lower pitched, shorter)
@@ -127,7 +127,7 @@ private:
             float envelope = std::exp (-t * 250.0f); // Faster decay
             float frequency = 800.0f;                // Lower pitch for weak beat
             float sample = std::sin (2.0f * juce::MathConstants<float>::pi * frequency * t) * envelope;
-            weakClickBuffer.setSample (0, i, sample * 0.7f); // Quieter
+            weakClickBuffer.setSample (0, i, sample * 1.5f); // Softer
         }
     }
 

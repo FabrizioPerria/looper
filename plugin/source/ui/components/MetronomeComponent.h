@@ -8,7 +8,7 @@
 #include "ui/components/LevelComponent.h"
 #include <JuceHeader.h>
 
-class MetronomeComponent : public juce::Component
+class MetronomeComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
     MetronomeComponent (EngineMessageBus* engineMessageBus)
@@ -31,7 +31,6 @@ public:
         addAndMakeVisible (accentLabel);
 
         enableButton.setButtonText ("Enable");
-        enableButton.setClickingTogglesState (true);
         enableButton.setColour (juce::TextButton::buttonColourId, LooperTheme::Colors::surface);
         enableButton.setColour (juce::TextButton::buttonOnColourId, LooperTheme::Colors::green);
         enableButton.setColour (juce::TextButton::textColourOffId, LooperTheme::Colors::textDim);
@@ -40,7 +39,7 @@ public:
         {
             uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetMetronomeEnabled,
                                                                     -1,
-                                                                    enableButton.getToggleState() });
+                                                                    ! enableButton.getToggleState() });
         };
         addAndMakeVisible (enableButton);
 
@@ -100,7 +99,10 @@ public:
         addAndMakeVisible (strongBeatButton);
 
         addAndMakeVisible (metronomeLevel);
+        uiToEngineBus->addListener (this);
     }
+
+    ~MetronomeComponent() override { uiToEngineBus->removeListener (this); }
 
     void paint (juce::Graphics& g) override
     {
@@ -171,22 +173,6 @@ public:
         mainBox.performLayout (bounds.toFloat());
     }
 
-    bool isEnabled() const { return enableButton.getToggleState(); }
-    int getBpm() const { return bpmEditor.getText().getIntValue(); }
-    int getNumerator() const { return numeratorEditor.getText().getIntValue(); }
-    int getDenominator() const { return denominatorEditor.getText().getIntValue(); }
-    bool getStrongBeatEnabled() const { return strongBeatButton.getToggleState(); }
-
-    // Setters for external control
-    void setEnabled (bool enabled) { enableButton.setToggleState (enabled, juce::dontSendNotification); }
-    void setBpm (int bpm) { bpmEditor.setText (juce::String (juce::jlimit (30, 300, bpm)), juce::dontSendNotification); }
-    void setTimeSig (int num, int denom)
-    {
-        numeratorEditor.setText (juce::String (num), juce::dontSendNotification);
-        denominatorEditor.setText (juce::String (denom), juce::dontSendNotification);
-    }
-    void setStrongBeatEnabled (bool enabled) { strongBeatButton.setToggleState (enabled, juce::dontSendNotification); }
-
 private:
     EngineMessageBus* uiToEngineBus;
     juce::TextButton enableButton;
@@ -199,9 +185,65 @@ private:
     DraggableValueLabel numeratorEditor { 1, 16, 1 };
     DraggableValueLabel denominatorEditor { 1, 16, 1 };
 
-    DraggableToggleButtonComponent strongBeatButton { 1 };
+    DraggableToggleButtonComponent strongBeatButton;
 
     LevelComponent metronomeLevel;
+
+    constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::MetronomeEnabledChanged,
+                                                                        EngineMessageBus::EventType::MetronomeBPMChanged,
+                                                                        EngineMessageBus::EventType::MetronomeTimeSignatureChanged,
+                                                                        EngineMessageBus::EventType::MetronomeStrongBeatChanged,
+                                                                        EngineMessageBus::EventType::MetronomeVolumeChanged };
+
+    void handleEngineEvent (const EngineMessageBus::Event& event) override
+    {
+        bool isSubscribed = std::find (std::begin (subscribedEvents), std::end (subscribedEvents), event.type)
+                            != std::end (subscribedEvents);
+        if (! isSubscribed) return;
+
+        switch (event.type)
+        {
+            case EngineMessageBus::EventType::MetronomeEnabledChanged:
+            {
+                bool isEnabled = std::get<bool> (event.data);
+                enableButton.setToggleState (isEnabled, juce::dontSendNotification);
+                break;
+            }
+            case EngineMessageBus::EventType::MetronomeBPMChanged:
+            {
+                int bpm = std::get<int> (event.data);
+                bpmEditor.setText (juce::String (bpm), juce::dontSendNotification);
+                break;
+            }
+            case EngineMessageBus::EventType::MetronomeTimeSignatureChanged:
+            {
+                if (std::holds_alternative<std::pair<int, int>> (event.data))
+                {
+                    auto timeSig = std::get<std::pair<int, int>> (event.data);
+                    numeratorEditor.setText (juce::String (timeSig.first), juce::dontSendNotification);
+                    denominatorEditor.setText (juce::String (timeSig.second), juce::dontSendNotification);
+                    strongBeatButton.setMaxValue (timeSig.first);
+                }
+                return;
+            }
+            case EngineMessageBus::EventType::MetronomeStrongBeatChanged:
+            {
+                int strongBeat = std::get<int> (event.data);
+                strongBeatButton.setCurrentValue (strongBeat);
+                strongBeatButton.setToggleState (strongBeat > 0, juce::dontSendNotification);
+
+                break;
+            }
+            case EngineMessageBus::EventType::MetronomeVolumeChanged:
+            {
+                float volume = std::get<float> (event.data);
+                metronomeLevel.setValue ((double) volume, juce::dontSendNotification);
+                break;
+            }
+            default:
+                throw juce::String ("Unhandled event type in MetronomeComponent" + juce::String (static_cast<int> (event.type)));
+        }
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MetronomeComponent)
 };

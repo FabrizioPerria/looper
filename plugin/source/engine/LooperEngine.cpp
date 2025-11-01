@@ -696,15 +696,38 @@ bool LooperEngine::shouldTrackPlay (int trackIndex) const
     return true;
 }
 
-void LooperEngine::enableMetronome (bool enable) { metronome->setEnabled (enable); }
-void LooperEngine::setMetronomeBpm (int bpm) { metronome->setBpm (bpm); }
-void LooperEngine::setMetronomeTimeSignature (int numerator, int denominator) { metronome->setTimeSignature (numerator, denominator); }
+void LooperEngine::enableMetronome (bool enable)
+{
+    metronome->setEnabled (enable);
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeEnabledChanged, -1, enable));
+}
+void LooperEngine::setMetronomeBpm (int bpm)
+{
+    metronome->setBpm (bpm);
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeBPMChanged, -1, bpm));
+}
+
+void LooperEngine::setMetronomeTimeSignature (int numerator, int denominator)
+{
+    metronome->setTimeSignature (numerator, denominator);
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeTimeSignatureChanged,
+                                                         -1,
+                                                         std::make_pair (numerator, denominator)));
+}
+
 void LooperEngine::setMetronomeStrongBeat (int beatIndex, bool isStrong)
 {
     if (isStrong)
+    {
         metronome->setStrongBeat (beatIndex, isStrong);
+    }
     else
+    {
         metronome->disableStrongBeat();
+        beatIndex = 0;
+    }
+
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeStrongBeatChanged, -1, beatIndex));
 }
 
 void LooperEngine::setMetronomeVolume (float volume) { metronome->setVolume (volume); }

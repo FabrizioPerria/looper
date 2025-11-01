@@ -100,6 +100,11 @@ public:
         TrackPitchLockChanged,
         TrackReverseDirection,
 
+        MetronomeEnabledChanged,
+        MetronomeBPMChanged,
+        MetronomeTimeSignatureChanged,
+        MetronomeStrongBeatChanged,
+        MetronomeVolumeChanged,
     };
 
     struct Event
@@ -111,7 +116,8 @@ public:
                      float,
                      int,
                      bool,
-                     juce::String // Error messages, file paths, etc.
+                     std::pair<int, int>, // Time signature
+                     juce::String         // Error messages, file paths, etc.
                      >
             data;
     };
