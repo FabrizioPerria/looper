@@ -4,6 +4,7 @@
 #include <atomic>
 #include <queue>
 #include <variant>
+#include <vector>
 
 /**
  * Unified message bus for UI <-> Engine communication (non-real-time paths)
@@ -134,34 +135,40 @@ public:
     // PUBLIC API
     // ============================================================================
 
-    EngineMessageBus() = default;
+    EngineMessageBus() : commandFifo (FIFO_SIZE), eventFifo (FIFO_SIZE)
+    {
+        commandBuffer.resize (FIFO_SIZE);
+        eventBuffer.resize (FIFO_SIZE);
+    }
 
     // ============ COMMAND API (UI -> Engine) ============
 
     // UI Thread -> Send commands to engine
     void pushCommand (Command cmd)
     {
-        const juce::SpinLock::ScopedLockType lock (commandLock);
-        commandQueue.push (std::move (cmd));
+        auto writeIndex = commandFifo.write (1);
+        if (writeIndex.blockSize1 > 0)
+        {
+            commandBuffer[writeIndex.startIndex1] = std::move (cmd);
+            commandFifo.finishedWrite (1);
+        }
     }
 
     // Audio Thread -> Process commands from UI
     bool popCommand (Command& outCmd)
     {
-        const juce::SpinLock::ScopedLockType lock (commandLock);
-        if (commandQueue.empty()) return false;
-
-        outCmd = std::move (commandQueue.front());
-        commandQueue.pop();
-        return true;
+        auto readIndex = commandFifo.read (1);
+        if (readIndex.blockSize1 > 0)
+        {
+            outCmd = std::move (commandBuffer[readIndex.startIndex1]);
+            commandFifo.finishedRead (1);
+            return true;
+        }
+        return false;
     }
 
     // Check if there are pending commands (useful for debugging)
-    bool hasCommands() const
-    {
-        const juce::SpinLock::ScopedLockType lock (commandLock);
-        return ! commandQueue.empty();
-    }
+    bool hasCommands() const { return commandFifo.getNumReady() > 0; }
 
     // ============ EVENT API (Engine -> UI) ============
 
@@ -180,70 +187,79 @@ public:
     }
 
     // Audio Thread -> Broadcast event to all listeners
-    // This pushes to a queue for async delivery on message thread
     void broadcastEvent (Event evt)
     {
-        const juce::SpinLock::ScopedLockType lock (eventLock);
-        pendingEvents.push (std::move (evt));
+        auto writeIndex = eventFifo.write (1);
+        if (writeIndex.blockSize1 > 0)
+        {
+            eventBuffer[writeIndex.startIndex1] = std::move (evt);
+            eventFifo.finishedWrite (1);
+        }
     }
 
     // Message Thread -> Dispatch pending events to listeners
-    // Call this from a timer or message manager callback
     void dispatchPendingEvents()
     {
-        // Move events to a local queue to minimize lock time
-        std::queue<Event> eventsToDispatch;
+        const int numReady = eventFifo.getNumReady();
+        if (numReady == 0) return;
+
+        auto readIndex = eventFifo.read (numReady);
+
+        // Get snapshot of listeners under lock
+        juce::Array<Listener*> listenerSnapshot;
         {
-            const juce::SpinLock::ScopedLockType lock (eventLock);
-            eventsToDispatch.swap (pendingEvents);
+            const juce::SpinLock::ScopedLockType lock (listenerLock);
+            listenerSnapshot = listeners;
         }
 
-        // Dispatch events to all listeners (without holding locks)
-        while (! eventsToDispatch.empty())
+        // Process first block
+        for (int i = 0; i < readIndex.blockSize1; ++i)
         {
-            const auto& event = eventsToDispatch.front();
-
-            // Get snapshot of listeners under lock
-            juce::Array<Listener*> listenerSnapshot;
-            {
-                const juce::SpinLock::ScopedLockType lock (listenerLock);
-                listenerSnapshot = listeners;
-            }
-
-            // Call listeners without holding lock
+            const auto& event = eventBuffer[readIndex.startIndex1 + i];
             for (auto* listener : listenerSnapshot)
                 listener->handleEngineEvent (event);
-
-            eventsToDispatch.pop();
         }
+
+        // Process second block if it exists
+        for (int i = 0; i < readIndex.blockSize2; ++i)
+        {
+            const auto& event = eventBuffer[readIndex.startIndex2 + i];
+            for (auto* listener : listenerSnapshot)
+                listener->handleEngineEvent (event);
+        }
+
+        eventFifo.finishedRead (numReady);
     }
 
     // Clear all pending messages (e.g., on shutdown)
     void clear()
     {
+        while (commandFifo.getNumReady() > 0)
         {
-            const juce::SpinLock::ScopedLockType lock (commandLock);
-            while (! commandQueue.empty())
-                commandQueue.pop();
+            auto readIndex = commandFifo.read (1);
+            if (readIndex.blockSize1 > 0) commandFifo.finishedRead (1);
         }
+
+        while (eventFifo.getNumReady() > 0)
         {
-            const juce::SpinLock::ScopedLockType lock (eventLock);
-            while (! pendingEvents.empty())
-                pendingEvents.pop();
+            auto readIndex = eventFifo.read (1);
+            if (readIndex.blockSize1 > 0) eventFifo.finishedRead (1);
         }
     }
 
 private:
-    // Command queue (UI -> Engine)
-    std::queue<Command> commandQueue;
-    mutable juce::SpinLock commandLock;
+    static constexpr int FIFO_SIZE = 1024;
 
-    // Event system (Engine -> UI via listeners)
-    std::queue<Event> pendingEvents; // Events waiting to be dispatched
-    juce::SpinLock eventLock;
+    // Command system (UI -> Engine)
+    std::vector<Command> commandBuffer;
+    juce::AbstractFifo commandFifo;
+
+    // Event system (Engine -> UI)
+    std::vector<Event> eventBuffer;
+    juce::AbstractFifo eventFifo;
 
     juce::Array<Listener*> listeners;
-    juce::SpinLock listenerLock;
+    juce::SpinLock listenerLock; // Still need this one for listener management
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EngineMessageBus)
 };
