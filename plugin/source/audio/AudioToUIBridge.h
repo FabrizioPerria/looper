@@ -99,9 +99,16 @@ public:
     void updateFromAudioThread (const juce::AudioBuffer<float>* audioBuffer, int length, int readPos, bool recording, bool playing)
     {
         PERFETTO_FUNCTION();
+        int prevPos = state.readPosition.load (std::memory_order_relaxed);
+        if (readPos != prevPos)
+        {
+            playbackPositionChanged.store (true, std::memory_order_release);
+        }
+
+        state.readPosition.store (readPos, std::memory_order_relaxed);
+
         // Update lightweight state (always)
         state.loopLength.store (length, std::memory_order_relaxed);
-        state.readPosition.store (readPos, std::memory_order_relaxed);
         state.isRecording.store (recording, std::memory_order_relaxed);
         state.isPlaying.store (playing, std::memory_order_relaxed);
 
@@ -183,6 +190,8 @@ public:
         PERFETTO_FUNCTION();
         return state;
     }
+
+    std::atomic<bool> playbackPositionChanged { false };
 
 private:
     AudioState state;

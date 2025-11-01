@@ -50,6 +50,34 @@ void WaveformComponent::paint (juce::Graphics& g)
     renderer->render (g, cache, (int) readPos, (int) length, getWidth(), getHeight(), recording);
 }
 
+void WaveformComponent::onVBlankCallback()
+{
+    PERFETTO_FUNCTION();
+    if (! bridge) return;
+
+    // Only check atomic flag - very cheap!
+    if (bridge->playbackPositionChanged.exchange (false, std::memory_order_acquire))
+    {
+        int length, readPos;
+        bool recording, playing;
+        bridge->getPlaybackState (length, readPos, recording, playing);
+
+        lastReadPos = readPos;
+        lastRecording = recording;
+        lastPlaying = playing;
+
+        repaint(); // Or use partial repaint (see below)
+    }
+
+    if (++vblankCounter % 8 == 0) // Check every 4th VBlank to reduce load
+    {
+        if (bridge->getState().stateVersion.load (std::memory_order_relaxed) != lastProcessedVersion)
+        {
+            triggerAsyncUpdate();
+        }
+    }
+}
+
 void WaveformComponent::handleAsyncUpdate()
 {
     PERFETTO_FUNCTION();
