@@ -1,6 +1,7 @@
 #pragma once
 
 #include "audio/EngineCommandBus.h"
+#include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/DraggableToggleButtonComponent.h"
 #include "ui/components/DraggableValueLabelComponent.h"
@@ -11,7 +12,7 @@ class MetronomeComponent : public juce::Component
 {
 public:
     MetronomeComponent (EngineMessageBus* engineMessageBus)
-        : uiToEngineBus (engineMessageBus), metronomeLevel (engineMessageBus, -1, "Level", 11)
+        : uiToEngineBus (engineMessageBus), metronomeLevel (engineMessageBus, -1, "Level", MidiNotes::METRONOME_VOLUME_CC)
     {
         metronomeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
         metronomeLabel.setJustificationType (juce::Justification::centred);

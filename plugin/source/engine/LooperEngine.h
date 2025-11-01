@@ -68,6 +68,7 @@ public:
 
     void setTrackVolume (int trackIndex, float volume);
     void setTrackPitch (int trackIndex, float pitch);
+    void setMetronomeVolume (float volume);
 
     EngineStateToUIBridge* getEngineStateBridge() const { return engineStateBridge.get(); }
     EngineMessageBus* getMessageBus() const { return messageBus.get(); }
@@ -139,7 +140,6 @@ private:
     void setMetronomeBpm (int bpm);
     void setMetronomeTimeSignature (int numerator, int denominator);
     void setMetronomeStrongBeat (int beatIndex, bool isStrong);
-    void setMetronomeVolume (float volume);
 
     void handleMidiCommand (const juce::MidiBuffer& midiMessages);
 
