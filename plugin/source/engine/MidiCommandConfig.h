@@ -24,6 +24,7 @@ constexpr uint8_t PLAYBACK_SPEED_CC = 1;
 constexpr uint8_t OVERDUB_LEVEL_CC = 103;
 constexpr uint8_t EXISTING_AUDIO_LEVEL_CC = 104;
 constexpr uint8_t PITCH_SHIFT_CC = 14;
+constexpr uint8_t METRONOME_VOLUME_CC = 105;
 } // namespace MidiNotes
 
 // MIDI command IDs - enum for type safety
@@ -147,6 +148,7 @@ enum class MidiControlChangeId : uint8_t
     OverdubLevel = MidiNotes::OVERDUB_LEVEL_CC,
     PitchShift = MidiNotes::PITCH_SHIFT_CC,
     ExistingAudioLevel = MidiNotes::EXISTING_AUDIO_LEVEL_CC,
+    MetronomeVolume = MidiNotes::METRONOME_VOLUME_CC,
 
     COUNT
 };
@@ -168,6 +170,7 @@ constexpr std::array<MidiControlChangeId, MAX_CC_NUMBERS> buildCCMapping()
     table[MidiNotes::OVERDUB_LEVEL_CC] = MidiControlChangeId::OverdubLevel;
     table[MidiNotes::EXISTING_AUDIO_LEVEL_CC] = MidiControlChangeId::ExistingAudioLevel;
     table[MidiNotes::PITCH_SHIFT_CC] = MidiControlChangeId::PitchShift;
+    table[MidiNotes::METRONOME_VOLUME_CC] = MidiControlChangeId::MetronomeVolume;
     return table;
 }
 
@@ -189,7 +192,9 @@ constexpr CCFlags CONTROL_CHANGE_FLAGS[static_cast<size_t>(MidiControlChangeId::
     [(size_t)MidiControlChangeId::PlaybackSpeed] = CCFlags{true, true},
     [(size_t)MidiControlChangeId::OverdubLevel] = CCFlags{true, true},
     [(size_t)MidiControlChangeId::ExistingAudioLevel] = CCFlags{true, true},
-    [(size_t)MidiControlChangeId::PitchShift] = CCFlags{true, true}};
+    [(size_t)MidiControlChangeId::PitchShift] = CCFlags{true, true},
+    [(size_t)MidiControlChangeId::MetronomeVolume] = CCFlags{false, true},
+};
 
 constexpr bool needsTrackIndex(MidiControlChangeId cc)
 {

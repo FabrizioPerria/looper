@@ -5,6 +5,7 @@
 #include "audio/EngineStateToUIBridge.h"
 #include "engine/LoopTrack.h"
 #include "engine/LooperStateMachine.h"
+#include "engine/Metronome.h"
 #include <JuceHeader.h>
 
 struct PendingAction
@@ -13,7 +14,6 @@ struct PendingAction
     {
         None,
         SwitchTrack,
-        FinalizeRecording,
         CancelRecording
     };
 
@@ -55,66 +55,22 @@ public:
     // User actions
     void toggleRecord();
     void togglePlay();
-    void toggleReverse (int trackIndex)
-    {
-        if (isTrackPlaybackForward (trackIndex))
-            setTrackPlaybackDirectionBackward (trackIndex);
-        else
-            setTrackPlaybackDirectionForward (trackIndex);
-    }
-    void toggleSolo (int trackIndex)
-    {
-        auto* track = getTrackByIndex (trackIndex);
-        if (track) setTrackSoloed (trackIndex, ! track->isSoloed());
-    }
-    void toggleMute (int trackIndex)
-    {
-        auto* track = getTrackByIndex (trackIndex);
-        if (track) setTrackMuted (trackIndex, ! track->isMuted());
-    }
-    void toggleVolumeNormalize (int trackIndex)
-    {
-        auto* track = getTrackByIndex (trackIndex);
-        if (track) track->toggleNormalizingOutput();
-    }
-    void toggleKeepPitchWhenChangingSpeed (int trackIndex)
-    {
-        bool current = getKeepPitchWhenChangingSpeed (trackIndex);
-        setKeepPitchWhenChangingSpeed (trackIndex, ! current);
-    }
+    void toggleReverse (int trackIndex);
+    void toggleSolo (int trackIndex);
+    void toggleMute (int trackIndex);
+    void toggleVolumeNormalize (int trackIndex);
+    void toggleKeepPitchWhenChangingSpeed (int trackIndex);
     void undo (int trackIndex);
     void redo (int trackIndex);
     void clear (int trackIndex);
 
-    // Track controls
-    void setOverdubGainsForTrack (int trackIndex, double oldGain, double newGain);
-    void loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex);
-    void loadWaveFileToTrack (const juce::File& audioFile, int trackIndex);
-
     void setTrackPlaybackSpeed (int trackIndex, float speed);
-    void setTrackPlaybackDirectionForward (int trackIndex);
-    void setTrackPlaybackDirectionBackward (int trackIndex);
-    float getTrackPlaybackSpeed (int trackIndex) const;
-    bool isTrackPlaybackForward (int trackIndex) const;
 
     void setTrackVolume (int trackIndex, float volume);
-    void setTrackMuted (int trackIndex, bool muted);
-    void setTrackSoloed (int trackIndex, bool soloed);
-    float getTrackVolume (int trackIndex) const;
-    bool isTrackMuted (int trackIndex) const;
-    void setTrackPitch (int trackIndex, float pitch)
-    {
-        auto* track = getTrackByIndex (trackIndex);
-        if (track) track->setPlaybackPitch (pitch);
-    }
-
-    void setKeepPitchWhenChangingSpeed (int trackIndex, bool shouldKeepPitch);
-    bool getKeepPitchWhenChangingSpeed (int trackIndex) const;
-
-    void handleMidiCommand (const juce::MidiBuffer& midiMessages);
+    void setTrackPitch (int trackIndex, float pitch);
+    void setMetronomeVolume (float volume);
 
     EngineStateToUIBridge* getEngineStateBridge() const { return engineStateBridge.get(); }
-
     EngineMessageBus* getMessageBus() const { return messageBus.get(); }
 
 private:
@@ -124,6 +80,8 @@ private:
     PendingAction pendingAction;
     std::unique_ptr<EngineStateToUIBridge> engineStateBridge = std::make_unique<EngineStateToUIBridge>();
     std::unique_ptr<EngineMessageBus> messageBus = std::make_unique<EngineMessageBus>();
+
+    std::unique_ptr<Metronome> metronome = std::make_unique<Metronome>();
 
     // Engine data
     double sampleRate = 0.0;
@@ -143,7 +101,6 @@ private:
     LooperState determineStateAfterStop() const;
     void switchToTrackImmediately (int trackIndex);
     void scheduleTrackSwitch (int trackIndex);
-    void scheduleFinalizeRecording (int trackIndex);
 
     bool transitionTo (LooperState newState);
     StateContext createStateContext (const juce::AudioBuffer<float>& buffer);
@@ -164,6 +121,27 @@ private:
     void play();
     void stop();
     void cancelRecording();
+    void setKeepPitchWhenChangingSpeed (int trackIndex, bool shouldKeepPitch);
+    bool getKeepPitchWhenChangingSpeed (int trackIndex) const;
+    void setOverdubGainsForTrack (int trackIndex, double oldGain, double newGain);
+    void loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex);
+    void loadWaveFileToTrack (const juce::File& audioFile, int trackIndex);
+    void setTrackPlaybackDirectionForward (int trackIndex);
+    void setTrackPlaybackDirectionBackward (int trackIndex);
+    float getTrackPlaybackSpeed (int trackIndex) const;
+    bool isTrackPlaybackForward (int trackIndex) const;
+
+    void setTrackMuted (int trackIndex, bool muted);
+    void setTrackSoloed (int trackIndex, bool soloed);
+    float getTrackVolume (int trackIndex) const;
+    bool isTrackMuted (int trackIndex) const;
+
+    void enableMetronome (bool enable);
+    void setMetronomeBpm (int bpm);
+    void setMetronomeTimeSignature (int numerator, int denominator);
+    void setMetronomeStrongBeat (int beatIndex, bool isStrong);
+
+    void handleMidiCommand (const juce::MidiBuffer& midiMessages);
 
     const std::unordered_map<EngineMessageBus::CommandType, std::function<void (const EngineMessageBus::Command&)>> commandHandlers = {
         { EngineMessageBus::CommandType::TogglePlay, [this] (const auto& /*cmd*/) { togglePlay(); } },
@@ -257,6 +235,51 @@ private:
               {
                   auto midiBuffer = std::get<juce::MidiBuffer> (cmd.payload);
                   handleMidiCommand (midiBuffer);
+              }
+          } },
+        { EngineMessageBus::CommandType::SetMetronomeEnabled,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<bool> (cmd.payload))
+              {
+                  auto enabled = std::get<bool> (cmd.payload);
+                  enableMetronome (enabled);
+              }
+          } },
+        { EngineMessageBus::CommandType::SetMetronomeBPM,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<int> (cmd.payload))
+              {
+                  auto bpm = static_cast<int> (std::get<int> (cmd.payload));
+                  setMetronomeBpm (bpm);
+              }
+          } },
+        { EngineMessageBus::CommandType::SetMetronomeTimeSignature,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::pair<int, int>> (cmd.payload))
+              {
+                  auto ts = std::get<std::pair<int, int>> (cmd.payload);
+                  setMetronomeTimeSignature (static_cast<int> (ts.first), static_cast<int> (ts.second));
+              }
+          } },
+        { EngineMessageBus::CommandType::SetMetronomeStrongBeat,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<int> (cmd.payload))
+              {
+                  auto beatInfo = static_cast<int> (std::get<int> (cmd.payload));
+                  if (beatInfo >= 0) setMetronomeStrongBeat (static_cast<int> (beatInfo), beatInfo > 0);
+              }
+          } },
+        { EngineMessageBus::CommandType::SetMetronomeVolume,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<float> (cmd.payload))
+              {
+                  auto volume = std::get<float> (cmd.payload);
+                  setMetronomeVolume (volume);
               }
           } },
 

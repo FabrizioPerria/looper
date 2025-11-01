@@ -28,7 +28,10 @@ public:
             juce::MidiMessage msg = juce::MidiMessage::controllerEvent (1, (juce::uint8) cc, (juce::uint8) ccValue);
             midiBuffer.addEvent (msg, 0);
 
-            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::MidiMessage, trackIndex, midiBuffer });
+            if (uiToEngineBus)
+                uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::MidiMessage,
+                                                                        trackIndex,
+                                                                        midiBuffer });
         };
         addAndMakeVisible (slider);
     }

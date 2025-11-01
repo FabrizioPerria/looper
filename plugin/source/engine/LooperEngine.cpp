@@ -21,6 +21,7 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
     for (int i = 0; i < newNumTracks; ++i)
         addTrack();
 
+    metronome->prepareToPlay (sampleRate, maxBlockSize);
     setPendingAction (PendingAction::Type::SwitchTrack, 0, false);
 }
 
@@ -41,6 +42,8 @@ void LooperEngine::releaseResources()
     activeTrackIndex = 0;
     nextTrackIndex = -1;
     currentState = LooperState::Idle;
+
+    metronome->releaseResources();
 }
 
 void LooperEngine::addTrack()
@@ -104,12 +107,6 @@ void LooperEngine::scheduleTrackSwitch (int trackIndex)
     setPendingAction (PendingAction::Type::SwitchTrack, trackIndex, true);
     nextTrackIndex = trackIndex;
     messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::PendingTrackChanged, trackIndex, trackIndex));
-}
-
-void LooperEngine::scheduleFinalizeRecording (int trackIndex)
-{
-    PERFETTO_FUNCTION();
-    setPendingAction (PendingAction::Type::FinalizeRecording, trackIndex, false);
 }
 
 StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& buffer)
@@ -244,6 +241,33 @@ void LooperEngine::toggleRecord() { StateConfig::isRecording (currentState) ? st
 
 void LooperEngine::togglePlay() { StateConfig::isPlaying (currentState) ? stop() : play(); }
 
+void LooperEngine::toggleReverse (int trackIndex)
+{
+    if (isTrackPlaybackForward (trackIndex))
+        setTrackPlaybackDirectionBackward (trackIndex);
+    else
+        setTrackPlaybackDirectionForward (trackIndex);
+}
+void LooperEngine::toggleSolo (int trackIndex)
+{
+    auto* track = getTrackByIndex (trackIndex);
+    if (track) setTrackSoloed (trackIndex, ! track->isSoloed());
+}
+void LooperEngine::toggleMute (int trackIndex)
+{
+    auto* track = getTrackByIndex (trackIndex);
+    if (track) setTrackMuted (trackIndex, ! track->isMuted());
+}
+void LooperEngine::toggleVolumeNormalize (int trackIndex)
+{
+    auto* track = getTrackByIndex (trackIndex);
+    if (track) track->toggleNormalizingOutput();
+}
+void LooperEngine::toggleKeepPitchWhenChangingSpeed (int trackIndex)
+{
+    bool current = getKeepPitchWhenChangingSpeed (trackIndex);
+    setKeepPitchWhenChangingSpeed (trackIndex, ! current);
+}
 void LooperEngine::selectTrack (int trackIndex)
 {
     PERFETTO_FUNCTION();
@@ -279,12 +303,12 @@ void LooperEngine::undo (int trackIndex)
     if (track->undo())
     {
         bridge->signalWaveformChanged();
-
-        // if (trackIndex == activeTrackIndex && track->getTrackLengthSamples() == 0)
-        // {
-        //     transitionTo (LooperState::Idle);
-        // }
     }
+}
+void LooperEngine::setTrackPitch (int trackIndex, float pitch)
+{
+    auto* track = getTrackByIndex (trackIndex);
+    if (track) track->setPlaybackPitch (pitch);
 }
 
 void LooperEngine::redo (int trackIndex)
@@ -301,11 +325,6 @@ void LooperEngine::redo (int trackIndex)
     if (track->redo())
     {
         bridge->signalWaveformChanged();
-
-        // if (trackIndex == activeTrackIndex && currentState == LooperState::Idle && track->getTrackLengthSamples() > 0)
-        // {
-        //     transitionTo (LooperState::Stopped);
-        // }
     }
 }
 
@@ -357,6 +376,8 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
                                               activeTrackIndex,
                                               nextTrackIndex,
                                               numTracks);
+
+    if (metronome->isEnabled()) metronome->processBlock (const_cast<juce::AudioBuffer<float>&> (buffer));
 }
 
 void LooperEngine::processCommandsFromMessageBus()
@@ -420,21 +441,12 @@ void LooperEngine::processPendingActions()
             break;
 
         case PendingAction::Type::CancelRecording:
-            // CRITICAL FIX: Cancel recording via state transition
-            // First transition to Idle (which calls exit handler to cancel)
             transitionTo (LooperState::Idle);
-            // Then switch to the target track
             if (pendingAction.targetTrackIndex >= 0 && pendingAction.targetTrackIndex < numTracks)
             {
                 activeTrackIndex = pendingAction.targetTrackIndex;
                 nextTrackIndex = -1;
             }
-            break;
-
-        case PendingAction::Type::FinalizeRecording:
-            // CRITICAL FIX: Finalize via state transition
-            // The exit handler of Recording/Overdubbing states will finalize
-            transitionTo (LooperState::Playing);
             break;
 
         case PendingAction::Type::None:
@@ -683,3 +695,39 @@ bool LooperEngine::shouldTrackPlay (int trackIndex) const
     if (track->isMuted()) return false;
     return true;
 }
+
+void LooperEngine::enableMetronome (bool enable)
+{
+    metronome->setEnabled (enable);
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeEnabledChanged, -1, enable));
+}
+void LooperEngine::setMetronomeBpm (int bpm)
+{
+    metronome->setBpm (bpm);
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeBPMChanged, -1, bpm));
+}
+
+void LooperEngine::setMetronomeTimeSignature (int numerator, int denominator)
+{
+    metronome->setTimeSignature (numerator, denominator);
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeTimeSignatureChanged,
+                                                         -1,
+                                                         std::make_pair (numerator, denominator)));
+}
+
+void LooperEngine::setMetronomeStrongBeat (int beatIndex, bool isStrong)
+{
+    if (isStrong)
+    {
+        metronome->setStrongBeat (beatIndex, isStrong);
+    }
+    else
+    {
+        metronome->disableStrongBeat();
+        beatIndex = 0;
+    }
+
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeStrongBeatChanged, -1, beatIndex));
+}
+
+void LooperEngine::setMetronomeVolume (float volume) { metronome->setVolume (volume); }

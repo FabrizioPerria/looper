@@ -42,20 +42,18 @@ public:
         TogglePitchLock,
         ToggleReverse,
 
-        // File operations
         LoadAudioFile,
 
-        // Track editing
         SetOverdubGains,
 
-        // MIDI pass-through (for buttons/notes)
         MidiMessage,
 
-        // Future: Menu items, preferences, etc.
         SetMetronomeEnabled,
         SetMetronomeBPM,
-        SaveProject,
-        LoadProject
+        SetMetronomeTimeSignature,
+        SetMetronomeStrongBeat,
+        DisableMetronomeStrongBeat,
+        SetMetronomeVolume,
     };
 
     struct Command
@@ -66,10 +64,12 @@ public:
         // Flexible payload using variant
         std::variant<std::monostate,           // Empty
                      float,                    // Single float (volume, speed, pitch)
+                     int,                      // Single int (BPM, track index)
                      bool,                     // Boolean (mute, solo, keepPitch)
                      juce::File,               // File path
                      juce::MidiBuffer,         // MIDI data
                      juce::AudioBuffer<float>, // Audio buffer (for backing tracks)
+                     std::pair<int, int>,      // Two ints (time signature)
                      std::pair<float, float>   // Two floats (overdub gains)
                      >
             payload;
@@ -100,6 +100,11 @@ public:
         TrackPitchLockChanged,
         TrackReverseDirection,
 
+        MetronomeEnabledChanged,
+        MetronomeBPMChanged,
+        MetronomeTimeSignatureChanged,
+        MetronomeStrongBeatChanged,
+        MetronomeVolumeChanged,
     };
 
     struct Event
@@ -111,7 +116,8 @@ public:
                      float,
                      int,
                      bool,
-                     juce::String // Error messages, file paths, etc.
+                     std::pair<int, int>, // Time signature
+                     juce::String         // Error messages, file paths, etc.
                      >
             data;
     };

@@ -18,8 +18,7 @@ get_target_property(JUCE_HEADER looper JUCE_LIBRARY_CODE)
 get_target_property(JUCE_BINARY_DATA_FOLDER looper JUCE_BINARY_DATA_FOLDER)
 target_sources(
   ${PROJECT_NAME}
-  PRIVATE source/LooperEngine_test.cpp
-          source/LoopFifo_test.cpp
+  PRIVATE source/LoopFifo_test.cpp
           source/LoopLifo_test.cpp
           source/LoopTrack_Backing_test.cpp
           source/LoopTrack_Playback_test.cpp

@@ -58,6 +58,12 @@ static void executePitchShift (LooperEngine& engine, int trackIndex, int value)
     engine.setTrackPitch (trackIndex, semitones);
 }
 
+static void executeMetronomeVolume (LooperEngine& engine, int, int value)
+{
+    float normalizedValue = (float) value / 127.0f;
+    engine.setMetronomeVolume (normalizedValue);
+}
+
 static void executeNone (LooperEngine&, int) {}
 static void executeNone (LooperEngine&, int, int) {}
 } // namespace CommandExecutors
@@ -93,6 +99,7 @@ const ControlChangeFunc COMMAND_CONTROL_CHANGE_DISPATCH_TABLE[static_cast<size_t
     [(size_t) MidiControlChangeId::OverdubLevel] = CommandExecutors::executeSetOverdubGain,
     [(size_t) MidiControlChangeId::ExistingAudioLevel] = CommandExecutors::executeSetOldOverdubGain,
     [(size_t) MidiControlChangeId::PitchShift] = CommandExecutors::executePitchShift,
+    [(size_t) MidiControlChangeId::MetronomeVolume] = CommandExecutors::executeMetronomeVolume,
 };
 
 void MidiCommandDispatcher::dispatch (MidiControlChangeId commandId, LooperEngine& engine, int trackIndex, int param)
