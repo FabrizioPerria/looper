@@ -15,7 +15,8 @@ public:
         : trackIndex (trackIdx), bridge (audioBridge), uiToEngineBus (engineMessageBus)
     {
         renderer = std::make_unique<LinearRenderer>();
-        startTimerHz (60);
+        vBlankAttachment = std::make_unique<juce::VBlankAttachment> (this, [this]() { onVBlankCallback(); });
+        startTimerHz (10);
     }
 
     ~WaveformComponent() override
@@ -65,7 +66,8 @@ public:
     }
 
 private:
-    void handleAsyncUpdate() override;
+    void onVBlankCallback();
+    void handleAsyncUpdate();
 
     int trackIndex;
     WaveformCache cache;
@@ -73,6 +75,9 @@ private:
     AudioToUIBridge* bridge = nullptr;
     EngineMessageBus* uiToEngineBus = nullptr;
     juce::ThreadPool backgroundProcessor { 1 };
+
+    int vblankCounter = 0;
+    std::unique_ptr<juce::VBlankAttachment> vBlankAttachment;
 
     // State tracking
     int lastReadPos = 0;

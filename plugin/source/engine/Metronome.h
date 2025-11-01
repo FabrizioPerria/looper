@@ -22,12 +22,16 @@ public:
     {
         timeSignature.numerator = numerator;
         timeSignature.denominator = denominator;
+        samplesPerBeat = calculateSamplesPerBeat(); // ✅ Recalculate
+
+        // ✅ Clamp strongBeatIndex if it's now out of range
+        if (strongBeatIndex >= timeSignature.numerator) strongBeatIndex = -1;
     }
 
     void setStrongBeat (int beatIndex, bool isStrong)
     {
         if (isStrong)
-            strongBeatIndex = beatIndex;
+            strongBeatIndex = juce::jlimit (0, timeSignature.numerator - 1, beatIndex - 1); // ✅ Convert 1-based to 0-based
         else
             strongBeatIndex = -1;
     }
@@ -143,7 +147,8 @@ private:
     int strongBeatIndex;
     int samplesSinceLastBeat;
     int currentClickPosition;
-    bool enabled = false;
+    std::atomic<bool> enabled { false }; // ✅ Thread-safe
+    std::atomic<float> volume { 0.8f };  // ✅ Also make volume atomic
 
     struct TimeSignature
     {
@@ -155,8 +160,6 @@ private:
     juce::AudioBuffer<float> strongClickBuffer;
     juce::AudioBuffer<float> weakClickBuffer;
     juce::AudioBuffer<float>* currentClickBuffer;
-
-    float volume = 0.8f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Metronome)
 };
