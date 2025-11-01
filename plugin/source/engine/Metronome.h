@@ -46,6 +46,7 @@ public:
 
     void processBlock (juce::AudioBuffer<float>& buffer)
     {
+        if (! enabled) return;
         int numSamples = buffer.getNumSamples();
         int numChannels = buffer.getNumChannels();
 

@@ -249,28 +249,28 @@ private:
         { EngineMessageBus::CommandType::SetMetronomeBPM,
           [this] (const auto& cmd)
           {
-              if (std::holds_alternative<float> (cmd.payload))
+              if (std::holds_alternative<int> (cmd.payload))
               {
-                  auto bpm = static_cast<int> (std::get<float> (cmd.payload));
+                  auto bpm = static_cast<int> (std::get<int> (cmd.payload));
                   setMetronomeBpm (bpm);
               }
           } },
         { EngineMessageBus::CommandType::SetMetronomeTimeSignature,
           [this] (const auto& cmd)
           {
-              if (std::holds_alternative<std::pair<float, float>> (cmd.payload))
+              if (std::holds_alternative<std::pair<int, int>> (cmd.payload))
               {
-                  auto ts = std::get<std::pair<float, float>> (cmd.payload);
+                  auto ts = std::get<std::pair<int, int>> (cmd.payload);
                   setMetronomeTimeSignature (static_cast<int> (ts.first), static_cast<int> (ts.second));
               }
           } },
         { EngineMessageBus::CommandType::SetMetronomeStrongBeat,
           [this] (const auto& cmd)
           {
-              if (std::holds_alternative<std::pair<float, float>> (cmd.payload))
+              if (std::holds_alternative<int> (cmd.payload))
               {
-                  auto beatInfo = std::get<std::pair<float, float>> (cmd.payload);
-                  setMetronomeStrongBeat (static_cast<int> (beatInfo.first), beatInfo.second != 0.0f);
+                  auto beatInfo = static_cast<int> (std::get<int> (cmd.payload));
+                  if (beatInfo >= 0) setMetronomeStrongBeat (static_cast<int> (beatInfo), beatInfo > 0);
               }
           } },
         { EngineMessageBus::CommandType::SetMetronomeVolume,
