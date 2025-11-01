@@ -51,6 +51,7 @@ public:
         minMaxData.swap (scratchBuffer);
         width = targetWidth;
         numChannels = source.getNumChannels();
+        trackLength = sourceLength;
     }
 
     bool getMinMax (int pixelIndex, float& min, float& max, int channel) const
@@ -73,6 +74,13 @@ public:
         PERFETTO_FUNCTION();
         return width.load();
     }
+
+    int getTrackLength() const
+    {
+        PERFETTO_FUNCTION();
+        return trackLength.load();
+    }
+
     int getNumChannels() const
     {
         PERFETTO_FUNCTION();
@@ -88,6 +96,7 @@ private:
     std::vector<std::vector<std::pair<float, float>>> scratchBuffer;
     std::vector<std::vector<std::pair<float, float>>> minMaxData; // [channel][pixel]
     std::atomic<int> width { 0 };
+    std::atomic<int> trackLength { 0 };
     std::atomic<int> numChannels { 0 };
     mutable juce::CriticalSection lock;
 

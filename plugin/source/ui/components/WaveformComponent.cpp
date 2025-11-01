@@ -1,4 +1,5 @@
 #include "ui/components/WaveformComponent.h"
+#include "ui/colors/TokyoNight.h"
 
 void WaveformComponent::timerCallback()
 {
@@ -47,7 +48,19 @@ void WaveformComponent::paint (juce::Graphics& g)
     bool recording, playing;
     bridge->getPlaybackState (length, readPos, recording, playing);
 
-    renderer->render (g, cache, (int) readPos, (int) length, getWidth(), getHeight(), recording);
+    bool isSubLoop = regionEndSample > regionStartSample;
+    renderer->render (g, cache, (int) readPos, (int) length, getWidth(), getHeight(), recording, isSubLoop);
+
+    if (isSubLoop)
+    {
+        auto regionBounds = juce::Rectangle<int> (sampleToX (regionStartSample),
+                                                  0,
+                                                  sampleToX (regionEndSample) - sampleToX (regionStartSample),
+                                                  getHeight());
+
+        g.setColour (LooperTheme::Colors::green.brighter (0.6f).withAlpha (0.2f));
+        g.fillRect (regionBounds);
+    }
 }
 
 void WaveformComponent::onVBlankCallback()

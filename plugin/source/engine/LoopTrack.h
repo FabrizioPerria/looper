@@ -78,6 +78,12 @@ public:
 
     void cancelCurrentRecording();
 
+    void setLoopRegion (int startSample, int endSample) { bufferManager.setLoopRegion (startSample, endSample); }
+    void clearLoopRegion() { bufferManager.clearLoopRegion(); }
+    bool hasLoopRegion() const { return bufferManager.hasLoopRegion(); }
+    int getLoopRegionStart() const { return bufferManager.getLoopRegionStart(); }
+    int getLoopRegionEnd() const { return bufferManager.getLoopRegionEnd(); }
+
 private:
     VolumeProcessor volumeProcessor;
     BufferManager bufferManager;
