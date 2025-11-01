@@ -64,6 +64,7 @@ public:
         // Flexible payload using variant
         std::variant<std::monostate,           // Empty
                      float,                    // Single float (volume, speed, pitch)
+                     int,                      // Single int (BPM, track index)
                      bool,                     // Boolean (mute, solo, keepPitch)
                      juce::File,               // File path
                      juce::MidiBuffer,         // MIDI data

@@ -41,7 +41,7 @@ public:
         mainFlex.flexDirection = juce::FlexBox::Direction::column;
         mainFlex.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        mainFlex.items.add (juce::FlexItem (*globalBar).withFlex (0.2f));
+        mainFlex.items.add (juce::FlexItem (*globalBar).withFlex (0.25f));
 
         for (auto* channel : channels)
         {
