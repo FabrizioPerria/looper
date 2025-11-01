@@ -22,41 +22,22 @@ public:
     {
         timeSignature.numerator = numerator;
         timeSignature.denominator = denominator;
+        samplesPerBeat = calculateSamplesPerBeat(); // ✅ Recalculate
+
+        // ✅ Clamp strongBeatIndex if it's now out of range
+        if (strongBeatIndex >= timeSignature.numerator) strongBeatIndex = -1;
     }
 
     void setStrongBeat (int beatIndex, bool isStrong)
     {
         if (isStrong)
-            strongBeatIndex = beatIndex;
+            strongBeatIndex = juce::jlimit (0, timeSignature.numerator - 1, beatIndex - 1); // ✅ Convert 1-based to 0-based
         else
             strongBeatIndex = -1;
     }
 
     void disableStrongBeat() { strongBeatIndex = -1; }
 
-    void syncToLoopStart()
-    {
-        samplesSinceLastBeat = samplesPerBeat; // This will trigger the beat immediately
-        currentBeat = 0;
-        // Force click initialization
-        bool isStrongBeat = (strongBeatIndex >= 0 && currentBeat == strongBeatIndex);
-        currentClickBuffer = isStrongBeat ? &strongClickBuffer : &weakClickBuffer;
-        currentClickPosition = 0;
-    }
-
-    void syncToPosition (int loopPositionSamples)
-    {
-        if (samplesPerBeat > 0)
-        {
-            int totalBeats = loopPositionSamples / samplesPerBeat;
-            currentBeat = totalBeats % timeSignature.numerator;
-            samplesSinceLastBeat = loopPositionSamples % samplesPerBeat;
-            // Force click initialization regardless of position
-            bool isStrongBeat = (strongBeatIndex >= 0 && currentBeat == strongBeatIndex);
-            currentClickBuffer = isStrongBeat ? &strongClickBuffer : &weakClickBuffer;
-            currentClickPosition = 0;
-        }
-    }
     void prepareToPlay (double currentSampleRate, int samplesPerBlock)
     {
         sampleRate = currentSampleRate;
@@ -166,7 +147,8 @@ private:
     int strongBeatIndex;
     int samplesSinceLastBeat;
     int currentClickPosition;
-    bool enabled = false;
+    std::atomic<bool> enabled { false }; // ✅ Thread-safe
+    std::atomic<float> volume { 0.8f };  // ✅ Also make volume atomic
 
     struct TimeSignature
     {
@@ -178,8 +160,6 @@ private:
     juce::AudioBuffer<float> strongClickBuffer;
     juce::AudioBuffer<float> weakClickBuffer;
     juce::AudioBuffer<float>* currentClickBuffer;
-
-    float volume = 0.8f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Metronome)
 };
