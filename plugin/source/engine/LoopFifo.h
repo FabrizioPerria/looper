@@ -39,8 +39,31 @@ public:
     void finishedWrite (int numWritten, bool overdub, bool syncWithRead)
     {
         PERFETTO_FUNCTION();
-        writePos = (writePos + numWritten) % musicalLength;
+        if (regionEnabled)
+        {
+            writePos += numWritten;
+            if (writePos >= regionEnd) writePos = regionStart + (writePos - regionEnd);
+        }
+        else
+        {
+            writePos = (writePos + numWritten) % musicalLength;
+        }
+
         if (overdub && syncWithRead) writePos = (int) readPos;
+    }
+
+    void setLoopRegion (int start, int end)
+    {
+        regionStart = start;
+        regionEnd = end;
+        regionEnabled = true;
+    }
+
+    void clearLoopRegion()
+    {
+        regionEnabled = false;
+        regionStart = 0;
+        regionEnd = 0;
     }
 
     void prepareToRead (int numToRead, int& start1, int& size1, int& start2, int& size2)
@@ -69,7 +92,14 @@ public:
         lastPlaybackRate = playbackRate;
         readPos += playbackRate * (float) numRead;
 
-        if (musicalLength > 0)
+        if (regionEnabled)
+        {
+            if (readPos >= regionEnd)
+                readPos = (double) regionStart + std::fmod (readPos - regionStart, regionEnd - regionStart);
+            else if (readPos < regionStart)
+                readPos = (double) regionEnd - std::fmod (regionEnd - readPos, regionEnd - regionStart);
+        }
+        else if (musicalLength > 0)
         {
             readPos = std::fmod (readPos, musicalLength);
             if (readPos < 0) readPos += musicalLength;
@@ -92,6 +122,10 @@ private:
     int writePos;
     double readPos;
     bool shouldWrapAround;
+
+    bool regionEnabled = false;
+    int regionStart = 0;
+    int regionEnd = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopFifo)
 };

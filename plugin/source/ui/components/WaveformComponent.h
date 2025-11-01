@@ -65,9 +65,69 @@ public:
         }
     }
 
+    void mouseDown (const juce::MouseEvent& event) override
+    {
+        if (event.mods.isShiftDown())
+        { // Shift+drag to set loop region
+            isDraggingRegion = true;
+            dragStartX = event.x;
+            regionStartSample = xToSample (event.x);
+        }
+        else
+        {
+            isDraggingRegion = false;
+            regionStartSample = 0;
+            regionEndSample = 0;
+            uiToEngineBus->pushCommand ({ EngineMessageBus::CommandType::ClearSubLoopRegion, trackIndex, {} });
+        }
+    }
+
+    void mouseDrag (const juce::MouseEvent& event) override
+    {
+        if (isDraggingRegion)
+        {
+            dragEndX = event.x;
+            regionEndSample = xToSample (event.x);
+            if (regionEndSample < regionStartSample) std::swap (regionStartSample, regionEndSample);
+            repaint();
+        }
+    }
+
+    void mouseUp (const juce::MouseEvent& event) override
+    {
+        if (isDraggingRegion)
+        {
+            dragEndX = event.x;
+            regionEndSample = xToSample (event.x);
+            if (regionEndSample < regionStartSample) std::swap (regionStartSample, regionEndSample);
+            isDraggingRegion = false;
+            repaint();
+            uiToEngineBus->pushCommand ({ EngineMessageBus::CommandType::SetSubLoopRegion,
+                                          trackIndex,
+                                          std::make_pair (regionStartSample, regionEndSample) });
+        }
+    }
+
 private:
     void onVBlankCallback();
     void handleAsyncUpdate();
+
+    bool isDraggingRegion = false;
+    int dragStartX = 0;
+    int dragEndX = 0;
+    int regionStartSample = 0;
+    int regionEndSample = 0;
+    int xToSample (int x)
+    {
+        float normalized = (float) x / getWidth();
+        return (int) (normalized * cache.getTrackLength());
+    }
+
+    int sampleToX (int sample)
+    {
+        float normalized = (float) sample / cache.getTrackLength();
+        return (int) (normalized * getWidth());
+    }
 
     int trackIndex;
     WaveformCache cache;

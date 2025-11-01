@@ -55,6 +55,9 @@ public:
         SetMetronomeStrongBeat,
         DisableMetronomeStrongBeat,
         SetMetronomeVolume,
+
+        SetSubLoopRegion,
+        ClearSubLoopRegion,
     };
 
     struct Command

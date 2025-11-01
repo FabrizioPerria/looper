@@ -11,7 +11,14 @@ class LinearRenderer : public IRenderer
 public:
     LinearRenderer() {}
 
-    void render (juce::Graphics& g, const WaveformCache& cache, int readPos, int length, int width, int height, bool isRecording)
+    void render (juce::Graphics& g,
+                 const WaveformCache& cache,
+                 int readPos,
+                 int length,
+                 int width,
+                 int height,
+                 bool isRecording,
+                 bool isSubLoop)
     {
         // Background - use theme color, not black
         g.fillAll (LooperTheme::Colors::backgroundDark);
@@ -56,9 +63,11 @@ public:
         juce::Colour playheadColor;
 
         if (isRecording)
-            playheadColor = LooperTheme::Colors::red; // Red when recording
+            playheadColor = LooperTheme::Colors::red;
+        else if (isSubLoop)
+            playheadColor = LooperTheme::Colors::green;
         else
-            playheadColor = LooperTheme::Colors::cyan; // Cyan when playing
+            playheadColor = LooperTheme::Colors::cyan;
 
         // Glow effect
         for (int i = 5; i > 0; --i)

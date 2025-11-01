@@ -282,6 +282,31 @@ private:
                   setMetronomeVolume (volume);
               }
           } },
+        { EngineMessageBus::CommandType::SetSubLoopRegion,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::pair<int, int>> (cmd.payload))
+              {
+                  auto region = std::get<std::pair<int, int>> (cmd.payload);
+                  auto* track = getTrackByIndex (cmd.trackIndex);
+                  if (track)
+                  {
+                      track->setLoopRegion (region.first, region.second);
+                  }
+              }
+          } },
+        { EngineMessageBus::CommandType::ClearSubLoopRegion,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload))
+              {
+                  auto* track = getTrackByIndex (cmd.trackIndex);
+                  if (track)
+                  {
+                      track->clearLoopRegion();
+                  }
+              }
+          } }
 
     };
 

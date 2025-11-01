@@ -208,7 +208,31 @@ public:
     int getReadPosition() const { return fifo.getReadPos(); }
     int getWritePosition() const { return fifo.getWritePos(); }
 
+    void setLoopRegion (int startSample, int endSample)
+    {
+        fifo.setLoopRegion (startSample, endSample);
+        loopRegionStart = juce::jlimit (0, length, startSample);
+        loopRegionEnd = juce::jlimit (loopRegionStart, length, endSample);
+        loopRegionEnabled = (loopRegionEnd > loopRegionStart);
+    }
+
+    void clearLoopRegion()
+    {
+        fifo.clearLoopRegion();
+        loopRegionEnabled = false;
+        loopRegionStart = 0;
+        loopRegionEnd = length;
+    }
+
+    bool hasLoopRegion() const { return loopRegionEnabled; }
+    int getLoopRegionStart() const { return loopRegionStart; }
+    int getLoopRegionEnd() const { return loopRegionEnd; }
+
 private:
+    bool loopRegionEnabled = false;
+    int loopRegionStart = 0;
+    int loopRegionEnd = 0;
+
     std::unique_ptr<juce::AudioBuffer<float>> audioBuffer = std::make_unique<juce::AudioBuffer<float>>();
     std::unique_ptr<juce::AudioBuffer<float>> scratchBuffer = std::make_unique<juce::AudioBuffer<float>>();
     int length;
