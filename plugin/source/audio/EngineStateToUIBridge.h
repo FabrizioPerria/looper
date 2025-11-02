@@ -43,20 +43,16 @@ public:
         state.stateVersion.fetch_add (1, std::memory_order_release);
     }
 
-    void getMeterLevels (float& peakInLeft,
-                         float& rmsInLeft,
-                         float& peakInRight,
-                         float& rmsInRight,
-                         float& peakOutLeft,
-                         float& rmsOutLeft,
-                         float& peakOutRight,
-                         float& rmsOutRight)
+    void getMeterInputLevels (float& peakInLeft, float& rmsInLeft, float& peakInRight, float& rmsInRight)
     {
         peakInLeft = state.inputMeter->getLeftChannel()->getPeakLevel();
         rmsInLeft = state.inputMeter->getLeftChannel()->getRMSLevel();
         peakInRight = state.inputMeter->getRightChannel()->getPeakLevel();
         rmsInRight = state.inputMeter->getRightChannel()->getRMSLevel();
+    }
 
+    void getMeterOutputLevels (float& peakOutLeft, float& rmsOutLeft, float& peakOutRight, float& rmsOutRight)
+    {
         peakOutLeft = state.outputMeter->getLeftChannel()->getPeakLevel();
         rmsOutLeft = state.outputMeter->getLeftChannel()->getRMSLevel();
         peakOutRight = state.outputMeter->getRightChannel()->getPeakLevel();

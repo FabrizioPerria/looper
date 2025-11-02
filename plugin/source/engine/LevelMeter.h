@@ -15,9 +15,9 @@ public:
 
     void update (const ChannelContext* other)
     {
-        peakLevel.store (juce::jmax (peakLevel.load(), other->peakLevel.load()));
-        rmsLevel.store (juce::jmax (rmsLevel.load(), other->rmsLevel.load()));
-        clipCount.store (clipCount.load() + other->clipCount.load());
+        peakLevel.store (other->peakLevel.load());
+        rmsLevel.store (other->rmsLevel.load());
+        clipCount.store (other->clipCount.load());
     }
 
     void setPeakLevel (float level) { peakLevel.store (level); }
@@ -74,16 +74,21 @@ public:
     void processBuffer (const juce::AudioBuffer<float>& buffer)
     {
         auto leftChannel = meterContext->getLeftChannel();
-        leftChannel->setRMSLevel (juce::jmax (leftChannel->getRMSLevel() * decayFactor, //
-                                              buffer.getRMSLevel (0, 0, buffer.getNumSamples())));
-        leftChannel->setPeakLevel (juce::jmax (leftChannel->getPeakLevel() * decayFactor,
-                                               buffer.getMagnitude (0, 0, buffer.getNumSamples())));
+        float leftDecayCurrentRMS = leftChannel->getRMSLevel() * decayFactor;
+        float leftDecayNextRMS = buffer.getRMSLevel (0, 0, buffer.getNumSamples());
+
+        float leftDecayCurrentPeak = leftChannel->getPeakLevel() * decayFactor;
+        float leftDecayNextPeak = buffer.getMagnitude (0, 0, buffer.getNumSamples());
+        leftChannel->setRMSLevel (juce::jmax (leftDecayCurrentRMS, leftDecayNextRMS));
+        leftChannel->setPeakLevel (juce::jmax (leftDecayCurrentPeak, leftDecayNextPeak));
 
         auto rightChannel = meterContext->getRightChannel();
-        rightChannel->setRMSLevel (juce::jmax (rightChannel->getRMSLevel() * decayFactor,
-                                               buffer.getRMSLevel (1, 0, buffer.getNumSamples())));
-        rightChannel->setPeakLevel (juce::jmax (rightChannel->getPeakLevel() * decayFactor,
-                                                buffer.getMagnitude (1, 0, buffer.getNumSamples())));
+        float rightDecayCurrentRMS = rightChannel->getRMSLevel() * decayFactor;
+        float rightDecayNextRMS = buffer.getRMSLevel (1, 0, buffer.getNumSamples());
+        float rightDecayCurrentPeak = rightChannel->getPeakLevel() * decayFactor;
+        float rightDecayNextPeak = buffer.getMagnitude (1, 0, buffer.getNumSamples());
+        rightChannel->setRMSLevel (juce::jmax (rightDecayCurrentRMS, rightDecayNextRMS));
+        rightChannel->setPeakLevel (juce::jmax (rightDecayCurrentPeak, rightDecayNextPeak));
     }
 
     // Call this from the UI thread to get current peak level for a channel
@@ -103,7 +108,7 @@ public:
     StereoMeterContext& getMeterContext() const { return *meterContext; }
 
 private:
-    static constexpr float decayFactor = 0.95f; // Decay factor for smoothing
+    static constexpr float decayFactor = 0.99f; // Decay factor for smoothing
 
     std::unique_ptr<StereoMeterContext> meterContext = std::make_unique<StereoMeterContext>();
 

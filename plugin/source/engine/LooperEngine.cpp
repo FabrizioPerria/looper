@@ -359,9 +359,6 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 {
     PERFETTO_FUNCTION();
 
-    std::cout << "processBlock - this: " << this << " inputMeter ptr: " << inputMeter.get() << " outputMeter ptr: " << outputMeter.get()
-              << std::endl;
-
     buffer.applyGain (inputGain.load());
     inputMeter->processBuffer (buffer);
 

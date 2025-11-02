@@ -2,6 +2,7 @@
 
 #include "audio/EngineStateToUIBridge.h"
 #include "ui/colors/TokyoNight.h"
+#include "ui/components/MeterWithGainComponent.h"
 #include "ui/components/MetronomeComponent.h"
 #include "ui/components/TransportControlsComponent.h"
 #include <JuceHeader.h>
@@ -10,7 +11,10 @@ class GlobalControlBar : public juce::Component
 {
 public:
     GlobalControlBar (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge, Metronome* m)
-        : transportControls (engineMessageBus, bridge), metronomeComponent (engineMessageBus, m)
+        : transportControls (engineMessageBus, bridge)
+        , metronomeComponent (engineMessageBus, m)
+        , inputMeter ("IN", engineMessageBus, bridge)
+        , outputMeter ("OUT", engineMessageBus, bridge)
     {
         looperLabel.setText ("LOOPER", juce::NotificationType::dontSendNotification);
         juce::FontOptions fontOptions = juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 16.0f, juce::Font::bold);
@@ -21,6 +25,8 @@ public:
 
         addAndMakeVisible (transportControls);
         addAndMakeVisible (metronomeComponent);
+        addAndMakeVisible (inputMeter);
+        addAndMakeVisible (outputMeter);
 
         // Utility buttons
         setupButton (saveButton);
@@ -36,15 +42,15 @@ public:
         mainBox.flexDirection = juce::FlexBox::Direction::row;
         mainBox.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        // Logo
-        mainBox.items.add (juce::FlexItem (looperLabel).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 2, 0, 2)));
+        mainBox.items.add (juce::FlexItem (inputMeter).withFlex (0.7f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
+        mainBox.items.add (juce::FlexItem (outputMeter).withFlex (0.7f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
 
-        mainBox.items.add (juce::FlexItem (transportControls).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
+        mainBox.items.add (juce::FlexItem (transportControls).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 0)));
 
         // Utility buttons
-        mainBox.items.add (juce::FlexItem (metronomeComponent).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
-        mainBox.items.add (juce::FlexItem (saveButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        mainBox.items.add (juce::FlexItem (droneButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
+        mainBox.items.add (juce::FlexItem (metronomeComponent).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 0)));
+        mainBox.items.add (juce::FlexItem (saveButton).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        mainBox.items.add (juce::FlexItem (droneButton).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
 
         mainBox.performLayout (bounds.toFloat());
     }
@@ -57,6 +63,10 @@ private:
     TransportControlsComponent transportControls;
 
     MetronomeComponent metronomeComponent;
+
+    MeterWithGainComponent inputMeter;
+    MeterWithGainComponent outputMeter;
+
     juce::TextButton saveButton { "SAVE" };
     juce::TextButton droneButton { "DRONE" };
 

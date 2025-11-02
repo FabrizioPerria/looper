@@ -314,6 +314,25 @@ private:
                       track->clearLoopRegion();
                   }
               }
+          } },
+
+        { EngineMessageBus::CommandType::SetOutputGain,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<float> (cmd.payload))
+              {
+                  auto gain = std::get<float> (cmd.payload);
+                  outputGain.store (gain);
+              }
+          } },
+        { EngineMessageBus::CommandType::SetInputGain,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<float> (cmd.payload))
+              {
+                  auto gain = std::get<float> (cmd.payload);
+                  inputGain.store (gain);
+              }
           } }
 
     };
