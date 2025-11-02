@@ -13,7 +13,7 @@
  * - AudioToUIBridge: waveform data & playback position
  * - EngineStateToUIBridge: recording/playing state
  */
-class EngineMessageBus
+class EngineMessageBus : juce::Timer
 {
 public:
     // ============================================================================
@@ -109,6 +109,7 @@ public:
         MetronomeTimeSignatureChanged,
         MetronomeStrongBeatChanged,
         MetronomeVolumeChanged,
+        MetronomeBeatOccurred,
     };
 
     struct Event
@@ -120,8 +121,9 @@ public:
                      float,
                      int,
                      bool,
-                     std::pair<int, int>, // Time signature
-                     juce::String         // Error messages, file paths, etc.
+                     std::pair<int, int>,  // Time signature
+                     std::pair<int, bool>, // Strong beat info
+                     juce::String          // Error messages, file paths, etc.
                      >
             data;
     };
@@ -142,7 +144,9 @@ public:
     {
         commandBuffer.resize (FIFO_SIZE);
         eventBuffer.resize (FIFO_SIZE);
+        startTimerHz (120);
     }
+    ~EngineMessageBus() override { stopTimer(); }
 
     // ============ COMMAND API (UI -> Engine) ============
 
@@ -251,6 +255,8 @@ public:
     }
 
 private:
+    void timerCallback() override { dispatchPendingEvents(); }
+
     static constexpr int FIFO_SIZE = 1024;
 
     // Command system (UI -> Engine)

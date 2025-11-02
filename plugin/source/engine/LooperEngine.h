@@ -73,6 +73,8 @@ public:
     EngineStateToUIBridge* getEngineStateBridge() const { return engineStateBridge.get(); }
     EngineMessageBus* getMessageBus() const { return messageBus.get(); }
 
+    Metronome* getMetronome() const { return metronome.get(); }
+
 private:
     // State machine
     LooperStateMachine stateMachine;

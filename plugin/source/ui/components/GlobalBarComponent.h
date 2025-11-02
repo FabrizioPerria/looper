@@ -9,8 +9,8 @@
 class GlobalControlBar : public juce::Component
 {
 public:
-    GlobalControlBar (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge)
-        : transportControls (engineMessageBus, bridge), metronomeComponent (engineMessageBus)
+    GlobalControlBar (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge, Metronome* m)
+        : transportControls (engineMessageBus, bridge), metronomeComponent (engineMessageBus, m)
     {
         looperLabel.setText ("LOOPER", juce::NotificationType::dontSendNotification);
         juce::FontOptions fontOptions = juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 16.0f, juce::Font::bold);

@@ -9,7 +9,7 @@ public:
 
     ~Metronome() = default;
 
-    void setEnabled (bool shouldBeEnabled) { enabled = shouldBeEnabled; }
+    // void setEnabled (bool shouldBeEnabled) { enabled = shouldBeEnabled; }
     bool isEnabled() const { return enabled; }
 
     void setBpm (int newBpm)
@@ -50,31 +50,35 @@ public:
 
     void processBlock (juce::AudioBuffer<float>& buffer)
     {
-        if (! enabled) return;
+        if (! enabled.load (std::memory_order_relaxed)) return;
+
         int numSamples = buffer.getNumSamples();
         int numChannels = buffer.getNumChannels();
+        float vol = volume.load (std::memory_order_relaxed);
 
         for (int sample = 0; sample < numSamples; ++sample)
         {
-            // More precise beat timing
-            double exactBeatPosition = static_cast<double> (samplesSinceLastBeat) / samplesPerBeat;
-            bool timeForNewBeat = exactBeatPosition >= 1.0;
-
-            if (timeForNewBeat)
+            // Check if we've hit a beat at this exact sample
+            if (samplesSinceLastBeat >= samplesPerBeat && samplesPerBeat > 0)
             {
-                samplesSinceLastBeat = samplesSinceLastBeat - samplesPerBeat; // Keep remainder
-                bool isStrongBeat = (strongBeatIndex >= 0 && currentBeat == strongBeatIndex);
+                samplesSinceLastBeat -= samplesPerBeat;
+                currentBeat = (currentBeat + 1) % timeSignature.numerator;
 
+                bool isStrongBeat = (strongBeatIndex >= 0 && currentBeat == strongBeatIndex);
                 currentClickBuffer = isStrongBeat ? &strongClickBuffer : &weakClickBuffer;
                 currentClickPosition = 0;
 
-                currentBeat = (currentBeat + 1) % timeSignature.numerator;
+                // Trigger callback at the exact sample where beat occurs
+                // if (onBeatCallback)
+                // {
+                //     onBeatCallback (isStrongBeat);
+                // }
             }
 
-            // Play the click sound if we have one active
+            // Render one sample of the click sound if active
             if (currentClickBuffer && currentClickPosition < currentClickBuffer->getNumSamples())
             {
-                float clickSample = currentClickBuffer->getSample (0, currentClickPosition) * volume;
+                float clickSample = currentClickBuffer->getSample (0, currentClickPosition) * vol;
 
                 for (int ch = 0; ch < numChannels; ++ch)
                 {
@@ -86,6 +90,17 @@ public:
 
             samplesSinceLastBeat++;
         }
+    }
+
+    void setEnabled (bool shouldBeEnabled)
+    {
+        if (! shouldBeEnabled)
+        {
+            // ✅ Reset click position when disabling
+            currentClickPosition = 0;
+            currentClickBuffer = nullptr;
+        }
+        enabled = shouldBeEnabled;
     }
 
     void reset()
@@ -104,6 +119,9 @@ public:
 
     void setVolume (float newVolume) { volume = newVolume; }
     float getVolume() const { return volume; }
+
+    bool isStrongBeat() const { return (strongBeatIndex >= 0 && currentBeat == strongBeatIndex); }
+    // std::function<void (bool isStrongBeat)> onBeatCallback;
 
 private:
     void generateClickSounds()
