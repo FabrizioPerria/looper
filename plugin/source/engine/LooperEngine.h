@@ -49,7 +49,6 @@ public:
     int getNumTracks() const { return numTracks; }
 
     LoopTrack* getTrackByIndex (int trackIndex) const;
-    AudioToUIBridge* getUIBridgeByIndex (int trackIndex);
 
     void processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages);
 
@@ -101,8 +100,6 @@ private:
     int nextTrackIndex = -1;
 
     std::vector<std::unique_ptr<LoopTrack>> loopTracks;
-    std::vector<std::unique_ptr<AudioToUIBridge>> uiBridges;
-    std::vector<bool> bridgeInitialized;
 
     // Helper methods
     bool trackHasContent() const;
@@ -113,8 +110,6 @@ private:
 
     bool transitionTo (LooperState newState);
     StateContext createStateContext (const juce::AudioBuffer<float>& buffer);
-    void updateUIBridge (StateContext& ctx, bool wasRecording);
-    int calculateLengthToShow (const LoopTrack* track, bool isRecording) const;
 
     void setPendingAction (PendingAction::Type type, int trackIndex, bool waitForWrap);
     void processPendingActions();

@@ -50,7 +50,10 @@ void LoopTrack::releaseResources()
 // Recording
 //==============================================================================
 
-void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int numSamples, const bool isOverdub)
+void LoopTrack::processRecord (const juce::AudioBuffer<float>& input,
+                               const int numSamples,
+                               const bool isOverdub,
+                               const LooperState& currentLooperState)
 {
     PERFETTO_FUNCTION();
 
@@ -61,6 +64,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
                                                       numSamples,
                                                       isOverdub,
                                                       true);
+    updateUIBridge (numSamples, true, currentLooperState);
 }
 
 void LoopTrack::initializeForNewOverdubSession()
@@ -81,6 +85,7 @@ void LoopTrack::finalizeLayer (const bool isOverdub)
 
     applyPostProcessing (audioBuffer, length);
     undoManager.stageCurrentBuffer (audioBuffer, length);
+    uiBridge->signalWaveformChanged();
 }
 
 void LoopTrack::applyPostProcessing (juce::AudioBuffer<float>& audioBuffer, int length)
@@ -89,11 +94,15 @@ void LoopTrack::applyPostProcessing (juce::AudioBuffer<float>& audioBuffer, int 
     volumeProcessor.applyCrossfade (audioBuffer, length);
 }
 
-void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int numSamples, const bool isOverdub)
+void LoopTrack::processPlayback (juce::AudioBuffer<float>& output,
+                                 const int numSamples,
+                                 const bool isOverdub,
+                                 const LooperState& currentLooperState)
 {
     PERFETTO_FUNCTION();
     playbackEngine.processPlayback (output, bufferManager, numSamples, isOverdub);
     volumeProcessor.applyVolume (output, numSamples);
+    updateUIBridge (numSamples, false, currentLooperState);
 }
 
 void LoopTrack::clear()
@@ -103,6 +112,10 @@ void LoopTrack::clear()
     bufferManager.clear();
     undoManager.clear();
     playbackEngine.clear();
+
+    uiBridge->clear();
+    bridgeInitialized = false;
+    uiBridge->signalWaveformChanged();
 }
 
 bool LoopTrack::undo()
@@ -119,6 +132,7 @@ bool LoopTrack::undo()
         applyPostProcessing (audioBuffer, length);
         undoManager.stageCurrentBuffer (audioBuffer, length);
 
+        uiBridge->signalWaveformChanged();
         return true;
     }
     return false;
@@ -138,6 +152,7 @@ bool LoopTrack::redo()
         applyPostProcessing (audioBuffer, length);
         undoManager.stageCurrentBuffer (audioBuffer, length);
 
+        uiBridge->signalWaveformChanged();
         return true;
     }
     return false;
@@ -164,4 +179,5 @@ void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
                                       false);
 
     finalizeLayer (false);
+    updateUIBridge (copySamples, false, LooperState::Stopped);
 }

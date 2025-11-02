@@ -1,7 +1,9 @@
 #pragma once
 
 #include "UndoManager.h"
+#include "audio/AudioToUIBridge.h"
 #include "engine/BufferManager.h"
+#include "engine/LooperStateConfig.h"
 #include "engine/PlaybackEngine.h"
 #include "engine/VolumeProcessor.h"
 #include "juce_audio_basics/juce_audio_basics.h"
@@ -21,10 +23,17 @@ public:
     void releaseResources();
 
     void initializeForNewOverdubSession();
-    void processRecord (const juce::AudioBuffer<float>& input, const int numSamples, const bool isOverdub);
+    void processRecord (const juce::AudioBuffer<float>& input,
+                        const int numSamples,
+                        const bool isOverdub,
+                        const LooperState& currentLooperState);
+
     void finalizeLayer (const bool isOverdub);
 
-    void processPlayback (juce::AudioBuffer<float>& output, const int numSamples, const bool isOverdub);
+    void processPlayback (juce::AudioBuffer<float>& output,
+                          const int numSamples,
+                          const bool isOverdub,
+                          const LooperState& currentLooperState);
 
     void clear();
     bool undo();
@@ -84,6 +93,8 @@ public:
     int getLoopRegionStart() const { return bufferManager.getLoopRegionStart(); }
     int getLoopRegionEnd() const { return bufferManager.getLoopRegionEnd(); }
 
+    AudioToUIBridge* getUIBridge() const { return uiBridge.get(); }
+
 private:
     VolumeProcessor volumeProcessor;
     BufferManager bufferManager;
@@ -95,15 +106,61 @@ private:
     int channels = 0;
     size_t alignedBufferSize = 0;
 
-    // Recording state - tracks if we have unfinalized recording data
-    // This is set when processRecord is called and cleared when finalizeLayer/cancelCurrentRecording is called
-    // bool hitRecordingLimit = false;
+    std::unique_ptr<AudioToUIBridge> uiBridge = std::make_unique<AudioToUIBridge>();
+    bool bridgeInitialized = uiBridge != nullptr;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
     void applyPostProcessing (juce::AudioBuffer<float>& audioBuffer, int length);
 
     static const int MAX_SECONDS_HARD_LIMIT = 10 * 60; // 10 minutes
     static const int MAX_UNDO_LAYERS = 5;
+
+    void updateUIBridge (int numSamples, bool wasRecording, LooperState currentState)
+    {
+        PERFETTO_FUNCTION();
+
+        bool nowRecording = StateConfig::isRecording (currentState);
+
+        // Initialize bridge if needed
+        if (! bridgeInitialized && getTrackLengthSamples() > 0)
+        {
+            uiBridge->signalWaveformChanged();
+            bridgeInitialized = true;
+        }
+
+        // Handle recording finalization
+        if (wasRecording && ! nowRecording)
+        {
+            uiBridge->signalWaveformChanged();
+            uiBridge->resetRecordingCounter();
+        }
+
+        // Periodic updates during recording
+        if (nowRecording && uiBridge->shouldUpdateWhileRecording (numSamples, sampleRate))
+        {
+            uiBridge->signalWaveformChanged();
+        }
+
+        // Update bridge state
+        int lengthToShow = calculateLengthToShow (nowRecording);
+        bool shouldShowPlaying = StateConfig::isPlaying (currentState);
+
+        uiBridge->updateFromAudioThread (getAudioBuffer(), lengthToShow, getCurrentReadPosition(), nowRecording, shouldShowPlaying);
+    }
+
+    int calculateLengthToShow (bool isRecording) const
+    {
+        PERFETTO_FUNCTION();
+
+        int length = getTrackLengthSamples();
+
+        if (length == 0 && isRecording)
+        {
+            length = std::min (getCurrentWritePosition() + 200, getAvailableTrackSizeSamples());
+        }
+
+        return length;
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoopTrack)
 };

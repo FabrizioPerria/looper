@@ -39,8 +39,6 @@ void LooperEngine::releaseResources()
         track->releaseResources();
 
     loopTracks.clear();
-    uiBridges.clear();
-    bridgeInitialized.clear();
 
     sampleRate = 0.0;
     maxBlockSize = 0;
@@ -56,12 +54,10 @@ void LooperEngine::releaseResources()
 void LooperEngine::addTrack()
 {
     PERFETTO_FUNCTION();
+
     auto track = std::make_unique<LoopTrack>();
     track->prepareToPlay (sampleRate, maxBlockSize, numChannels);
     loopTracks.push_back (std::move (track));
-
-    uiBridges.push_back (std::make_unique<AudioToUIBridge>());
-    bridgeInitialized.push_back (false);
 
     numTracks = static_cast<int> (loopTracks.size());
     activeTrackIndex = numTracks - 1;
@@ -81,12 +77,12 @@ LoopTrack* LooperEngine::getTrackByIndex (int trackIndex) const
     return nullptr;
 }
 
-AudioToUIBridge* LooperEngine::getUIBridgeByIndex (int trackIndex)
-{
-    PERFETTO_FUNCTION();
-    if (trackIndex >= 0 && trackIndex < numTracks) return uiBridges[(size_t) trackIndex].get();
-    return nullptr;
-}
+// AudioToUIBridge* LooperEngine::getUIBridgeByIndex (int trackIndex)
+// {
+//     PERFETTO_FUNCTION();
+//     if (trackIndex >= 0 && trackIndex < numTracks) return uiBridges[(size_t) trackIndex].get();
+//     return nullptr;
+// }
 
 bool LooperEngine::trackHasContent() const
 {
@@ -120,67 +116,13 @@ StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& b
 {
     PERFETTO_FUNCTION();
     return StateContext { .track = getActiveTrack(),
-                          .bridge = getUIBridgeByIndex (activeTrackIndex),
                           .inputBuffer = &buffer,
                           .outputBuffer = const_cast<juce::AudioBuffer<float>*> (&buffer),
                           .numSamples = buffer.getNumSamples(),
                           .sampleRate = sampleRate,
                           .trackIndex = activeTrackIndex,
-                          .bridgeInitialized = bridgeInitialized[(size_t) activeTrackIndex],
+                          .wasRecording = StateConfig::isRecording (currentState),
                           .allTracks = &loopTracks };
-}
-
-int LooperEngine::calculateLengthToShow (const LoopTrack* track, bool isRecording) const
-{
-    PERFETTO_FUNCTION();
-    if (! track) return 0;
-
-    int length = track->getTrackLengthSamples();
-
-    if (length == 0 && isRecording)
-    {
-        length = std::min (track->getCurrentWritePosition() + 200, track->getAvailableTrackSizeSamples());
-    }
-
-    return length;
-}
-
-void LooperEngine::updateUIBridge (StateContext& ctx, bool wasRecording)
-{
-    PERFETTO_FUNCTION();
-    if (! ctx.track || ! ctx.bridge) return;
-
-    bool nowRecording = StateConfig::isRecording (currentState);
-
-    // Initialize bridge if needed
-    if (! (ctx.bridgeInitialized) && ctx.track->getTrackLengthSamples() > 0)
-    {
-        ctx.bridge->signalWaveformChanged();
-        ctx.bridgeInitialized = true;
-    }
-
-    // Handle recording finalization
-    if (wasRecording && ! nowRecording)
-    {
-        ctx.bridge->signalWaveformChanged();
-        ctx.bridge->resetRecordingCounter();
-    }
-
-    // Periodic updates during recording
-    if (nowRecording && ctx.bridge->shouldUpdateWhileRecording (ctx.numSamples, ctx.sampleRate))
-    {
-        ctx.bridge->signalWaveformChanged();
-    }
-
-    // Update bridge state
-    int lengthToShow = calculateLengthToShow (ctx.track, nowRecording);
-    bool shouldShowPlaying = StateConfig::isPlaying (currentState);
-
-    ctx.bridge->updateFromAudioThread (ctx.track->getAudioBuffer(),
-                                       lengthToShow,
-                                       ctx.track->getCurrentReadPosition(),
-                                       nowRecording,
-                                       shouldShowPlaying);
 }
 
 bool LooperEngine::transitionTo (LooperState newState)
@@ -305,13 +247,8 @@ void LooperEngine::undo (int trackIndex)
     if (! StateConfig::allowsUndo (currentState)) return;
 
     auto* track = getTrackByIndex (trackIndex);
-    auto* bridge = getUIBridgeByIndex (trackIndex);
-    if (! track || ! bridge) return;
 
-    if (track->undo())
-    {
-        bridge->signalWaveformChanged();
-    }
+    track->undo();
 }
 void LooperEngine::setTrackPitch (int trackIndex, float pitch)
 {
@@ -327,13 +264,8 @@ void LooperEngine::redo (int trackIndex)
     if (! StateConfig::allowsUndo (currentState)) return;
 
     auto* track = getTrackByIndex (trackIndex);
-    auto* bridge = getUIBridgeByIndex (trackIndex);
-    if (! track || ! bridge) return;
 
-    if (track->redo())
-    {
-        bridge->signalWaveformChanged();
-    }
+    track->redo();
 }
 
 void LooperEngine::clear (int trackIndex)
@@ -342,13 +274,8 @@ void LooperEngine::clear (int trackIndex)
     if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
 
     auto* track = getTrackByIndex (trackIndex);
-    auto* bridge = getUIBridgeByIndex (trackIndex);
-    if (! track || ! bridge) return;
 
     track->clear();
-    bridge->clear();
-    bridgeInitialized[(size_t) trackIndex] = false;
-    bridge->signalWaveformChanged();
 
     if (trackIndex == activeTrackIndex)
     {
@@ -370,16 +297,11 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
     handleMidiCommand (midiMessages);
     auto* activeTrack = getActiveTrack();
-    auto* bridge = getUIBridgeByIndex (activeTrackIndex);
-    if (! activeTrack || ! bridge) return;
-
-    bool wasRecording = StateConfig::isRecording (currentState);
+    if (! activeTrack) return;
 
     processPendingActions();
     auto ctx = createStateContext (buffer);
     stateMachine.processAudio (currentState, ctx);
-
-    updateUIBridge (ctx, wasRecording);
 
     if (metronome->isEnabled()) metronome->processBlock (buffer);
 
@@ -479,8 +401,6 @@ void LooperEngine::removeTrack (int trackIndex)
     if (activeTrackIndex == trackIndex || trackIndex < 0 || trackIndex >= numTracks) return;
 
     loopTracks.erase (loopTracks.begin() + trackIndex);
-    uiBridges.erase (uiBridges.begin() + trackIndex);
-    bridgeInitialized.erase (bridgeInitialized.begin() + trackIndex);
 
     numTracks = static_cast<int> (loopTracks.size());
     if (activeTrackIndex >= numTracks) activeTrackIndex = numTracks - 1;
@@ -514,8 +434,6 @@ void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& back
     if (track)
     {
         track->loadBackingTrack (backingTrack);
-        auto context = createStateContext (backingTrack);
-        updateUIBridge (context, false);
 
         play();
     }
