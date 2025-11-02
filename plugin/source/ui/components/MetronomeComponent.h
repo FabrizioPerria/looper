@@ -94,11 +94,11 @@ public:
         strongBeatButton.setMaxValue (numeratorEditor.getText().getIntValue());
         strongBeatButton.setColour (juce::TextButton::textColourOffId, LooperTheme::Colors::textDim);
         strongBeatButton.setColour (juce::TextButton::textColourOnId, LooperTheme::Colors::background);
-        strongBeatButton.onClick = [this]()
+        strongBeatButton.onValueChanged = [this] (int currentValue)
         {
             uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetMetronomeStrongBeat,
                                                                     -1,
-                                                                    strongBeatButton.getCurrentValue() });
+                                                                    currentValue });
         };
         addAndMakeVisible (strongBeatButton);
 

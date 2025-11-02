@@ -65,6 +65,11 @@ public:
             g.setColour (LooperTheme::Colors::yellow.withAlpha (0.5f));
             g.drawEllipse (ledBounds.expanded (2.0f), 2.0f);
         }
+
+        // Show lastBeat number inside LED for debugging
+        g.setColour (LooperTheme::Colors::surface);
+        g.setFont (juce::Font (juce::Font::getDefaultMonospacedFontName(), 10.0f, juce::Font::bold));
+        g.drawText (juce::String (lastBeat + 1), ledBounds.toNearestInt(), juce::Justification::centred);
     }
 
     void resized() override
@@ -216,15 +221,8 @@ private:
         // BPM = 60000 / interval_ms
         int newBPM = juce::roundToInt (60000.0 / averageInterval);
 
-        // Clamp to valid range
         newBPM = juce::jlimit (MIN_BPM, MAX_BPM, newBPM);
-
-        // Set the new BPM
         setMetronomeBPM (newBPM);
-
-        DBG ("Tap Tempo: " << tapTimes.size() << " taps, "
-                           << "avg interval: " << juce::String (averageInterval, 1) << "ms, "
-                           << "BPM: " << newBPM);
 
         repaint();
     }
