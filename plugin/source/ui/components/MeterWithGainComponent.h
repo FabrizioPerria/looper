@@ -125,42 +125,72 @@ private:
         float peakDb = juce::Decibels::gainToDecibels (peak);
         float rmsDb = juce::Decibels::gainToDecibels (rms);
 
-        // Map dB range (-60 to +12) to pixel width
-        auto dbToWidth = [&] (float db)
+        // Define segments (dB thresholds and colors)
+        struct Segment
         {
-            float normalized = juce::jmap (db, -60.0f, 12.0f, 0.0f, 1.0f);
-            return juce::jlimit (0.0f, 1.0f, normalized) * bounds.getWidth();
+            float startDb;
+            float endDb;
+            juce::Colour color;
         };
 
-        float peakWidth = dbToWidth (peakDb);
-        float rmsWidth = dbToWidth (rmsDb);
+        std::vector<Segment> segments = { { -60.0f, -18.0f, juce::Colours::green },
+                                          { -18.0f, -6.0f, juce::Colours::yellow },
+                                          { -6.0f, 0.0f, juce::Colours::orange },
+                                          { 0.0f, 12.0f, juce::Colours::red } };
 
-        // Draw RMS bar first (full height, SOLID darker color)
-        if (rmsWidth > 0)
+        int numDots = 30;                 // Number of LED dots
+        float dbPerDot = 72.0f / numDots; // 72dB range (-60 to +12)
+        float spacing = (float) bounds.getWidth() / numDots;
+        float dotRadius = juce::jmin (spacing * 0.4f, (float) bounds.getHeight() * 0.35f); // Adaptive size
+
+        // Draw each dot
+        for (int i = 0; i < numDots; ++i)
         {
-            auto rmsRect = bounds.withWidth (static_cast<int> (rmsWidth));
-            g.setColour (getMeterColor (rmsDb).withMultipliedBrightness (0.5f)); // 50% darker
-            g.fillRect (rmsRect);
+            float dotDb = -60.0f + (i * dbPerDot);
+            float dotCenterDb = dotDb + (dbPerDot / 2.0f);
+
+            // Determine dot color
+            juce::Colour dotColor = juce::Colours::darkgrey;
+            for (const auto& seg : segments)
+            {
+                if (dotCenterDb >= seg.startDb && dotCenterDb < seg.endDb)
+                {
+                    dotColor = seg.color;
+                    break;
+                }
+            }
+
+            // Check if this dot should be lit
+            bool peakLit = peakDb >= dotCenterDb;
+            bool rmsLit = rmsDb >= dotCenterDb;
+
+            float dotX = bounds.getX() + (i * spacing) + (spacing / 2.0f);
+            float dotY = bounds.getCentreY();
+
+            // Draw RMS indicator (smaller, dimmer circle behind)
+            if (rmsLit)
+            {
+                g.setColour (dotColor.withMultipliedBrightness (0.4f));
+                g.fillEllipse (dotX - dotRadius * 0.7f, dotY - dotRadius * 0.7f, dotRadius * 1.4f, dotRadius * 1.4f);
+            }
+
+            // Draw peak dot (main, bright)
+            if (peakLit)
+            {
+                g.setColour (dotColor);
+                g.fillEllipse (dotX - dotRadius, dotY - dotRadius, dotRadius * 2.0f, dotRadius * 2.0f);
+
+                // Optional: add bright center/glow for active dots
+                g.setColour (dotColor.brighter (0.3f));
+                g.fillEllipse (dotX - dotRadius * 0.5f, dotY - dotRadius * 0.5f, dotRadius, dotRadius);
+            }
+            else
+            {
+                // Draw dim outline to show inactive dot
+                g.setColour (dotColor.withAlpha (0.15f));
+                g.fillEllipse (dotX - dotRadius * 0.6f, dotY - dotRadius * 0.6f, dotRadius * 1.2f, dotRadius * 1.2f);
+            }
         }
-
-        // Draw PEAK bar on top (75% height, centered, bright gradient)
-        if (peakWidth > 0)
-        {
-            int peakHeight = bounds.getHeight() * 0.75f;
-            int peakY = bounds.getCentreY() - peakHeight / 2;
-            auto peakRect = juce::Rectangle<int> (bounds.getX(), peakY, static_cast<int> (peakWidth), peakHeight);
-
-            juce::ColourGradient
-                gradient (getMeterColor (-20.0f), peakRect.getX(), 0, getMeterColor (peakDb), peakRect.getRight(), 0, false);
-            gradient.addColour (0.5, getMeterColor (-10.0f));
-            g.setGradientFill (gradient);
-            g.fillRect (peakRect);
-        }
-
-        // Draw 0dB marker
-        float zeroDB = dbToWidth (0.0f);
-        g.setColour (LooperTheme::Colors::text.withAlpha (0.3f));
-        g.drawVerticalLine (bounds.getX() + static_cast<int> (zeroDB), bounds.getY(), bounds.getBottom());
 
         // Draw border
         g.setColour (LooperTheme::Colors::text.withAlpha (0.2f));
