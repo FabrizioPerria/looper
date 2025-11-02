@@ -3,6 +3,7 @@
 #include "audio/AudioToUIBridge.h"
 #include "audio/EngineCommandBus.h"
 #include "audio/EngineStateToUIBridge.h"
+#include "engine/LevelMeter.h"
 #include "engine/LoopTrack.h"
 #include "engine/LooperStateMachine.h"
 #include "engine/Metronome.h"
@@ -50,7 +51,7 @@ public:
     LoopTrack* getTrackByIndex (int trackIndex) const;
     AudioToUIBridge* getUIBridgeByIndex (int trackIndex);
 
-    void processBlock (const juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages);
+    void processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages);
 
     // User actions
     void toggleRecord();
@@ -82,8 +83,11 @@ private:
     PendingAction pendingAction;
     std::unique_ptr<EngineStateToUIBridge> engineStateBridge = std::make_unique<EngineStateToUIBridge>();
     std::unique_ptr<EngineMessageBus> messageBus = std::make_unique<EngineMessageBus>();
-
     std::unique_ptr<Metronome> metronome = std::make_unique<Metronome>();
+
+    LevelMeter inputMeter, outputMeter;
+    std::atomic<float> inputGain { 1.0f };
+    std::atomic<float> outputGain { 1.0f };
 
     // Engine data
     double sampleRate = 0.0;
