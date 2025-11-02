@@ -85,7 +85,9 @@ private:
     std::unique_ptr<EngineMessageBus> messageBus = std::make_unique<EngineMessageBus>();
     std::unique_ptr<Metronome> metronome = std::make_unique<Metronome>();
 
-    LevelMeter inputMeter, outputMeter;
+    std::unique_ptr<LevelMeter> inputMeter = std::make_unique<LevelMeter>();
+    std::unique_ptr<LevelMeter> outputMeter = std::make_unique<LevelMeter>();
+
     std::atomic<float> inputGain { 1.0f };
     std::atomic<float> outputGain { 1.0f };
 

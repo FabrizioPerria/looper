@@ -8,6 +8,7 @@
 #include <algorithm>
 
 LooperEngine::LooperEngine() {}
+
 LooperEngine::~LooperEngine() { releaseResources(); }
 
 void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int newNumTracks, int newNumChannels)
@@ -25,8 +26,8 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
 
     metronome->prepareToPlay (sampleRate, maxBlockSize);
 
-    inputMeter.prepare (numChannels);
-    outputMeter.prepare (numChannels);
+    inputMeter->prepare (numChannels);
+    outputMeter->prepare (numChannels);
 
     setPendingAction (PendingAction::Type::SwitchTrack, 0, false);
 }
@@ -358,8 +359,11 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 {
     PERFETTO_FUNCTION();
 
+    std::cout << "processBlock - this: " << this << " inputMeter ptr: " << inputMeter.get() << " outputMeter ptr: " << outputMeter.get()
+              << std::endl;
+
     buffer.applyGain (inputGain.load());
-    inputMeter.processBuffer (buffer);
+    inputMeter->processBuffer (buffer);
 
     processCommandsFromMessageBus();
 
@@ -379,17 +383,19 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
     updateUIBridge (ctx, wasRecording);
 
+    if (metronome->isEnabled()) metronome->processBlock (buffer);
+
+    buffer.applyGain (outputGain.load());
+    outputMeter->processBuffer (buffer);
+
     // Update global engine state for transport controls
     engineStateBridge->updateFromAudioThread (StateConfig::isRecording (currentState),
                                               StateConfig::isPlaying (currentState),
                                               activeTrackIndex,
                                               nextTrackIndex,
-                                              numTracks);
-
-    if (metronome->isEnabled()) metronome->processBlock (buffer);
-
-    buffer.applyGain (outputGain.load());
-    outputMeter.processBuffer (buffer);
+                                              numTracks,
+                                              inputMeter->getMeterContext(),
+                                              outputMeter->getMeterContext());
 }
 
 void LooperEngine::processCommandsFromMessageBus()

@@ -1,66 +1,111 @@
 #pragma once
 #include <JuceHeader.h>
 
+class ChannelContext
+{
+public:
+    ChannelContext() {}
+
+    void clear()
+    {
+        peakLevel.store (0.0f);
+        rmsLevel.store (0.0f);
+        clipCount.store (0);
+    }
+
+    void update (const ChannelContext* other)
+    {
+        peakLevel.store (juce::jmax (peakLevel.load(), other->peakLevel.load()));
+        rmsLevel.store (juce::jmax (rmsLevel.load(), other->rmsLevel.load()));
+        clipCount.store (clipCount.load() + other->clipCount.load());
+    }
+
+    void setPeakLevel (float level) { peakLevel.store (level); }
+    void setRMSLevel (float level) { rmsLevel.store (level); }
+    void incrementClipCount() { clipCount.fetch_add (1); }
+
+    float getPeakLevel() const { return peakLevel.load(); }
+    float getRMSLevel() const { return rmsLevel.load(); }
+    int getClipCount() const { return clipCount.load(); }
+
+private:
+    std::atomic<float> peakLevel { 0.0f };
+    std::atomic<float> rmsLevel { 0.0f };
+    std::atomic<int> clipCount { 0 };
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChannelContext)
+};
+
+class StereoMeterContext
+{
+public:
+    StereoMeterContext() {}
+    void clear()
+    {
+        leftChannel->clear();
+        rightChannel->clear();
+    }
+
+    void update (const StereoMeterContext& other)
+    {
+        leftChannel->update (other.getLeftChannel());
+        rightChannel->update (other.getRightChannel());
+    }
+
+    ChannelContext* getLeftChannel() const { return leftChannel.get(); }
+    ChannelContext* getRightChannel() const { return rightChannel.get(); }
+
+private:
+    std::unique_ptr<ChannelContext> leftChannel = std::make_unique<ChannelContext>();
+    std::unique_ptr<ChannelContext> rightChannel = std::make_unique<ChannelContext>();
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StereoMeterContext)
+};
+
 class LevelMeter
 {
 public:
-    LevelMeter() = default;
-    ~LevelMeter() = default;
+    LevelMeter() {}
 
-    void reset()
-    {
-        for (size_t channel = 0; channel < peakLevels.size(); ++channel)
-        {
-            peakLevels[channel].store (0.0f);
-            rmsLevels[channel].store (0.0f);
-        }
-    }
+    void clear() { meterContext->clear(); }
 
-    void prepare (int numChannels)
-    {
-        if (peakLevels.size() != numChannels)
-        {
-            peakLevels = std::vector<std::atomic<float>> (numChannels);
-            rmsLevels = std::vector<std::atomic<float>> (numChannels);
-            reset();
-        }
-    }
+    void prepare (int numChannels) { clear(); }
 
     void processBuffer (const juce::AudioBuffer<float>& buffer)
     {
-        for (size_t channel = 0; channel < (size_t) buffer.getNumChannels(); ++channel)
-        {
-            rmsLevels[channel].store (juce::jmax (peakLevels[channel].load() * decayFactor,
-                                                  buffer.getRMSLevel ((int) channel, 0, buffer.getNumSamples())));
-            peakLevels[channel].store (juce::jmax (peakLevels[channel].load() * decayFactor,
-                                                   buffer.getMagnitude ((int) channel, 0, buffer.getNumSamples())));
-        }
-        std::cout << "Peak Levels: ";
-        for (const auto& level : peakLevels)
-        {
-            std::cout << level.load() << " ";
-        }
+        auto leftChannel = meterContext->getLeftChannel();
+        leftChannel->setRMSLevel (juce::jmax (leftChannel->getRMSLevel() * decayFactor, //
+                                              buffer.getRMSLevel (0, 0, buffer.getNumSamples())));
+        leftChannel->setPeakLevel (juce::jmax (leftChannel->getPeakLevel() * decayFactor,
+                                               buffer.getMagnitude (0, 0, buffer.getNumSamples())));
 
-        std::cout << std::endl << "RMS Levels: ";
-
-        for (const auto& level : rmsLevels)
-        {
-            std::cout << level.load() << " ";
-        }
-        std::cout << std::endl;
+        auto rightChannel = meterContext->getRightChannel();
+        rightChannel->setRMSLevel (juce::jmax (rightChannel->getRMSLevel() * decayFactor,
+                                               buffer.getRMSLevel (1, 0, buffer.getNumSamples())));
+        rightChannel->setPeakLevel (juce::jmax (rightChannel->getPeakLevel() * decayFactor,
+                                                buffer.getMagnitude (1, 0, buffer.getNumSamples())));
     }
 
     // Call this from the UI thread to get current peak level for a channel
-    float getPeakLevel (int channel) const { return peakLevels[(size_t) channel].load(); }
+    float getPeakLevel (int channel) const
+    {
+        return (channel == 0) ? meterContext->getLeftChannel()->getPeakLevel() //
+                              : meterContext->getRightChannel()->getPeakLevel();
+    }
 
     // Call this from the UI thread to get current RMS level for a channel
-    float getRMSLevel (int channel) const { return rmsLevels[(size_t) channel].load(); }
+    float getRMSLevel (int channel) const
+    {
+        return (channel == 0) ? meterContext->getLeftChannel()->getRMSLevel() //
+                              : meterContext->getRightChannel()->getRMSLevel();
+    }
+
+    StereoMeterContext& getMeterContext() const { return *meterContext; }
 
 private:
     static constexpr float decayFactor = 0.95f; // Decay factor for smoothing
 
-    std::vector<std::atomic<float>> peakLevels;
-    std::vector<std::atomic<float>> rmsLevels;
+    std::unique_ptr<StereoMeterContext> meterContext = std::make_unique<StereoMeterContext>();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LevelMeter)
 };

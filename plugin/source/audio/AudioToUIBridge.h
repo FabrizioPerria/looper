@@ -1,4 +1,5 @@
 #pragma once
+#include "engine/LevelMeter.h"
 #include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 #include <atomic>
@@ -12,6 +13,7 @@ public:
         std::atomic<int> readPosition { 0 };
         std::atomic<bool> isRecording { false };
         std::atomic<bool> isPlaying { false };
+
         std::atomic<int> stateVersion { 0 }; // Increment when waveform changes
     };
 
