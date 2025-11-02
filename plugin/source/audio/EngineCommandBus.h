@@ -24,6 +24,8 @@ public:
     {
         TogglePlay,
         ToggleRecord,
+        Stop,
+        ToggleSyncTrack,
 
         Undo,
         Redo,
@@ -113,6 +115,8 @@ public:
         MetronomeStrongBeatChanged,
         MetronomeVolumeChanged,
         MetronomeBeatOccurred,
+
+        TrackSyncChanged,
     };
 
     struct Event

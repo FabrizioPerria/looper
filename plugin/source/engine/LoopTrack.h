@@ -28,7 +28,7 @@ public:
                         const bool isOverdub,
                         const LooperState& currentLooperState);
 
-    void finalizeLayer (const bool isOverdub);
+    void finalizeLayer (const bool isOverdub, const int masterLoopLengthSamples);
 
     void processPlayback (juce::AudioBuffer<float>& output,
                           const int numSamples,
@@ -46,7 +46,7 @@ public:
 
     void setCrossFadeLength (const int newCrossFadeLength) { volumeProcessor.setCrossFadeLength (newCrossFadeLength); }
 
-    void loadBackingTrack (const juce::AudioBuffer<float>& backingTrack);
+    void loadBackingTrack (const juce::AudioBuffer<float>& backingTrack, const int masterLoopLengthSamples);
     juce::AudioBuffer<float>* getAudioBuffer() { return bufferManager.getAudioBuffer().get(); }
 
     const int getAvailableTrackSizeSamples() const { return (int) alignedBufferSize; }
@@ -95,6 +95,11 @@ public:
 
     AudioToUIBridge* getUIBridge() const { return uiBridge.get(); }
 
+    bool isSynced() const { return isSyncedToMaster; }
+    void setSynced (bool synced) { isSyncedToMaster = synced; }
+
+    void resetPlaybackPosition (LooperState currentState);
+
 private:
     VolumeProcessor volumeProcessor;
     BufferManager bufferManager;
@@ -105,6 +110,7 @@ private:
     int blockSize = 0;
     int channels = 0;
     size_t alignedBufferSize = 0;
+    bool isSyncedToMaster = true; // Default: synced
 
     std::unique_ptr<AudioToUIBridge> uiBridge = std::make_unique<AudioToUIBridge>();
     bool bridgeInitialized = uiBridge != nullptr;

@@ -103,6 +103,11 @@ constexpr bool isPlaying(LooperState s)
     return FLAGS[static_cast<size_t>(s)].isPlaying;
 }
 
+constexpr bool isStopped(LooperState s)
+{
+    return !isRecording(s) && !isPlaying(s);
+}
+
 constexpr bool needsContent(LooperState s)
 {
     return FLAGS[static_cast<size_t>(s)].needsContent;

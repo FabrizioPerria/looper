@@ -25,6 +25,13 @@ public:
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::TogglePlay, -1, {} }); };
         addAndMakeVisible (playButton);
 
+        stopButton.setButtonText ("STOP");
+        stopButton.setComponentID ("stop");
+        // playButton.setClickingTogglesState (true);
+        stopButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::Stop, -1, {} }); };
+        addAndMakeVisible (stopButton);
+
         prevButton.setButtonText ("PREV");
         prevButton.setComponentID ("prev");
         prevButton.onClick = [this]()
@@ -45,9 +52,10 @@ public:
     void resized() override
     {
         auto bounds = getLocalBounds();
-        int buttonWidth = bounds.getWidth() / 4;
+        int buttonWidth = bounds.getWidth() / 5;
         recButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
         playButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
+        stopButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
         prevButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
         nextButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
     }
@@ -91,6 +99,7 @@ private:
 
     juce::TextButton recButton;
     juce::TextButton playButton;
+    juce::TextButton stopButton;
     juce::TextButton prevButton;
     juce::TextButton nextButton;
 

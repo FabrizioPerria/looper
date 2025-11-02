@@ -54,10 +54,15 @@ public:
     float* getWritePointer (const int channel) { return audioBuffer->getWritePointer (channel); }
     const float* getReadPointer (const int channel) const { return audioBuffer->getReadPointer (channel); }
 
-    void finalizeLayer (const bool isOverdub)
+    void finalizeLayer (const bool isOverdub, const int masterLoopLengthSamples)
     {
         PERFETTO_FUNCTION();
-        const int currentLength = std::max ({ (int) length, (int) provisionalLength, 1 });
+        int currentLength = 0;
+        if (masterLoopLengthSamples > 0)
+            currentLength = masterLoopLengthSamples;
+        else
+            currentLength = std::max ({ (int) length, (int) provisionalLength, 1 });
+
         if (length == 0)
         {
             fifo.setMusicalLength ((int) currentLength);
@@ -222,6 +227,12 @@ public:
         loopRegionEnabled = false;
         loopRegionStart = 0;
         loopRegionEnd = length;
+    }
+
+    void fromScratch()
+    {
+        fifo.fromScratch();
+        previousReadPos = -1.0;
     }
 
     bool hasLoopRegion() const { return loopRegionEnabled; }

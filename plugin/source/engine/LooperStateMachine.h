@@ -14,6 +14,8 @@ struct StateContext
     double sampleRate;
     int trackIndex;
     bool wasRecording;
+    int syncMasterLength;
+    int syncMasterTrackIndex;
     std::vector<std::unique_ptr<LoopTrack>>* allTracks;
 };
 
@@ -54,7 +56,7 @@ inline void playingProcessAudio (StateContext& ctx, const LooperState& currentSt
             if (! trackPtr) continue;
 
             auto* track = trackPtr.get();
-            if (! track->isMuted() && track->getTrackLengthSamples() > 0)
+            if (track->getTrackLengthSamples() > 0)
             {
                 track->processPlayback (*ctx.outputBuffer, ctx.numSamples, false, currentState);
             }
@@ -73,12 +75,21 @@ inline void recordingProcessAudio (StateContext& ctx, const LooperState& current
     }
 }
 inline void recordingOnEnter (StateContext&) {}
+
 inline void recordingOnExit (StateContext& ctx)
 {
-    // This is the ONLY place where finalizeLayer should be called for Recording
     if (ctx.track)
     {
-        ctx.track->finalizeLayer (false);
+        int recordedLength = ctx.track->getCurrentWritePosition();
+
+        ctx.track->finalizeLayer (false, ctx.track->isSynced() ? ctx.syncMasterLength : recordedLength);
+
+        // If no master exists yet, this becomes the master
+        if (ctx.syncMasterLength == 0)
+        {
+            ctx.syncMasterLength = ctx.track->getTrackLengthSamples();
+            ctx.syncMasterTrackIndex = ctx.trackIndex;
+        }
     }
 }
 
@@ -100,7 +111,7 @@ inline void overdubbingOnExit (StateContext& ctx)
     // This is the ONLY place where finalizeLayer should be called for Overdubbing
     if (ctx.track)
     {
-        ctx.track->finalizeLayer (true);
+        ctx.track->finalizeLayer (true, ctx.track->isSynced() ? ctx.syncMasterLength : ctx.track->getCurrentWritePosition());
     }
 }
 

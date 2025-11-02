@@ -66,6 +66,21 @@ public:
         regionEnd = 0;
     }
 
+    void fromScratch()
+    {
+        PERFETTO_FUNCTION();
+        if (regionEnabled)
+        {
+            writePos = regionStart;
+            readPos = (double) regionStart;
+        }
+        else
+        {
+            writePos = 0;
+            readPos = 0.0;
+        }
+    }
+
     void prepareToRead (int numToRead, int& start1, int& size1, int& start2, int& size2)
     {
         PERFETTO_FUNCTION();

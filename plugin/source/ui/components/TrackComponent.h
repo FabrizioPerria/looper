@@ -44,6 +44,13 @@ public:
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleSolo, trackIndex, {} }); };
         addAndMakeVisible (soloButton);
 
+        syncButton.setButtonText ("SYNC");
+        syncButton.setComponentID ("sync");
+        syncButton.setToggleState (true, juce::dontSendNotification);
+        syncButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleSyncTrack, trackIndex, {} }); };
+        addAndMakeVisible (syncButton);
+
         lockPitchButton.setButtonText ("LOCK");
         lockPitchButton.setComponentID ("lock");
         lockPitchButton.onClick = [this]()
@@ -113,6 +120,7 @@ public:
         muteSoloRow.flexDirection = juce::FlexBox::Direction::row;
         muteSoloRow.items.add (juce::FlexItem (MSButtons).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         muteSoloRow.items.add (juce::FlexItem (volumeFader).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
+        muteSoloRow.items.add (juce::FlexItem (syncButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
 
         juce::FlexBox controlsRow;
         controlsRow.flexDirection = juce::FlexBox::Direction::row;
@@ -135,6 +143,8 @@ private:
     WaveformComponent waveformDisplay;
     juce::TextButton muteButton;
     juce::TextButton soloButton;
+    juce::TextButton syncButton;
+
     juce::TextButton lockPitchButton;
     juce::TextButton reverseButton;
     AccentBar accentBar;
@@ -162,7 +172,7 @@ private:
         EngineMessageBus::EventType::TrackPitchLockChanged, EngineMessageBus::EventType::TrackReverseDirection,
         EngineMessageBus::EventType::TrackVolumeChanged,    EngineMessageBus::EventType::TrackSpeedChanged,
         EngineMessageBus::EventType::TrackPitchChanged,     EngineMessageBus::EventType::ActiveTrackChanged,
-        EngineMessageBus::EventType::ActiveTrackCleared
+        EngineMessageBus::EventType::ActiveTrackCleared,    EngineMessageBus::EventType::TrackSyncChanged
     };
 
     void handleEngineEvent (const EngineMessageBus::Event& event) override
@@ -186,6 +196,13 @@ private:
                 {
                     bool isSoloed = std::get<bool> (event.data);
                     soloButton.setToggleState (isSoloed, juce::dontSendNotification);
+                }
+                break;
+            case EngineMessageBus::EventType::TrackSyncChanged:
+                if (std::holds_alternative<bool> (event.data))
+                {
+                    bool isSynced = std::get<bool> (event.data);
+                    syncButton.setToggleState (isSynced, juce::dontSendNotification);
                 }
                 break;
             case EngineMessageBus::EventType::TrackPitchLockChanged:
