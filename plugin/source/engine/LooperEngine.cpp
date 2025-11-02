@@ -22,6 +22,9 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
         addTrack();
 
     metronome->prepareToPlay (sampleRate, maxBlockSize);
+    // metronome->onBeatCallback = [this] (bool isStrongBeat)
+    // { messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeBeatOccurred, -1, isStrongBeat)); };
+
     setPendingAction (PendingAction::Type::SwitchTrack, 0, false);
 }
 

@@ -6,12 +6,12 @@
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
-class LooperEditor : public juce::Component, public juce::Timer
+class LooperEditor : public juce::Component
 {
 public:
     LooperEditor (LooperEngine* engine) : looperEngine (engine)
     {
-        globalBar = std::make_unique<GlobalControlBar> (engine->getMessageBus(), engine->getEngineStateBridge());
+        globalBar = std::make_unique<GlobalControlBar> (engine->getMessageBus(), engine->getEngineStateBridge(), engine->getMetronome());
 
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {
@@ -21,10 +21,7 @@ public:
         }
 
         addAndMakeVisible (*globalBar);
-        startTimerHz (30); // 30 Hz UI update rate
     }
-
-    ~LooperEditor() override { stopTimer(); }
 
     void paint (juce::Graphics& g) override
     {
@@ -51,8 +48,6 @@ public:
 
         mainFlex.performLayout (bounds.toFloat());
     }
-
-    void timerCallback() override { looperEngine->getMessageBus()->dispatchPendingEvents(); }
 
 private:
     LooperEngine* looperEngine;

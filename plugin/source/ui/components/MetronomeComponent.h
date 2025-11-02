@@ -1,8 +1,10 @@
 #pragma once
 
 #include "audio/EngineCommandBus.h"
+#include "engine/Metronome.h"
 #include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
+#include "ui/components/BeatIndicatorComponent.h"
 #include "ui/components/DraggableToggleButtonComponent.h"
 #include "ui/components/DraggableValueLabelComponent.h"
 #include "ui/components/LevelComponent.h"
@@ -11,8 +13,10 @@
 class MetronomeComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    MetronomeComponent (EngineMessageBus* engineMessageBus)
-        : uiToEngineBus (engineMessageBus), metronomeLevel (engineMessageBus, -1, "Level", MidiNotes::METRONOME_VOLUME_CC)
+    MetronomeComponent (EngineMessageBus* engineMessageBus, Metronome* m)
+        : uiToEngineBus (engineMessageBus)
+        , metronomeLevel (engineMessageBus, -1, "Level", MidiNotes::METRONOME_VOLUME_CC)
+        , beatIndicator (engineMessageBus, m)
     {
         metronomeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
         metronomeLabel.setJustificationType (juce::Justification::centred);
@@ -99,6 +103,9 @@ public:
         addAndMakeVisible (strongBeatButton);
 
         addAndMakeVisible (metronomeLevel);
+
+        addAndMakeVisible (beatIndicator);
+
         uiToEngineBus->addListener (this);
     }
 
@@ -168,6 +175,7 @@ public:
 
         layoutBox.items.add (juce::FlexItem (accentBox).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
         layoutBox.items.add (juce::FlexItem (metronomeLevel).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        layoutBox.items.add (juce::FlexItem (beatIndicator).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
 
         mainBox.items.add (juce::FlexItem (layoutBox).withFlex (3.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
         mainBox.performLayout (bounds.toFloat());
@@ -188,6 +196,8 @@ private:
     DraggableToggleButtonComponent strongBeatButton;
 
     LevelComponent metronomeLevel;
+
+    BeatIndicatorComponent beatIndicator;
 
     constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::MetronomeEnabledChanged,
                                                                         EngineMessageBus::EventType::MetronomeBPMChanged,
