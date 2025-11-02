@@ -3,9 +3,12 @@
 #include "engine/MidiCommandConfig.h"
 #include "engine/MidiCommandDispatcher.h"
 #include "profiler/PerfettoProfiler.h"
+#include <JuceHeader.h>
+
 #include <algorithm>
 
 LooperEngine::LooperEngine() {}
+
 LooperEngine::~LooperEngine() { releaseResources(); }
 
 void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int newNumTracks, int newNumChannels)
@@ -22,8 +25,9 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
         addTrack();
 
     metronome->prepareToPlay (sampleRate, maxBlockSize);
-    // metronome->onBeatCallback = [this] (bool isStrongBeat)
-    // { messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeBeatOccurred, -1, isStrongBeat)); };
+
+    inputMeter->prepare (numChannels);
+    outputMeter->prepare (numChannels);
 
     setPendingAction (PendingAction::Type::SwitchTrack, 0, false);
 }
@@ -351,9 +355,12 @@ void LooperEngine::clear (int trackIndex)
     }
 }
 
-void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     PERFETTO_FUNCTION();
+
+    buffer.applyGain (inputGain.load());
+    inputMeter->processBuffer (buffer);
 
     processCommandsFromMessageBus();
 
@@ -373,14 +380,19 @@ void LooperEngine::processBlock (const juce::AudioBuffer<float>& buffer, juce::M
 
     updateUIBridge (ctx, wasRecording);
 
+    if (metronome->isEnabled()) metronome->processBlock (buffer);
+
+    buffer.applyGain (outputGain.load());
+    outputMeter->processBuffer (buffer);
+
     // Update global engine state for transport controls
     engineStateBridge->updateFromAudioThread (StateConfig::isRecording (currentState),
                                               StateConfig::isPlaying (currentState),
                                               activeTrackIndex,
                                               nextTrackIndex,
-                                              numTracks);
-
-    if (metronome->isEnabled()) metronome->processBlock (const_cast<juce::AudioBuffer<float>&> (buffer));
+                                              numTracks,
+                                              inputMeter->getMeterContext(),
+                                              outputMeter->getMeterContext());
 }
 
 void LooperEngine::processCommandsFromMessageBus()

@@ -115,9 +115,9 @@ public:
     {
         g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
 
-        auto bounds = getLocalBounds().toFloat();
-        g.drawLine (bounds.getX(), bounds.getY() + 8, bounds.getX(), bounds.getBottom() - 8, 1.0f);
-        g.drawLine (bounds.getRight() - 1, bounds.getY() + 8, bounds.getRight() - 1, bounds.getBottom() - 8, 1.0f);
+        // auto bounds = getLocalBounds().toFloat();
+        // g.drawLine (bounds.getX(), bounds.getY() + 8, bounds.getX(), bounds.getBottom() - 8, 1.0f);
+        // g.drawLine (bounds.getRight(), bounds.getY() + 8, bounds.getRight(), bounds.getBottom() - 8, 1.0f);
 
         auto titleBounds = metronomeLabel.getBounds();
         g.drawLine (titleBounds.getX() + 3.0f,

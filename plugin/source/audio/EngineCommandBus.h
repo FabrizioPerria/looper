@@ -58,6 +58,9 @@ public:
 
         SetSubLoopRegion,
         ClearSubLoopRegion,
+
+        SetOutputGain,
+        SetInputGain
     };
 
     struct Command
