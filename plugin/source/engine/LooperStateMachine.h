@@ -16,6 +16,9 @@ struct StateContext
     double sampleRate;
     int trackIndex;
     bool bridgeInitialized;
+
+    std::vector<std::unique_ptr<LoopTrack>>* allTracks;
+    std::vector<std::unique_ptr<AudioToUIBridge>>* allBridges;
 };
 
 // Function pointer types for state actions
@@ -47,9 +50,26 @@ inline void stoppedOnExit (StateContext&) {}
 // Playing state
 inline void playingProcessAudio (StateContext& ctx)
 {
-    if (ctx.track && ctx.outputBuffer)
+    if (ctx.outputBuffer)
     {
-        ctx.track->processPlayback (*ctx.outputBuffer, ctx.numSamples, false);
+        for (int i = 0; i < static_cast<int> (ctx.allTracks->size()); ++i)
+        {
+            auto& trackPtr = (*ctx.allTracks)[i];
+            if (! trackPtr) continue;
+
+            auto* bridge = (*ctx.allBridges)[i].get();
+
+            auto* track = trackPtr.get();
+            if (! track->isMuted() && track->getTrackLengthSamples() > 0)
+            {
+                track->processPlayback (*ctx.outputBuffer, ctx.numSamples, false);
+                bridge->updateFromAudioThread (track->getAudioBuffer(),
+                                               track->getTrackLengthSamples(),
+                                               track->getCurrentReadPosition(),
+                                               false,
+                                               true);
+            }
+        }
     }
 }
 inline void playingOnEnter (StateContext&) {}

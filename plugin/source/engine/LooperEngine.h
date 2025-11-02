@@ -75,6 +75,7 @@ public:
     EngineMessageBus* getMessageBus() const { return messageBus.get(); }
 
     Metronome* getMetronome() const { return metronome.get(); }
+    bool shouldTrackPlay (int trackIndex) const;
 
 private:
     // State machine
@@ -119,8 +120,6 @@ private:
     void processPendingActions();
     void setupMidiCommands();
     void processCommandsFromMessageBus();
-
-    bool shouldTrackPlay (int trackIndex) const;
 
     void addTrack();
     void removeTrack (int trackIndex);

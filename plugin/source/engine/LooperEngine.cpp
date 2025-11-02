@@ -126,7 +126,8 @@ StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& b
                           .numSamples = buffer.getNumSamples(),
                           .sampleRate = sampleRate,
                           .trackIndex = activeTrackIndex,
-                          .bridgeInitialized = bridgeInitialized[(size_t) activeTrackIndex] };
+                          .bridgeInitialized = bridgeInitialized[(size_t) activeTrackIndex],
+                          .allTracks = &loopTracks };
 }
 
 int LooperEngine::calculateLengthToShow (const LoopTrack* track, bool isRecording) const
