@@ -9,18 +9,18 @@ LooperEngine::LooperEngine() {}
 
 LooperEngine::~LooperEngine() { releaseResources(); }
 
-void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int newNumTracks, int newNumChannels)
+void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int newNumChannels)
 {
     PERFETTO_FUNCTION();
-    if (newSampleRate <= 0.0 || newMaxBlockSize <= 0 || newNumChannels <= 0 || newNumTracks <= 0) return;
+    if (newSampleRate <= 0.0 || newMaxBlockSize <= 0 || newNumChannels <= 0) return;
 
     releaseResources();
     sampleRate = newSampleRate;
     maxBlockSize = newMaxBlockSize;
     numChannels = newNumChannels;
 
-    for (int i = 0; i < newNumTracks; ++i)
-        addTrack();
+    for (int i = 0; i < NUM_TRACKS; ++i)
+        addTrack (i);
 
     metronome->prepareToPlay (sampleRate, maxBlockSize);
 
@@ -34,9 +34,7 @@ void LooperEngine::releaseResources()
 {
     PERFETTO_FUNCTION();
     for (auto& track : loopTracks)
-        track->releaseResources();
-
-    loopTracks.clear();
+        if (track) track->releaseResources();
 
     sampleRate = 0.0;
     maxBlockSize = 0;
@@ -49,13 +47,12 @@ void LooperEngine::releaseResources()
     metronome->releaseResources();
 }
 
-void LooperEngine::addTrack()
+void LooperEngine::addTrack (int index)
 {
     PERFETTO_FUNCTION();
 
-    auto track = std::make_unique<LoopTrack>();
-    track->prepareToPlay (sampleRate, maxBlockSize, numChannels);
-    loopTracks.push_back (std::move (track));
+    loopTracks[(size_t) index] = std::make_unique<LoopTrack>();
+    loopTracks[(size_t) index]->prepareToPlay (sampleRate, maxBlockSize, numChannels);
 
     numTracks = static_cast<int> (loopTracks.size());
     activeTrackIndex = numTracks - 1;
@@ -75,10 +72,10 @@ LoopTrack* LooperEngine::getTrackByIndex (int trackIndex) const
     return nullptr;
 }
 
-bool LooperEngine::trackHasContent() const
+bool LooperEngine::trackHasContent (int index) const
 {
     PERFETTO_FUNCTION();
-    auto* track = getActiveTrack();
+    auto* track = getTrackByIndex (index);
     return track && track->getTrackLengthSamples() > 0;
 }
 
@@ -106,6 +103,9 @@ void LooperEngine::scheduleTrackSwitch (int trackIndex)
 StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& buffer)
 {
     PERFETTO_FUNCTION();
+    for (int i = 0; i < NUM_TRACKS; ++i)
+        tracksToPlay[(size_t) i] = shouldTrackPlay (i);
+
     return StateContext { .track = getActiveTrack(),
                           .inputBuffer = &buffer,
                           .outputBuffer = const_cast<juce::AudioBuffer<float>*> (&buffer),
@@ -115,7 +115,8 @@ StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& b
                           .wasRecording = StateConfig::isRecording (currentState),
                           .syncMasterLength = syncMasterLength,
                           .syncMasterTrackIndex = syncMasterTrackIndex,
-                          .allTracks = &loopTracks };
+                          .allTracks = &loopTracks,
+                          .tracksToPlay = &tracksToPlay };
 }
 
 bool LooperEngine::transitionTo (LooperState newState)
@@ -132,7 +133,7 @@ void LooperEngine::record()
     auto* activeTrack = getActiveTrack();
     if (! activeTrack) return;
 
-    LooperState targetState = trackHasContent() ? LooperState::Overdubbing : LooperState::Recording;
+    LooperState targetState = trackHasContent (activeTrackIndex) ? LooperState::Overdubbing : LooperState::Recording;
     transitionTo (targetState);
     messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::RecordingStateChanged, activeTrackIndex, true));
     messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::PlaybackStateChanged, activeTrackIndex, true));
@@ -145,7 +146,7 @@ void LooperEngine::play()
     auto* activeTrack = getActiveTrack();
     if (! activeTrack) return;
 
-    if (trackHasContent())
+    if (trackHasContent (activeTrackIndex))
     {
         transitionTo (LooperState::Playing);
         messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::PlaybackStateChanged, activeTrackIndex, true));
@@ -251,7 +252,7 @@ void LooperEngine::selectTrack (int trackIndex)
         return;
     }
 
-    if (currentState == LooperState::Idle || currentState == LooperState::Stopped || ! trackHasContent())
+    if (currentState == LooperState::Idle || currentState == LooperState::Stopped || ! trackHasContent (activeTrackIndex))
     {
         switchToTrackImmediately (trackIndex);
         return;
@@ -416,17 +417,6 @@ void LooperEngine::processPendingActions()
     }
 
     pendingAction.clear();
-}
-
-void LooperEngine::removeTrack (int trackIndex)
-{
-    PERFETTO_FUNCTION();
-    if (activeTrackIndex == trackIndex || trackIndex < 0 || trackIndex >= numTracks) return;
-
-    loopTracks.erase (loopTracks.begin() + trackIndex);
-
-    numTracks = static_cast<int> (loopTracks.size());
-    if (activeTrackIndex >= numTracks) activeTrackIndex = numTracks - 1;
 }
 
 // Track control implementations (delegating to tracks)
@@ -654,10 +644,20 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages, int 
 }
 bool LooperEngine::shouldTrackPlay (int trackIndex) const
 {
+    if (singlePlayMode)
+    {
+        return trackIndex == activeTrackIndex && trackHasContent (activeTrackIndex) && ! isTrackMuted (trackIndex);
+    }
     auto* track = getTrackByIndex (trackIndex);
     if (! track || track->getTrackLengthSamples() == 0) return false;
     if (track->isMuted()) return false;
     return true;
+}
+
+void LooperEngine::toggleSinglePlayMode()
+{
+    singlePlayMode = ! singlePlayMode.load();
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::SinglePlayModeChanged, -1, singlePlayMode.load()));
 }
 
 void LooperEngine::enableMetronome (bool enable)

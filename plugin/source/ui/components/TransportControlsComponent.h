@@ -13,21 +13,25 @@ public:
     {
         recButton.setButtonText ("REC");
         recButton.setComponentID ("rec");
-        // recButton.setClickingTogglesState (true);
         recButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleRecord, -1, {} }); };
         addAndMakeVisible (recButton);
 
         playButton.setButtonText ("PLAY");
         playButton.setComponentID ("play");
-        // playButton.setClickingTogglesState (true);
         playButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::TogglePlay, -1, {} }); };
         addAndMakeVisible (playButton);
 
+        playModeButton.setButtonText ("SINGLE");
+        playModeButton.setComponentID ("single");
+        playModeButton.setToggleState (true, juce::dontSendNotification);
+        playModeButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleSinglePlayMode, -1, {} }); };
+        addAndMakeVisible (playModeButton);
+
         stopButton.setButtonText ("STOP");
         stopButton.setComponentID ("stop");
-        // playButton.setClickingTogglesState (true);
         stopButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::Stop, -1, {} }); };
         addAndMakeVisible (stopButton);
@@ -51,26 +55,32 @@ public:
 
     void resized() override
     {
-        auto bounds = getLocalBounds();
-        int buttonWidth = bounds.getWidth() / 5;
-        recButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
-        playButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
-        stopButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
-        prevButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
-        nextButton.setBounds (bounds.removeFromLeft (buttonWidth).reduced (2));
-    }
+        juce::FlexBox mainBox;
+        mainBox.flexDirection = juce::FlexBox::Direction::row;
+        mainBox.alignItems = juce::FlexBox::AlignItems::stretch;
 
-    void paint (juce::Graphics& g) override
-    {
-        // auto bounds = getLocalBounds().toFloat();
-        // g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
-        // g.drawLine (bounds.getX(), bounds.getY() + 8, bounds.getX(), bounds.getBottom() - 8, 1.0f);
-        // g.drawLine (bounds.getRight(), bounds.getY() + 8, bounds.getRight(), bounds.getBottom() - 8, 1.0f);
+        juce::FlexBox playStopBox;
+        playStopBox.flexDirection = juce::FlexBox::Direction::column;
+        playStopBox.items.add (juce::FlexItem (playButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        playStopBox.items.add (juce::FlexItem (stopButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+
+        mainBox.items.add (juce::FlexItem (recButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        mainBox.items.add (juce::FlexItem (playStopBox).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        mainBox.items.add (juce::FlexItem (playModeButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+
+        juce::FlexBox trackSelectBox;
+        trackSelectBox.flexDirection = juce::FlexBox::Direction::column;
+        trackSelectBox.items.add (juce::FlexItem (prevButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        trackSelectBox.items.add (juce::FlexItem (nextButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        mainBox.items.add (juce::FlexItem (trackSelectBox).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+
+        mainBox.performLayout (getLocalBounds().toFloat());
     }
 
 private:
     constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::RecordingStateChanged,
-                                                                        EngineMessageBus::EventType::PlaybackStateChanged };
+                                                                        EngineMessageBus::EventType::PlaybackStateChanged,
+                                                                        EngineMessageBus::EventType::SinglePlayModeChanged };
 
     void handleEngineEvent (const EngineMessageBus::Event& event) override
     {
@@ -92,6 +102,12 @@ private:
                 playButton.setToggleState (isPlaying, juce::dontSendNotification);
                 break;
             }
+            case EngineMessageBus::EventType::SinglePlayModeChanged:
+            {
+                bool isSinglePlayMode = std::get<bool> (event.data);
+                playModeButton.setToggleState (isSinglePlayMode, juce::dontSendNotification);
+                break;
+            }
             default:
                 throw juce::String ("Unhandled event type in TransportControlsComponent" + juce::String (static_cast<int> (event.type)));
         }
@@ -99,6 +115,7 @@ private:
 
     juce::TextButton recButton;
     juce::TextButton playButton;
+    juce::TextButton playModeButton;
     juce::TextButton stopButton;
     juce::TextButton prevButton;
     juce::TextButton nextButton;

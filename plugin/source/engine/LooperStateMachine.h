@@ -1,10 +1,12 @@
 #pragma once
 #include "LooperStateConfig.h"
+#include "engine/Constants.h"
 #include "engine/LoopTrack.h"
 #include <JuceHeader.h>
 #include <array>
 
 // Context passed to state actions
+//
 struct StateContext
 {
     LoopTrack* track;
@@ -16,7 +18,8 @@ struct StateContext
     bool wasRecording;
     int syncMasterLength;
     int syncMasterTrackIndex;
-    std::vector<std::unique_ptr<LoopTrack>>* allTracks;
+    std::array<std::unique_ptr<LoopTrack>, NUM_TRACKS>* allTracks;
+    std::array<bool, NUM_TRACKS>* tracksToPlay;
 };
 
 // Function pointer types for state actions
@@ -50,16 +53,10 @@ inline void playingProcessAudio (StateContext& ctx, const LooperState& currentSt
 {
     if (ctx.outputBuffer)
     {
-        for (int i = 0; i < static_cast<int> (ctx.allTracks->size()); ++i)
+        for (int i = 0; i < NUM_TRACKS; ++i)
         {
-            auto& trackPtr = (*ctx.allTracks)[i];
-            if (! trackPtr) continue;
-
-            auto* track = trackPtr.get();
-            if (track->getTrackLengthSamples() > 0)
-            {
-                track->processPlayback (*ctx.outputBuffer, ctx.numSamples, false, currentState);
-            }
+            if (! ctx.tracksToPlay->at (i)) continue;
+            ctx.allTracks->at (i)->processPlayback (*ctx.outputBuffer, ctx.numSamples, false, currentState);
         }
     }
 }

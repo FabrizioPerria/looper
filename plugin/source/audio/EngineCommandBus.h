@@ -26,6 +26,7 @@ public:
         ToggleRecord,
         Stop,
         ToggleSyncTrack,
+        ToggleSinglePlayMode,
 
         Undo,
         Redo,
@@ -117,6 +118,7 @@ public:
         MetronomeBeatOccurred,
 
         TrackSyncChanged,
+        SinglePlayModeChanged,
     };
 
     struct Event

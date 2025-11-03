@@ -3,6 +3,7 @@
 #include "audio/AudioToUIBridge.h"
 #include "audio/EngineCommandBus.h"
 #include "audio/EngineStateToUIBridge.h"
+#include "engine/Constants.h"
 #include "engine/LevelMeter.h"
 #include "engine/LoopTrack.h"
 #include "engine/LooperStateConfig.h"
@@ -41,7 +42,7 @@ public:
     LooperEngine();
     ~LooperEngine();
 
-    void prepareToPlay (double sampleRate, int maxBlockSize, int numTracks, int numChannels);
+    void prepareToPlay (double sampleRate, int maxBlockSize, int numChannels);
     void releaseResources();
 
     void selectTrack (int trackIndex);
@@ -80,6 +81,9 @@ public:
     Metronome* getMetronome() const { return metronome.get(); }
     bool shouldTrackPlay (int trackIndex) const;
 
+    void toggleSinglePlayMode();
+    bool isSinglePlayMode() const { return singlePlayMode.load(); }
+
 private:
     // State machine
     LooperStateMachine stateMachine;
@@ -95,6 +99,8 @@ private:
     std::atomic<float> inputGain { 1.0f };
     std::atomic<float> outputGain { 1.0f };
 
+    std::atomic<bool> singlePlayMode { true };
+
     // Engine data
     double sampleRate = 0.0;
     int maxBlockSize = 0;
@@ -106,10 +112,12 @@ private:
     int syncMasterLength = 0;      // First loop's length
     int syncMasterTrackIndex = -1; // Which track is the master
 
-    std::vector<std::unique_ptr<LoopTrack>> loopTracks;
+    // std::vector<std::unique_ptr<LoopTrack>> loopTracks;
+    std::array<std::unique_ptr<LoopTrack>, NUM_TRACKS> loopTracks;
+    std::array<bool, NUM_TRACKS> tracksToPlay;
 
     // Helper methods
-    bool trackHasContent() const;
+    bool trackHasContent (int index) const;
     LooperState determineStateAfterRecording() const;
     LooperState determineStateAfterStop() const;
     void switchToTrackImmediately (int trackIndex);
@@ -123,8 +131,7 @@ private:
     void setupMidiCommands();
     void processCommandsFromMessageBus();
 
-    void addTrack();
-    void removeTrack (int trackIndex);
+    void addTrack (int index);
     LoopTrack* getActiveTrack() const;
     void record();
     void play();
@@ -191,6 +198,8 @@ private:
           } },
 
         { EngineMessageBus::CommandType::ToggleMute, [this] (const auto& cmd) { toggleMute (cmd.trackIndex); } },
+
+        { EngineMessageBus::CommandType::ToggleSinglePlayMode, [this] (const auto& /*cmd*/) { toggleSinglePlayMode(); } },
 
         { EngineMessageBus::CommandType::ToggleSolo, [this] (const auto& cmd) { toggleSolo (cmd.trackIndex); } },
 
@@ -337,7 +346,7 @@ private:
                   auto gain = std::get<float> (cmd.payload);
                   inputGain.store (gain);
               }
-          } }
+          } },
 
     };
 

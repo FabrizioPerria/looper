@@ -42,8 +42,8 @@ public:
         mainBox.flexDirection = juce::FlexBox::Direction::row;
         mainBox.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        mainBox.items.add (juce::FlexItem (inputMeter).withFlex (0.7f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
-        mainBox.items.add (juce::FlexItem (outputMeter).withFlex (0.7f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
+        mainBox.items.add (juce::FlexItem (inputMeter).withFlex (0.6f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
+        mainBox.items.add (juce::FlexItem (outputMeter).withFlex (0.6f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
 
         mainBox.items.add (juce::FlexItem (transportControls).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 0)));
 
