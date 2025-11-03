@@ -73,6 +73,7 @@ inline void recordingProcessAudio (StateContext& ctx, const LooperState& current
     {
         ctx.track->processRecord (*ctx.inputBuffer, ctx.numSamples, false, currentState);
     }
+    playingProcessAudio (ctx, currentState);
 }
 inline void recordingOnEnter (StateContext&) {}
 
