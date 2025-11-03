@@ -50,7 +50,10 @@ void LoopTrack::releaseResources()
 // Recording
 //==============================================================================
 
-void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int numSamples, const bool isOverdub)
+void LoopTrack::processRecord (const juce::AudioBuffer<float>& input,
+                               const int numSamples,
+                               const bool isOverdub,
+                               const LooperState& currentLooperState)
 {
     PERFETTO_FUNCTION();
 
@@ -61,6 +64,7 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input, const int 
                                                       numSamples,
                                                       isOverdub,
                                                       true);
+    updateUIBridge (numSamples, true, currentLooperState);
 }
 
 void LoopTrack::initializeForNewOverdubSession()
@@ -69,18 +73,19 @@ void LoopTrack::initializeForNewOverdubSession()
     undoManager.finalizeCopyAndPush (bufferManager.getLength());
 }
 
-void LoopTrack::finalizeLayer (const bool isOverdub)
+void LoopTrack::finalizeLayer (const bool isOverdub, const int masterLoopLengthSamples)
 {
     juce::Logger::outputDebugString ("LoopTrack::finalizeLayer called");
     PERFETTO_FUNCTION();
 
-    bufferManager.finalizeLayer (isOverdub);
+    bufferManager.finalizeLayer (isOverdub, masterLoopLengthSamples);
 
     auto& audioBuffer = *bufferManager.getAudioBuffer();
     auto length = bufferManager.getLength();
 
     applyPostProcessing (audioBuffer, length);
     undoManager.stageCurrentBuffer (audioBuffer, length);
+    uiBridge->signalWaveformChanged();
 }
 
 void LoopTrack::applyPostProcessing (juce::AudioBuffer<float>& audioBuffer, int length)
@@ -89,11 +94,15 @@ void LoopTrack::applyPostProcessing (juce::AudioBuffer<float>& audioBuffer, int 
     volumeProcessor.applyCrossfade (audioBuffer, length);
 }
 
-void LoopTrack::processPlayback (juce::AudioBuffer<float>& output, const int numSamples, const bool isOverdub)
+void LoopTrack::processPlayback (juce::AudioBuffer<float>& output,
+                                 const int numSamples,
+                                 const bool isOverdub,
+                                 const LooperState& currentLooperState)
 {
     PERFETTO_FUNCTION();
     playbackEngine.processPlayback (output, bufferManager, numSamples, isOverdub);
     volumeProcessor.applyVolume (output, numSamples);
+    updateUIBridge (numSamples, false, currentLooperState);
 }
 
 void LoopTrack::clear()
@@ -103,6 +112,17 @@ void LoopTrack::clear()
     bufferManager.clear();
     undoManager.clear();
     playbackEngine.clear();
+
+    uiBridge->clear();
+    bridgeInitialized = false;
+    uiBridge->signalWaveformChanged();
+}
+
+void LoopTrack::resetPlaybackPosition (LooperState currentState)
+{
+    PERFETTO_FUNCTION();
+    bufferManager.fromScratch();
+    updateUIBridge (bufferManager.getLength(), false, currentState);
 }
 
 bool LoopTrack::undo()
@@ -112,13 +132,14 @@ bool LoopTrack::undo()
 
     if (undoManager.undo (bufferManager.getAudioBuffer()))
     {
-        bufferManager.finalizeLayer (true);
+        bufferManager.finalizeLayer (true, 0);
 
         auto& audioBuffer = *bufferManager.getAudioBuffer();
         auto length = bufferManager.getLength();
         applyPostProcessing (audioBuffer, length);
         undoManager.stageCurrentBuffer (audioBuffer, length);
 
+        uiBridge->signalWaveformChanged();
         return true;
     }
     return false;
@@ -131,19 +152,20 @@ bool LoopTrack::redo()
 
     if (undoManager.redo (bufferManager.getAudioBuffer()))
     {
-        bufferManager.finalizeLayer (true);
+        bufferManager.finalizeLayer (true, 0);
 
         auto& audioBuffer = *bufferManager.getAudioBuffer();
         auto length = bufferManager.getLength();
         applyPostProcessing (audioBuffer, length);
         undoManager.stageCurrentBuffer (audioBuffer, length);
 
+        uiBridge->signalWaveformChanged();
         return true;
     }
     return false;
 }
 
-void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
+void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack, const int masterLoopLengthSamples)
 {
     PERFETTO_FUNCTION();
     if (backingTrack.getNumChannels() != bufferManager.getNumChannels() || backingTrack.getNumSamples() == 0) return;
@@ -154,7 +176,11 @@ void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
     releaseResources();
     prepareToPlay (prevSampleRate, (int) prevBlockSize, (int) prevChannels);
 
-    const int copySamples = std::min ((int) backingTrack.getNumSamples(), (int) MAX_SECONDS_HARD_LIMIT * (int) sampleRate);
+    int copySamples = std::min ((int) backingTrack.getNumSamples(), (int) MAX_SECONDS_HARD_LIMIT * (int) sampleRate);
+    if (isSyncedToMaster && masterLoopLengthSamples > 0)
+    {
+        copySamples = masterLoopLengthSamples;
+    }
 
     bufferManager.writeToAudioBuffer ([&] (float* dest, const float* source, const int samples, const bool /*shouldOverdub*/)
                                       { juce::FloatVectorOperations::copy (dest, source, samples); },
@@ -163,5 +189,6 @@ void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack)
                                       false,
                                       false);
 
-    finalizeLayer (false);
+    finalizeLayer (false, copySamples);
+    updateUIBridge (copySamples, false, LooperState::Stopped);
 }

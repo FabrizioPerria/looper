@@ -15,7 +15,10 @@ public:
 
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {
-            auto* channel = new TrackComponent (engine->getMessageBus(), i, engine->getUIBridgeByIndex (i), engine->getEngineStateBridge());
+            auto* channel = new TrackComponent (engine->getMessageBus(),
+                                                i,
+                                                engine->getTrackByIndex (i)->getUIBridge(),
+                                                engine->getEngineStateBridge());
             channels.add (channel);
             addAndMakeVisible (channel);
         }

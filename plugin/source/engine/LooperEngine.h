@@ -3,8 +3,10 @@
 #include "audio/AudioToUIBridge.h"
 #include "audio/EngineCommandBus.h"
 #include "audio/EngineStateToUIBridge.h"
+#include "engine/Constants.h"
 #include "engine/LevelMeter.h"
 #include "engine/LoopTrack.h"
+#include "engine/LooperStateConfig.h"
 #include "engine/LooperStateMachine.h"
 #include "engine/Metronome.h"
 #include <JuceHeader.h>
@@ -21,12 +23,14 @@ struct PendingAction
     Type type = Type::None;
     int targetTrackIndex = -1;
     bool waitForWrapAround = false;
+    LooperState previousState;
 
     void clear()
     {
         type = Type::None;
         targetTrackIndex = -1;
         waitForWrapAround = false;
+        previousState = LooperState::Idle;
     }
 
     bool isActive() const { return type != Type::None; }
@@ -38,7 +42,7 @@ public:
     LooperEngine();
     ~LooperEngine();
 
-    void prepareToPlay (double sampleRate, int maxBlockSize, int numTracks, int numChannels);
+    void prepareToPlay (double sampleRate, int maxBlockSize, int numChannels);
     void releaseResources();
 
     void selectTrack (int trackIndex);
@@ -49,13 +53,13 @@ public:
     int getNumTracks() const { return numTracks; }
 
     LoopTrack* getTrackByIndex (int trackIndex) const;
-    AudioToUIBridge* getUIBridgeByIndex (int trackIndex);
 
     void processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages);
 
     // User actions
     void toggleRecord();
     void togglePlay();
+    void toggleSync (int trackIndex);
     void toggleReverse (int trackIndex);
     void toggleSolo (int trackIndex);
     void toggleMute (int trackIndex);
@@ -75,6 +79,10 @@ public:
     EngineMessageBus* getMessageBus() const { return messageBus.get(); }
 
     Metronome* getMetronome() const { return metronome.get(); }
+    bool shouldTrackPlay (int trackIndex) const;
+
+    void toggleSinglePlayMode();
+    bool isSinglePlayMode() const { return singlePlayMode.load(); }
 
 private:
     // State machine
@@ -91,6 +99,8 @@ private:
     std::atomic<float> inputGain { 1.0f };
     std::atomic<float> outputGain { 1.0f };
 
+    std::atomic<bool> singlePlayMode { true };
+
     // Engine data
     double sampleRate = 0.0;
     int maxBlockSize = 0;
@@ -99,12 +109,14 @@ private:
     int activeTrackIndex = 0;
     int nextTrackIndex = -1;
 
-    std::vector<std::unique_ptr<LoopTrack>> loopTracks;
-    std::vector<std::unique_ptr<AudioToUIBridge>> uiBridges;
-    std::vector<bool> bridgeInitialized;
+    int syncMasterLength = 0;
+    int syncMasterTrackIndex = -1;
+
+    std::array<std::unique_ptr<LoopTrack>, NUM_TRACKS> loopTracks;
+    std::array<bool, NUM_TRACKS> tracksToPlay;
 
     // Helper methods
-    bool trackHasContent() const;
+    bool trackHasContent (int index) const;
     LooperState determineStateAfterRecording() const;
     LooperState determineStateAfterStop() const;
     void switchToTrackImmediately (int trackIndex);
@@ -112,18 +124,13 @@ private:
 
     bool transitionTo (LooperState newState);
     StateContext createStateContext (const juce::AudioBuffer<float>& buffer);
-    void updateUIBridge (StateContext& ctx, bool wasRecording);
-    int calculateLengthToShow (const LoopTrack* track, bool isRecording) const;
 
-    void setPendingAction (PendingAction::Type type, int trackIndex, bool waitForWrap);
+    void setPendingAction (PendingAction::Type type, int trackIndex, bool waitForWrap, LooperState currentState);
     void processPendingActions();
     void setupMidiCommands();
     void processCommandsFromMessageBus();
 
-    bool shouldTrackPlay (int trackIndex) const;
-
-    void addTrack();
-    void removeTrack (int trackIndex);
+    void addTrack (int index);
     LoopTrack* getActiveTrack() const;
     void record();
     void play();
@@ -149,11 +156,12 @@ private:
     void setMetronomeTimeSignature (int numerator, int denominator);
     void setMetronomeStrongBeat (int beatIndex, bool isStrong);
 
-    void handleMidiCommand (const juce::MidiBuffer& midiMessages);
+    void handleMidiCommand (const juce::MidiBuffer& midiMessages, int trackIndex);
 
     const std::unordered_map<EngineMessageBus::CommandType, std::function<void (const EngineMessageBus::Command&)>> commandHandlers = {
         { EngineMessageBus::CommandType::TogglePlay, [this] (const auto& /*cmd*/) { togglePlay(); } },
         { EngineMessageBus::CommandType::ToggleRecord, [this] (const auto& /*cmd*/) { toggleRecord(); } },
+        { EngineMessageBus::CommandType::Stop, [this] (const auto& /*cmd*/) { stop(); } },
         { EngineMessageBus::CommandType::Undo,
           [this] (const auto& cmd)
           {
@@ -190,7 +198,11 @@ private:
 
         { EngineMessageBus::CommandType::ToggleMute, [this] (const auto& cmd) { toggleMute (cmd.trackIndex); } },
 
+        { EngineMessageBus::CommandType::ToggleSinglePlayMode, [this] (const auto& /*cmd*/) { toggleSinglePlayMode(); } },
+
         { EngineMessageBus::CommandType::ToggleSolo, [this] (const auto& cmd) { toggleSolo (cmd.trackIndex); } },
+
+        { EngineMessageBus::CommandType::ToggleSyncTrack, [this] (const auto& cmd) { toggleSync (cmd.trackIndex); } },
 
         { EngineMessageBus::CommandType::ToggleVolumeNormalize, [this] (const auto& cmd) { toggleVolumeNormalize (cmd.trackIndex); } },
 
@@ -242,7 +254,7 @@ private:
               if (std::holds_alternative<juce::MidiBuffer> (cmd.payload))
               {
                   auto midiBuffer = std::get<juce::MidiBuffer> (cmd.payload);
-                  handleMidiCommand (midiBuffer);
+                  handleMidiCommand (midiBuffer, cmd.trackIndex);
               }
           } },
         { EngineMessageBus::CommandType::SetMetronomeEnabled,
@@ -333,7 +345,7 @@ private:
                   auto gain = std::get<float> (cmd.payload);
                   inputGain.store (gain);
               }
-          } }
+          } },
 
     };
 

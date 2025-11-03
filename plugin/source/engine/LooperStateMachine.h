@@ -1,25 +1,30 @@
 #pragma once
 #include "LooperStateConfig.h"
-#include "audio/AudioToUIBridge.h"
+#include "engine/Constants.h"
 #include "engine/LoopTrack.h"
 #include <JuceHeader.h>
 #include <array>
 
 // Context passed to state actions
+//
 struct StateContext
 {
     LoopTrack* track;
-    AudioToUIBridge* bridge;
     const juce::AudioBuffer<float>* inputBuffer;
     juce::AudioBuffer<float>* outputBuffer; // For playback
     int numSamples;
     double sampleRate;
     int trackIndex;
-    bool bridgeInitialized;
+    bool wasRecording;
+    bool isSinglePlayMode;
+    int syncMasterLength;
+    int syncMasterTrackIndex;
+    std::array<std::unique_ptr<LoopTrack>, NUM_TRACKS>* allTracks;
+    std::array<bool, NUM_TRACKS>* tracksToPlay;
 };
 
 // Function pointer types for state actions
-using ProcessAudioFunc = void (*) (StateContext&);
+using ProcessAudioFunc = void (*) (StateContext&, const LooperState&);
 using OnEnterFunc = void (*) (StateContext&);
 using OnExitFunc = void (*) (StateContext&);
 
@@ -35,56 +40,68 @@ struct StateActions
 namespace StateHandlers
 {
 // Idle state
-inline void idleProcessAudio (StateContext&) { /* No processing */ }
+inline void idleProcessAudio (StateContext&, const LooperState&) { /* No processing */ }
 inline void idleOnEnter (StateContext&) {}
 inline void idleOnExit (StateContext&) {}
 
 // Stopped state
-inline void stoppedProcessAudio (StateContext&) { /* No processing */ }
+inline void stoppedProcessAudio (StateContext&, const LooperState&) { /* No processing */ }
 inline void stoppedOnEnter (StateContext&) {}
 inline void stoppedOnExit (StateContext&) {}
 
 // Playing state
-inline void playingProcessAudio (StateContext& ctx)
+inline void playingProcessAudio (StateContext& ctx, const LooperState& currentState)
 {
-    if (ctx.track && ctx.outputBuffer)
+    if (ctx.outputBuffer)
     {
-        ctx.track->processPlayback (*ctx.outputBuffer, ctx.numSamples, false);
+        for (int i = 0; i < NUM_TRACKS; ++i)
+        {
+            if (! ctx.tracksToPlay->at (i)) continue;
+            ctx.allTracks->at (i)->processPlayback (*ctx.outputBuffer, ctx.numSamples, false, currentState);
+        }
     }
 }
 inline void playingOnEnter (StateContext&) {}
 inline void playingOnExit (StateContext&) {}
 
 // Recording state
-inline void recordingProcessAudio (StateContext& ctx)
+inline void recordingProcessAudio (StateContext& ctx, const LooperState& currentState)
 {
     if (ctx.track && ctx.inputBuffer)
     {
-        ctx.track->processRecord (*ctx.inputBuffer, ctx.numSamples, false);
+        ctx.track->processRecord (*ctx.inputBuffer, ctx.numSamples, false, currentState);
     }
+    playingProcessAudio (ctx, currentState);
 }
+
 inline void recordingOnEnter (StateContext&) {}
+
 inline void recordingOnExit (StateContext& ctx)
 {
-    // This is the ONLY place where finalizeLayer should be called for Recording
     if (ctx.track)
     {
-        ctx.track->finalizeLayer (false);
-        if (ctx.bridge)
+        int recordedLength = ctx.track->getCurrentWritePosition();
+
+        bool shouldSyncRecording = ctx.track->isSynced() && ! ctx.isSinglePlayMode;
+        ctx.track->finalizeLayer (false, shouldSyncRecording ? ctx.syncMasterLength : recordedLength);
+
+        // If no master exists yet, this becomes the master
+        if (ctx.syncMasterLength == 0)
         {
-            ctx.bridge->signalWaveformChanged();
+            ctx.syncMasterLength = ctx.track->getTrackLengthSamples();
+            ctx.syncMasterTrackIndex = ctx.trackIndex;
         }
     }
 }
 
 // Overdubbing state
-inline void overdubbingProcessAudio (StateContext& ctx)
+inline void overdubbingProcessAudio (StateContext& ctx, const LooperState& currentState)
 {
     if (ctx.track && ctx.inputBuffer && ctx.outputBuffer)
     {
-        ctx.track->processRecord (*ctx.inputBuffer, ctx.numSamples, true);
-        ctx.track->processPlayback (*ctx.outputBuffer, ctx.numSamples, true);
+        ctx.track->processRecord (*ctx.inputBuffer, ctx.numSamples, true, currentState);
     }
+    playingProcessAudio (ctx, currentState);
 }
 
 inline void overdubbingOnEnter (StateContext& ctx) { ctx.track->initializeForNewOverdubSession(); }
@@ -95,28 +112,24 @@ inline void overdubbingOnExit (StateContext& ctx)
     // This is the ONLY place where finalizeLayer should be called for Overdubbing
     if (ctx.track)
     {
-        ctx.track->finalizeLayer (true);
-        if (ctx.bridge)
-        {
-            ctx.bridge->signalWaveformChanged();
-        }
+        ctx.track->finalizeLayer (true, ctx.track->isSynced() ? ctx.syncMasterLength : ctx.track->getCurrentWritePosition());
     }
 }
 
 // PendingTrackChange state
-inline void pendingProcessAudio (StateContext& ctx)
+inline void pendingProcessAudio (StateContext& ctx, const LooperState& currentState)
 {
     // Same as playing
-    playingProcessAudio (ctx);
+    playingProcessAudio (ctx, currentState);
 }
 inline void pendingOnEnter (StateContext&) {}
 inline void pendingOnExit (StateContext&) {}
 
 // Transitioning state
-inline void transitioningProcessAudio (StateContext& ctx)
+inline void transitioningProcessAudio (StateContext& ctx, const LooperState& currentState)
 {
     // Same as playing
-    playingProcessAudio (ctx);
+    playingProcessAudio (ctx, currentState);
 }
 inline void transitioningOnEnter (StateContext&) {}
 inline void transitioningOnExit (StateContext&) {}
@@ -162,9 +175,9 @@ public:
         return true;
     }
 
-    void processAudio (LooperState current, StateContext& ctx)
+    void processAudio (const LooperState& current, StateContext& ctx)
     {
         const auto& actions = STATE_ACTION_TABLE[static_cast<size_t> (current)];
-        actions.processAudio (ctx);
+        actions.processAudio (ctx, current);
     }
 };

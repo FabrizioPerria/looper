@@ -4,7 +4,7 @@
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
-class TrackEditComponent : public juce::Component
+class TrackEditComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
     TrackEditComponent (EngineMessageBus* engineMessageBus, int trackIdx) : uiToEngineBus (engineMessageBus), trackIndex (trackIdx)
@@ -26,7 +26,16 @@ public:
         clearButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::Clear, trackIndex, {} }); };
         addAndMakeVisible (clearButton);
+
+        syncButton.setButtonText ("SYNC");
+        syncButton.setComponentID ("sync");
+        syncButton.setToggleState (true, juce::dontSendNotification);
+        syncButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleSyncTrack, trackIndex, {} }); };
+        addAndMakeVisible (syncButton);
+        uiToEngineBus->addListener (this);
     }
+    ~TrackEditComponent() override { uiToEngineBus->removeListener (this); }
 
     void resized() override
     {
@@ -41,8 +50,13 @@ public:
         undoredoBox.items.add (juce::FlexItem (undoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 1, 1)));
         undoredoBox.items.add (juce::FlexItem (redoButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (1, 1, 0, 1)));
 
+        juce::FlexBox clearSyncBox;
+        clearSyncBox.flexDirection = juce::FlexBox::Direction::column;
+        clearSyncBox.items.add (juce::FlexItem (clearButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 1, 1)));
+        clearSyncBox.items.add (juce::FlexItem (syncButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (1, 1, 0, 1)));
+
         flexBox.items.add (juce::FlexItem (undoredoBox).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        flexBox.items.add (juce::FlexItem (clearButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 0, 0, 0)));
+        flexBox.items.add (juce::FlexItem (clearSyncBox).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
 
         flexBox.performLayout (bounds.toFloat());
     }
@@ -59,9 +73,30 @@ private:
     juce::TextButton undoButton { "UNDO" };
     juce::TextButton redoButton { "REDO" };
     juce::TextButton clearButton { "CLEAR" };
+    juce::TextButton syncButton { "SYNC" };
 
     EngineMessageBus* uiToEngineBus;
     int trackIndex;
 
+    constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::TrackSyncChanged };
+
+    void handleEngineEvent (const EngineMessageBus::Event& event) override
+    {
+        if (event.trackIndex != trackIndex) return;
+        bool isSubscribed = std::find (std::begin (subscribedEvents), std::end (subscribedEvents), event.type)
+                            != std::end (subscribedEvents);
+        if (! isSubscribed) return;
+
+        switch (event.type)
+        {
+            case EngineMessageBus::EventType::TrackSyncChanged:
+                if (std::holds_alternative<bool> (event.data))
+                {
+                    bool isSynced = std::get<bool> (event.data);
+                    syncButton.setToggleState (isSynced, juce::dontSendNotification);
+                }
+                break;
+        }
+    }
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TrackEditComponent)
 };

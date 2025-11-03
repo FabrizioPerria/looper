@@ -135,6 +135,7 @@ private:
     WaveformComponent waveformDisplay;
     juce::TextButton muteButton;
     juce::TextButton soloButton;
+
     juce::TextButton lockPitchButton;
     juce::TextButton reverseButton;
     AccentBar accentBar;

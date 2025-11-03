@@ -33,6 +33,7 @@ constexpr int TRANSITIONS[NUM_STATES] =
 
         [static_cast<size_t>(LooperState::Playing)] =
             (1u << static_cast<uint32_t>(LooperState::Stopped)) |
+            (1u << static_cast<uint32_t>(LooperState::Recording)) |
             (1u << static_cast<uint32_t>(LooperState::Overdubbing)) |
             (1u << static_cast<uint32_t>(LooperState::PendingTrackChange)),
 
@@ -101,6 +102,11 @@ constexpr bool isRecording(LooperState s)
 constexpr bool isPlaying(LooperState s)
 {
     return FLAGS[static_cast<size_t>(s)].isPlaying;
+}
+
+constexpr bool isStopped(LooperState s)
+{
+    return !isRecording(s) && !isPlaying(s);
 }
 
 constexpr bool needsContent(LooperState s)

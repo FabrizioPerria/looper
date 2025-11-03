@@ -40,7 +40,7 @@ public:
         int meterHeight = 14;
         int spacing = 2;
 
-        labelBounds = bounds.removeFromTop (JUCE_LIVE_CONSTANT (16));
+        labelBounds = bounds.removeFromTop (16);
 
         bounds = bounds.removeFromBottom (43);
 

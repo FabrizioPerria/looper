@@ -74,7 +74,7 @@ void AudioPluginAudioProcessor::changeProgramName (int index, const juce::String
 //==============================================================================
 void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    looperEngine->prepareToPlay (sampleRate, samplesPerBlock, 4, getTotalNumInputChannels());
+    looperEngine->prepareToPlay (sampleRate, samplesPerBlock, getTotalNumInputChannels());
 }
 
 void AudioPluginAudioProcessor::releaseResources() { looperEngine->releaseResources(); }
