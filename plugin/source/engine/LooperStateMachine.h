@@ -16,6 +16,7 @@ struct StateContext
     double sampleRate;
     int trackIndex;
     bool wasRecording;
+    bool isSinglePlayMode;
     int syncMasterLength;
     int syncMasterTrackIndex;
     std::array<std::unique_ptr<LoopTrack>, NUM_TRACKS>* allTracks;
@@ -72,6 +73,7 @@ inline void recordingProcessAudio (StateContext& ctx, const LooperState& current
     }
     playingProcessAudio (ctx, currentState);
 }
+
 inline void recordingOnEnter (StateContext&) {}
 
 inline void recordingOnExit (StateContext& ctx)
@@ -80,7 +82,8 @@ inline void recordingOnExit (StateContext& ctx)
     {
         int recordedLength = ctx.track->getCurrentWritePosition();
 
-        ctx.track->finalizeLayer (false, ctx.track->isSynced() ? ctx.syncMasterLength : recordedLength);
+        bool shouldSyncRecording = ctx.track->isSynced() && ! ctx.isSinglePlayMode;
+        ctx.track->finalizeLayer (false, shouldSyncRecording ? ctx.syncMasterLength : recordedLength);
 
         // If no master exists yet, this becomes the master
         if (ctx.syncMasterLength == 0)
@@ -97,8 +100,8 @@ inline void overdubbingProcessAudio (StateContext& ctx, const LooperState& curre
     if (ctx.track && ctx.inputBuffer && ctx.outputBuffer)
     {
         ctx.track->processRecord (*ctx.inputBuffer, ctx.numSamples, true, currentState);
-        ctx.track->processPlayback (*ctx.outputBuffer, ctx.numSamples, true, currentState);
     }
+    playingProcessAudio (ctx, currentState);
 }
 
 inline void overdubbingOnEnter (StateContext& ctx) { ctx.track->initializeForNewOverdubSession(); }

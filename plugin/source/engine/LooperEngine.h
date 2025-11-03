@@ -109,10 +109,9 @@ private:
     int activeTrackIndex = 0;
     int nextTrackIndex = -1;
 
-    int syncMasterLength = 0;      // First loop's length
-    int syncMasterTrackIndex = -1; // Which track is the master
+    int syncMasterLength = 0;
+    int syncMasterTrackIndex = -1;
 
-    // std::vector<std::unique_ptr<LoopTrack>> loopTracks;
     std::array<std::unique_ptr<LoopTrack>, NUM_TRACKS> loopTracks;
     std::array<bool, NUM_TRACKS> tracksToPlay;
 

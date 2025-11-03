@@ -113,6 +113,7 @@ StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& b
                           .sampleRate = sampleRate,
                           .trackIndex = activeTrackIndex,
                           .wasRecording = StateConfig::isRecording (currentState),
+                          .isSinglePlayMode = singlePlayMode.load(),
                           .syncMasterLength = syncMasterLength,
                           .syncMasterTrackIndex = syncMasterTrackIndex,
                           .allTracks = &loopTracks,
@@ -299,6 +300,22 @@ void LooperEngine::clear (int trackIndex)
 
     track->clear();
 
+    if (trackIndex == syncMasterTrackIndex)
+    {
+        syncMasterLength = 0;
+        syncMasterTrackIndex = -1;
+        // find longest synced track to be new master
+        for (int i = 0; i < numTracks; ++i)
+        {
+            auto* t = getTrackByIndex (i);
+            if (t && t->isSynced() && t->getTrackLengthSamples() > syncMasterLength)
+            {
+                syncMasterLength = t->getTrackLengthSamples();
+                syncMasterTrackIndex = i;
+            }
+        }
+    }
+
     if (trackIndex == activeTrackIndex)
     {
         transitionTo (LooperState::Stopped);
@@ -463,9 +480,17 @@ void LooperEngine::loadWaveFileToTrack (const juce::File& audioFile, int trackIn
         juce::AudioBuffer<float> backingTrack ((int) reader->numChannels, (int) reader->lengthInSamples);
         int samplesToRead = (int) reader->lengthInSamples;
         auto track = getTrackByIndex (trackIndex);
-        if (track && track->isSynced() && syncMasterLength > 0)
+        if (track && track->isSynced())
         {
-            samplesToRead = syncMasterLength;
+            if (syncMasterLength > 0)
+            {
+                samplesToRead = syncMasterLength;
+            }
+            else
+            {
+                syncMasterLength = samplesToRead;
+                syncMasterTrackIndex = trackIndex;
+            }
         }
 
         reader->read (&backingTrack, 0, samplesToRead, 0, true, true);
