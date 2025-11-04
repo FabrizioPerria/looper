@@ -23,6 +23,7 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
         addTrack (i);
 
     metronome->prepareToPlay (sampleRate, maxBlockSize);
+    granularFreeze->prepareToPlay (sampleRate, maxBlockSize, numChannels);
 
     inputMeter->prepare (numChannels);
     outputMeter->prepare (numChannels);
@@ -45,6 +46,7 @@ void LooperEngine::releaseResources()
     currentState = LooperState::Idle;
 
     metronome->releaseResources();
+    granularFreeze->releaseResources();
 }
 
 void LooperEngine::addTrack (int index)
@@ -236,6 +238,13 @@ void LooperEngine::toggleVolumeNormalize (int trackIndex)
     auto* track = getTrackByIndex (trackIndex);
     if (track) track->toggleNormalizingOutput();
 }
+void LooperEngine::toggleGranularFreeze()
+{
+    granularFreeze->toggleActiveState();
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::FreezeStateChanged,
+                                                         activeTrackIndex,
+                                                         granularFreeze->isEnabled()));
+}
 void LooperEngine::toggleKeepPitchWhenChangingSpeed (int trackIndex)
 {
     bool current = getKeepPitchWhenChangingSpeed (trackIndex);
@@ -340,6 +349,9 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
     if (! activeTrack) return;
 
     processPendingActions();
+
+    granularFreeze->processBlock (buffer);
+
     auto ctx = createStateContext (buffer);
     stateMachine.processAudio (currentState, ctx);
 
