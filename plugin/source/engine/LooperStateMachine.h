@@ -56,8 +56,8 @@ inline void playingProcessAudio (StateContext& ctx, const LooperState& currentSt
     {
         for (int i = 0; i < NUM_TRACKS; ++i)
         {
-            if (! ctx.tracksToPlay->at (i)) continue;
-            ctx.allTracks->at (i)->processPlayback (*ctx.outputBuffer, ctx.numSamples, false, currentState);
+            if (! ctx.tracksToPlay->at ((size_t) i)) continue;
+            ctx.allTracks->at ((size_t) i)->processPlayback (*ctx.outputBuffer, ctx.numSamples, false, currentState);
         }
     }
 }
@@ -76,21 +76,45 @@ inline void recordingProcessAudio (StateContext& ctx, const LooperState& current
 
 inline void recordingOnEnter (StateContext&) {}
 
+static bool shouldSyncRecording (StateContext& ctx)
+{
+    return (ctx.syncMasterLength <= 0) || (ctx.track->isSynced() && ! ctx.isSinglePlayMode);
+}
+
+static int quantizeLengthToMaster (int recordedLength, int masterLength)
+{
+    if (masterLength <= 0) return recordedLength;
+
+    // Quantize to nearest multiple of master length
+    int multiples = (recordedLength + masterLength / 2) / masterLength;
+    return multiples * masterLength;
+}
+
+static int calculateFinalLength (StateContext& ctx, int recordedLength)
+{
+    if (shouldSyncRecording (ctx)) return quantizeLengthToMaster (recordedLength, ctx.syncMasterLength);
+    return recordedLength;
+}
+
+static void updateSyncMasterIfNeeded (StateContext& ctx)
+{
+    if (ctx.track && ctx.syncMasterLength == 0)
+    {
+        ctx.syncMasterLength = ctx.track->getTrackLengthSamples();
+        ctx.syncMasterTrackIndex = ctx.trackIndex;
+    }
+}
+
 inline void recordingOnExit (StateContext& ctx)
 {
     if (ctx.track)
     {
         int recordedLength = ctx.track->getCurrentWritePosition();
+        int finalLength = calculateFinalLength (ctx, recordedLength);
 
-        bool shouldSyncRecording = ctx.track->isSynced() && ! ctx.isSinglePlayMode;
-        ctx.track->finalizeLayer (false, shouldSyncRecording ? ctx.syncMasterLength : recordedLength);
+        ctx.track->finalizeLayer (false, finalLength);
 
-        // If no master exists yet, this becomes the master
-        if (ctx.syncMasterLength == 0)
-        {
-            ctx.syncMasterLength = ctx.track->getTrackLengthSamples();
-            ctx.syncMasterTrackIndex = ctx.trackIndex;
-        }
+        updateSyncMasterIfNeeded (ctx);
     }
 }
 
@@ -160,15 +184,11 @@ public:
             return false;
         }
 
-        // Call exit handler for current state
-        // CRITICAL: This is where recording finalization happens
         const auto& currentActions = STATE_ACTION_TABLE[static_cast<size_t> (current)];
         currentActions.onExit (ctx);
 
-        // Transition
         current = target;
 
-        // Call enter handler for new state
         const auto& targetActions = STATE_ACTION_TABLE[static_cast<size_t> (target)];
         targetActions.onEnter (ctx);
 
