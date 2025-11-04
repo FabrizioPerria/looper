@@ -124,7 +124,10 @@ public:
     }
 
     int getWritePos() const { return writePos; }
+    void setWritePosition (int pos) { writePos = std::clamp (pos, 0, musicalLength - 1); }
+
     int getReadPos() const { return (int) readPos; }
+    void setReadPosition (int pos) { readPos = std::clamp ((double) pos, 0.0, (double) (musicalLength - 1)); }
 
     double getExactReadPos() const { return readPos; }
 

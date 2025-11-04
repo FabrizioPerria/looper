@@ -74,7 +74,15 @@ inline void recordingProcessAudio (StateContext& ctx, const LooperState& current
     playingProcessAudio (ctx, currentState);
 }
 
-inline void recordingOnEnter (StateContext&) {}
+inline void recordingOnEnter (StateContext& ctx)
+{
+    if (ctx.track->isSynced() && ! ctx.isSinglePlayMode && ctx.syncMasterLength > 0)
+    {
+        auto* masterTrack = ctx.allTracks->at ((size_t) ctx.syncMasterTrackIndex).get();
+        int masterStart = masterTrack->getCurrentReadPosition();
+        ctx.track->setWritePosition (masterStart);
+    }
+}
 
 static bool shouldSyncRecording (StateContext& ctx)
 {
@@ -86,7 +94,7 @@ static int quantizeLengthToMaster (int recordedLength, int masterLength)
     if (masterLength <= 0) return recordedLength;
 
     // Quantize to nearest multiple of master length
-    int multiples = (recordedLength + masterLength / 2) / masterLength;
+    const auto multiples = (recordedLength / masterLength) + 1;
     return multiples * masterLength;
 }
 
@@ -94,15 +102,6 @@ static int calculateFinalLength (StateContext& ctx, int recordedLength)
 {
     if (shouldSyncRecording (ctx)) return quantizeLengthToMaster (recordedLength, ctx.syncMasterLength);
     return recordedLength;
-}
-
-static void updateSyncMasterIfNeeded (StateContext& ctx)
-{
-    if (ctx.track && ctx.syncMasterLength == 0)
-    {
-        ctx.syncMasterLength = ctx.track->getTrackLengthSamples();
-        ctx.syncMasterTrackIndex = ctx.trackIndex;
-    }
 }
 
 inline void recordingOnExit (StateContext& ctx)
@@ -113,8 +112,12 @@ inline void recordingOnExit (StateContext& ctx)
         int finalLength = calculateFinalLength (ctx, recordedLength);
 
         ctx.track->finalizeLayer (false, finalLength);
-
-        updateSyncMasterIfNeeded (ctx);
+    }
+    if (ctx.track->isSynced() && ! ctx.isSinglePlayMode && ctx.syncMasterLength > 0 && ctx.trackIndex != ctx.syncMasterTrackIndex)
+    {
+        auto* masterTrack = ctx.allTracks->at ((size_t) ctx.syncMasterTrackIndex).get();
+        int masterStart = masterTrack->getCurrentReadPosition();
+        ctx.track->setReadPosition (masterStart);
     }
 }
 

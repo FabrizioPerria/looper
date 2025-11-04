@@ -100,6 +100,10 @@ public:
 
     void resetPlaybackPosition (LooperState currentState);
 
+    void setWritePosition (int pos) { bufferManager.setWritePosition (pos); }
+
+    void setReadPosition (int pos) { bufferManager.setReadPosition (pos); }
+
 private:
     VolumeProcessor volumeProcessor;
     BufferManager bufferManager;

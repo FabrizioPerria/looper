@@ -163,9 +163,11 @@ void LooperEngine::stop()
 
     if (StateConfig::isRecording (currentState))
     {
+        transitionTo (LooperState::Playing);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::RecordingStateChanged, activeTrackIndex, false));
         if (activeTrack->isSynced())
         {
-            int recordedLength = activeTrack->getCurrentWritePosition();
+            int recordedLength = activeTrack->getTrackLengthSamples();
 
             if (syncMasterLength == 0)
             {
@@ -173,8 +175,6 @@ void LooperEngine::stop()
                 syncMasterTrackIndex = activeTrackIndex;
             }
         }
-        transitionTo (LooperState::Playing);
-        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::RecordingStateChanged, activeTrackIndex, false));
     }
     else if (StateConfig::isPlaying (currentState))
     {
@@ -253,7 +253,8 @@ void LooperEngine::selectTrack (int trackIndex)
         return;
     }
 
-    if (currentState == LooperState::Idle || currentState == LooperState::Stopped || ! trackHasContent (activeTrackIndex))
+    if (currentState == LooperState::Idle || currentState == LooperState::Stopped || ! trackHasContent (activeTrackIndex)
+        || ! singlePlayMode.load())
     {
         switchToTrackImmediately (trackIndex);
         return;
@@ -316,10 +317,10 @@ void LooperEngine::clear (int trackIndex)
         }
     }
 
-    if (trackIndex == activeTrackIndex)
-    {
-        transitionTo (LooperState::Stopped);
-    }
+    // if (trackIndex == activeTrackIndex)
+    // {
+    //     transitionTo (LooperState::Stopped);
+    // }
 }
 
 void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)

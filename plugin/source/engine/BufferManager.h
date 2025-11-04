@@ -210,8 +210,11 @@ public:
         return readResult;
     }
 
-    int getReadPosition() const { return fifo.getReadPos(); }
+    void setWritePosition (int pos) { fifo.setWritePosition (pos); }
     int getWritePosition() const { return fifo.getWritePos(); }
+
+    void setReadPosition (int pos) { fifo.setReadPosition (pos); }
+    int getReadPosition() const { return fifo.getReadPos(); }
 
     void setLoopRegion (int startSample, int endSample)
     {
