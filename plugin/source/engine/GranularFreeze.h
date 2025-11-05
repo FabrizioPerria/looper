@@ -97,8 +97,6 @@ public:
 
         if (! isFrozen.load()) return;
 
-        buffer.clear();
-
         float* leftChannel = buffer.getWritePointer (0);
         float* rightChannel = buffer.getWritePointer (1);
         const float* frozenL = frozenBuffer.getReadPointer (0);
@@ -173,8 +171,8 @@ public:
             }
 
             // Hard clipping (fastest)
-            leftChannel[i] = juce::jlimit (-1.0f, 1.0f, leftSum);
-            rightChannel[i] = juce::jlimit (-1.0f, 1.0f, rightSum);
+            leftChannel[i] += juce::jlimit (-1.0f, 1.0f, leftSum);
+            rightChannel[i] += juce::jlimit (-1.0f, 1.0f, rightSum);
         }
     }
 
