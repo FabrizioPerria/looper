@@ -69,11 +69,12 @@ public:
 
             isFrozen.store (true);
             nextGrainTime = 0;
-            std::memset (grains.data(), 0, sizeof (Grain) * MAX_GRAINS);
         }
         else
         {
             isFrozen.store (false);
+
+            juce::Thread::launch ([this]() { std::memset (grains.data(), 0, sizeof (Grain) * MAX_GRAINS); });
         }
     }
 
@@ -179,17 +180,6 @@ public:
     bool isEnabled() const { return isFrozen.load(); }
 
 private:
-    static constexpr int GRAIN_LENGTH = 16384;
-    static constexpr int GRAIN_SPACING = 512;
-    static constexpr int WINDOW_SIZE = 2048;
-    static constexpr int WINDOW_SIZE_1 = WINDOW_SIZE - 1;
-    static constexpr int MOD_TABLE_SIZE = 1024;
-    static constexpr int MOD_TABLE_MASK = MOD_TABLE_SIZE - 1;
-
-    const float MOD_RATE = 0.04f;
-    const float PITCH_MOD_DEPTH = 0.005f;
-    const float AMP_MOD_DEPTH = 0.01f;
-
     // Background snapshot thread
     class SnapshotThread : public juce::Thread
     {
