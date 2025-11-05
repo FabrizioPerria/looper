@@ -23,7 +23,7 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
         addTrack (i);
 
     metronome->prepareToPlay (sampleRate, maxBlockSize);
-    granularFreeze->prepareToPlay (sampleRate, maxBlockSize, numChannels);
+    granularFreeze->prepareToPlay (sampleRate, numChannels);
 
     inputMeter->prepare (numChannels);
     outputMeter->prepare (numChannels);

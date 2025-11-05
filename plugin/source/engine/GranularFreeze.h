@@ -1,360 +1,290 @@
 #pragma once
-
-#include "engine/BufferManager.h"
-#include "engine/Constants.h"
-#include "engine/LoopFifo.h"
-#include "profiler/PerfettoProfiler.h"
+#include "BufferManager.h"
+#include "Constants.h"
 #include <JuceHeader.h>
+#include <atomic>
 
-// Grain is responsible for its complete behavior:
-// - State management (position, envelope, lifecycle)
-// - Audio generation (read from frozen buffer, apply envelope)
-// - Output mixing (add to grain buffer)
-class Grain
-{
-public:
-    Grain() {}
-    void reset()
-    {
-        isActive = false;
-        grainLength = 0;
-        grainPosition = 0;
-        pitch = 1.0;
-        amplitude = 1.0f;
-        fifo.clear();
-        frozenBufferLength = 0;
-        cachedSampleRate = 0.0;
-    }
-
-    void start (int frozenBufferSize, double sampleRate)
-    {
-        reset();
-        frozenBufferLength = frozenBufferSize;
-        cachedSampleRate = sampleRate;
-
-        fifo.prepareToPlay (frozenBufferSize);
-        fifo.setMusicalLength (frozenBufferSize);
-
-        // DON'T randomize phase here - grainLength is still 0!
-        spawn(); // This will set grainLength and randomize phase
-    }
-
-    // Generate and mix one sample from this grain into the output buffer
-    void generateAndMixSample (const juce::AudioBuffer<float>& frozenBuffer, juce::AudioBuffer<float>& outputBuffer, int sampleIndex)
-    {
-        if (! isActive) return;
-
-        // Check if grain finished and needs to respawn
-        if (isGrainFinished())
-        {
-            spawn();
-        }
-
-        // Calculate envelope (Hann window)
-        const float envelope = calculateEnvelope();
-
-        // Read interpolated sample from frozen buffer
-        const double fractionalPos = fifo.getExactReadPos();
-
-        // Mix into output buffer for all channels
-        const int numChannels = juce::jmin (frozenBuffer.getNumChannels(), outputBuffer.getNumChannels());
-        for (int ch = 0; ch < numChannels; ++ch)
-        {
-            const float sample = interpolateSample (frozenBuffer, ch, fractionalPos);
-            outputBuffer.addSample (ch, sampleIndex, sample * envelope);
-        }
-
-        // Advance grain position
-        fifo.finishedRead (1, pitch, false);
-        grainPosition++;
-    }
-
-    bool getIsActive() const { return isActive; }
-
-private:
-    bool isActive = false;
-    LoopFifo fifo; // Manages read position in frozen buffer
-    int grainLength = 0;
-    int grainPosition = 0;
-
-    float pitch = 1.0f;
-    float amplitude = 1.0f;
-    int frozenBufferLength = 0;
-    double cachedSampleRate = 0.0;
-
-    static constexpr float GRAIN_DENSITY = 0.8f;
-    static constexpr float GRAIN_DURATION_SECONDS = 0.1f;
-    static constexpr float GRAIN_PITCH_SHIFT = 1.0f; // No pitch shift by default
-    static constexpr float GRAIN_SPREAD = 0.3f;
-
-    juce::Random random;
-
-    void spawn()
-    {
-        isActive = true; // Always spawn when called
-        grainPosition = 0;
-
-        // Randomize start position and set in LoopFifo
-        const int startPos = randomizeStartPosition();
-        fifo.setReadPosition (startPos);
-
-        // Set grain length based on duration
-        grainLength = static_cast<int> (GRAIN_DURATION_SECONDS * cachedSampleRate);
-        grainLength = juce::jlimit (static_cast<int> (cachedSampleRate * 0.01), static_cast<int> (cachedSampleRate * 0.5), grainLength);
-
-        // Add variations for interest
-        modulatePitch();
-        modulateAmplitude();
-
-        // NOW randomize phase - grainLength is set so this works correctly
-        randomizePhase();
-    }
-
-    float calculateEnvelope() const
-    {
-        // Hann window envelope
-        return 0.5f * (1.0f - std::cos (juce::MathConstants<float>::twoPi * grainPosition / static_cast<float> (grainLength)));
-    }
-
-    float interpolateSample (const juce::AudioBuffer<float>& buffer, int channel, double fractionalPos) const
-    {
-        const int pos1 = static_cast<int> (fractionalPos) % frozenBufferLength;
-        const int pos2 = (pos1 + 1) % frozenBufferLength;
-        const float frac = static_cast<float> (fractionalPos - std::floor (fractionalPos));
-
-        const float sample1 = buffer.getSample (channel, pos1);
-        const float sample2 = buffer.getSample (channel, pos2);
-        return sample1 + frac * (sample2 - sample1);
-    }
-
-    int randomizeStartPosition()
-    {
-        const float spreadAmount = GRAIN_SPREAD * frozenBufferLength;
-        const float centerPos = frozenBufferLength * 0.5f;
-        float position = centerPos + (random.nextFloat() - 0.5f) * spreadAmount;
-
-        // Clamp to valid range (LoopFifo will handle wrapping during playback)
-        return juce::jlimit (0, frozenBufferLength - 1, static_cast<int> (position));
-    }
-
-    void modulatePitch()
-    {
-        const float pitchVariation = 0.1f * GRAIN_SPREAD;
-        pitch = GRAIN_PITCH_SHIFT * (1.0 + (random.nextFloat() - 0.5f) * pitchVariation);
-    }
-
-    void modulateAmplitude()
-    {
-        const float amplitudeVariation = 0.2f;
-        amplitude = 0.9f + random.nextFloat() * amplitudeVariation; // 0.9 to 1.1
-    }
-
-    void randomizePhase() { grainPosition = random.nextInt (grainLength > 0 ? grainLength : 1000); }
-
-    bool isGrainFinished() const { return grainPosition >= grainLength; }
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Grain)
-};
-
-// GranularFreeze manages the circular buffer and coordinates grains
 class GranularFreeze
 {
 public:
-    GranularFreeze() = default;
-    void prepareToPlay (double currentSampleRate, int samplesPerBlock, int numChannels)
+    struct alignas (16) Grain
     {
-        PERFETTO_FUNCTION();
-        sampleRate = currentSampleRate;
+        float position = 0.0f;
+        float envPosition = 0.0f;
+        float envIncrement = 0.0f;
+        float increment = 1.0f;
+        float pitchMod = 1.0f;
+        float ampMod = 1.0f;
+        bool isActive = false;
+        char padding[7];
+    };
 
-        const int captureBufferSize = static_cast<int> (sampleRate * FREEZE_BUFFER_DURATION_SECONDS);
-        circularBuffer.prepareToPlay (numChannels, captureBufferSize);
+    GranularFreeze() : snapshotThread ("Snapshot")
+    {
+        snapshotThread.startThread (juce::Thread::Priority::low);
+        snapshotThread.owner = this;
+    }
 
-        frozenBuffer.setSize (numChannels, captureBufferSize);
+    ~GranularFreeze() { snapshotThread.stopThread (2000); }
+
+    double getSampleRate() const { return sampleRate_; }
+
+    std::array<Grain, MAX_GRAINS> getActiveGrains() const { return grains; }
+
+    const juce::AudioBuffer<float>& getFrozenBuffer() const { return frozenBuffer; }
+    int getBufferSize() const { return bufferSize_; }
+
+    void prepareToPlay (double sampleRate, int numChannels)
+    {
+        const int bufferSize = static_cast<int> (sampleRate * FREEZE_BUFFER_DURATION_SECONDS);
+
+        frozenBuffer.setSize (numChannels, bufferSize);
         frozenBuffer.clear();
+        circularBuffer.prepareToPlay (numChannels, bufferSize);
 
-        grainBuffer.setSize (numChannels, samplesPerBlock);
-        grainBuffer.clear();
+        sampleRate_ = sampleRate;
+        bufferSize_ = bufferSize;
+        bufferSizeFloat_ = static_cast<float> (bufferSize);
+        isFrozen.store (false);
 
-        for (auto& grain : grains)
-        {
-            grain.reset();
-        }
+        grainEnvIncrement = 1.0f / static_cast<float> (GRAIN_LENGTH);
+
+        std::memset (grains.data(), 0, sizeof (Grain) * MAX_GRAINS);
+
+        createWindowLookup();
+        createModulationLookup();
+
+        modPhaseInc = MOD_RATE / static_cast<float> (sampleRate);
     }
 
     void toggleActiveState()
     {
-        PERFETTO_FUNCTION();
-        if (! isFreezeActive.load())
+        if (! isFrozen.load())
         {
-            isFreezeActive.store (true, std::memory_order_release);
+            needsSnapshot.store (true);
+            while (needsSnapshot.load()) // Wait for snapshot
+            {
+                juce::Thread::sleep (1);
+            }
 
-            takeSnapshot();
-
-            // Start all grains
-            const int frozenSize = frozenBuffer.getNumSamples();
-            for (auto& grain : grains)
-                grain.start (frozenSize, sampleRate);
+            isFrozen.store (true);
+            nextGrainTime = 0;
+            std::memset (grains.data(), 0, sizeof (Grain) * MAX_GRAINS);
         }
         else
         {
-            isFreezeActive.store (false, std::memory_order_release);
-            fadeOutGrains();
+            isFrozen.store (false);
         }
     }
 
     void releaseResources()
     {
-        PERFETTO_FUNCTION();
         circularBuffer.releaseResources();
         frozenBuffer.setSize (0, 0);
-        grainBuffer.setSize (0, 0);
-        isFreezeActive.store (false, std::memory_order_relaxed);
-
-        for (auto& grain : grains)
-        {
-            grain.reset();
-        }
+        isFrozen.store (false);
     }
 
     void processBlock (juce::AudioBuffer<float>& buffer)
     {
-        PERFETTO_FUNCTION();
-        const int numSamples = buffer.getNumSamples();
+        const auto numSamples = buffer.getNumSamples();
 
-        // ALWAYS write input to circular buffer (continuous recording)
-        circularBuffer.writeToAudioBuffer ([] (float* destination, const float* source, const int numSamples, const bool shouldOverdub)
-                                           { juce::FloatVectorOperations::copy (destination, source, numSamples); },
+        circularBuffer.writeToAudioBuffer ([] (float* dest, const float* src, int numSamples, bool)
+                                           { juce::FloatVectorOperations::copy (dest, src, numSamples); },
                                            buffer,
                                            numSamples,
-                                           true, // isOverdub = true (so it wraps around)
-                                           false // syncWriteWithRead = false (independent of playback)
-        );
+                                           true,
+                                           false);
 
-        if (isFreezeActive.load (std::memory_order_acquire))
-        {
-            generateDrone (numSamples);
-            mixDroneIntoBuffer (buffer, numSamples);
-        }
+        if (! isFrozen.load()) return;
 
-        // Handle fade out
-        if (isFadingOut)
-        {
-            updateFadeOut();
-        }
-    }
+        buffer.clear();
 
-    bool isEnabled() const { return isFreezeActive.load (std::memory_order_acquire); }
+        float* leftChannel = buffer.getWritePointer (0);
+        float* rightChannel = buffer.getWritePointer (1);
+        const float* frozenL = frozenBuffer.getReadPointer (0);
+        const float* frozenR = frozenBuffer.getReadPointer (1);
 
-private:
-    BufferManager circularBuffer;
-
-    juce::AudioBuffer<float> frozenBuffer; // Snapshot of circular buffer when freeze activated
-    juce::AudioBuffer<float> grainBuffer;  // Working buffer for grain generation
-
-    float droneGain = 0.5f;
-
-    double sampleRate;
-    bool isFadingOut = false;
-    int fadeOutSamples = 0;
-    int fadeOutRemaining = 0;
-
-    std::atomic<bool> isFreezeActive { false };
-    std::array<Grain, NUM_GRAINS_FOR_FREEZE> grains;
-
-    // Note: For smooth pad-like drones, you need:
-    // - NUM_GRAINS_FOR_FREEZE >= 16 (more grains = more overlap)
-    // - GRAIN_DURATION_SECONDS >= 0.2 (longer grains = smoother)
-    // If it sounds "ghosty" or has tremolo, increase these values
-
-    void takeSnapshot()
-    {
-        const int bufferSize = circularBuffer.getNumSamples();
-
-        circularBuffer.readFromAudioBuffer ([] (float* destination, const float* source, const int numSamples)
-                                            { juce::FloatVectorOperations::copy (destination, source, numSamples); },
-                                            frozenBuffer,
-                                            bufferSize,
-                                            1.0f, // speedMultiplier = 1.0 (normal speed)
-                                            false // isOverdub = false
-        );
-
-        // Debug: Check if we captured any audio
-        float peakLevel = frozenBuffer.getMagnitude (0, 0, bufferSize);
-        DBG ("Freeze snapshot taken - Buffer size: " << bufferSize << ", Peak level: " << peakLevel);
-
-        if (peakLevel < 0.0001f)
-        {
-            DBG ("WARNING: Frozen buffer appears to be silent!");
-        }
-    }
-
-    void generateDrone (int numSamples)
-    {
-        grainBuffer.clear();
-
-        // Debug: Count active grains and check their states
-        int activeGrainCount = 0;
-        int finishedGrainsThisBlock = 0;
-
-        for (auto& grain : grains)
-            if (grain.getIsActive()) activeGrainCount++;
-
-        // Beautiful symmetry - each grain handles itself completely
         for (int i = 0; i < numSamples; ++i)
         {
-            for (auto& grain : grains)
+            // Update mod phase
+            modPhase += modPhaseInc;
+            modPhase -= static_cast<float> (modPhase >= 1.0f);
+
+            // Grain triggering
+            if (--nextGrainTime <= 0)
             {
-                grain.generateAndMixSample (frozenBuffer, grainBuffer, i);
+                triggerGrain();
+                nextGrainTime = GRAIN_SPACING;
+            }
+
+            float leftSum = 0.0f;
+            float rightSum = 0.0f;
+            int activeCount = 0;
+
+            const int modIdx = static_cast<int> (modPhase * MOD_TABLE_SIZE) & MOD_TABLE_MASK;
+
+            // Unrolled grain loop for better CPU pipelining
+            for (int g = 0; g < MAX_GRAINS; ++g)
+            {
+                Grain& grain = grains[g];
+
+                // Branch prediction optimization - most grains are active during freeze
+                if (! grain.isActive) continue;
+
+                activeCount++;
+
+                // Modulation lookup
+                const int modOffset = (modIdx + (g * MOD_TABLE_SIZE / MAX_GRAINS)) & MOD_TABLE_MASK;
+                const float pitchMod = pitchModTable[modOffset];
+                const float ampMod = ampModTable[modOffset];
+
+                // Window envelope
+                const int envIdx = static_cast<int> (grain.envPosition * WINDOW_SIZE_1);
+                const float env = windowTable[envIdx];
+
+                // Sample interpolation
+                const int pos1 = static_cast<int> (grain.position);
+                const int pos2 = (pos1 + 1) % bufferSize_;
+                const float frac = grain.position - static_cast<float> (pos1);
+
+                const float sampleL = frozenL[pos1] + frac * (frozenL[pos2] - frozenL[pos1]);
+                const float sampleR = frozenR[pos1] + frac * (frozenR[pos2] - frozenR[pos1]);
+
+                const float amp = env * ampMod;
+                leftSum += sampleL * amp;
+                rightSum += sampleR * amp;
+
+                // Update grain state
+                grain.position += grain.increment * pitchMod;
+                grain.position -= bufferSizeFloat_ * static_cast<float> (grain.position >= bufferSizeFloat_);
+
+                grain.envPosition += grain.envIncrement;
+                grain.isActive = grain.envPosition < 1.0f;
+            }
+
+            // Normalization with fast inverse sqrt
+            if (activeCount > 0)
+            {
+                const float scale = 0.25f * juce::approximatelyEqual (activeCount, 1)
+                                        ? 1.0f
+                                        : (1.0f / std::sqrt (static_cast<float> (activeCount)));
+                leftSum *= scale;
+                rightSum *= scale;
+            }
+
+            // Hard clipping (fastest)
+            leftChannel[i] = juce::jlimit (-1.0f, 1.0f, leftSum);
+            rightChannel[i] = juce::jlimit (-1.0f, 1.0f, rightSum);
+        }
+    }
+
+    bool isEnabled() const { return isFrozen.load(); }
+
+private:
+    static constexpr int GRAIN_LENGTH = 16384;
+    static constexpr int GRAIN_SPACING = 512;
+    static constexpr int WINDOW_SIZE = 2048;
+    static constexpr int WINDOW_SIZE_1 = WINDOW_SIZE - 1;
+    static constexpr int MOD_TABLE_SIZE = 1024;
+    static constexpr int MOD_TABLE_MASK = MOD_TABLE_SIZE - 1;
+
+    const float MOD_RATE = 0.04f;
+    const float PITCH_MOD_DEPTH = 0.005f;
+    const float AMP_MOD_DEPTH = 0.01f;
+
+    // Background snapshot thread
+    class SnapshotThread : public juce::Thread
+    {
+    public:
+        SnapshotThread (const juce::String& name) : juce::Thread (name) {}
+
+        void run() override
+        {
+            while (! threadShouldExit())
+            {
+                if (owner && owner->needsSnapshot.load())
+                {
+                    const int bufferSize = owner->circularBuffer.getNumSamples();
+                    const int numChannels = owner->circularBuffer.getNumChannels();
+
+                    for (int ch = 0; ch < numChannels; ++ch)
+                    {
+                        juce::FloatVectorOperations::copy (owner->frozenBuffer.getWritePointer (ch),
+                                                           owner->circularBuffer.getReadPointer (ch),
+                                                           bufferSize);
+                    }
+
+                    owner->needsSnapshot.store (false);
+                }
+
+                wait (5);
             }
         }
 
-        // Debug: Check output and grain states
-        float peakLevel = grainBuffer.getMagnitude (0, 0, numSamples);
-        float rmsLevel = grainBuffer.getRMSLevel (0, 0, numSamples);
+        GranularFreeze* owner = nullptr;
+    } snapshotThread;
 
-        // Only log occasionally to avoid spam
-        static int logCounter = 0;
-        if (++logCounter % 100 == 0)
-        {
-            DBG ("Active grains: " << activeGrainCount << ", Peak: " << peakLevel << ", RMS: " << rmsLevel
-                                   << ", Grain duration: " << (0.25f * sampleRate) << " samples");
-        }
-    }
-
-    void mixDroneIntoBuffer (juce::AudioBuffer<float>& buffer, int numSamples)
+    void createWindowLookup()
     {
-        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+        windowTable.resize (WINDOW_SIZE);
+        for (int i = 0; i < WINDOW_SIZE; ++i)
         {
-            buffer.addFromWithRamp (ch, 0, grainBuffer.getReadPointer (ch), numSamples, droneGain, droneGain);
+            const float x = static_cast<float> (i) * (1.0f / WINDOW_SIZE_1);
+            windowTable[i] = 0.5f * (1.0f - std::cos (juce::MathConstants<float>::twoPi * x));
         }
     }
 
-    void fadeOutGrains()
+    void createModulationLookup()
     {
-        isFadingOut = true;
-        fadeOutSamples = static_cast<int> (sampleRate * 0.5); // 500ms fade out
-        fadeOutRemaining = fadeOutSamples;
+        pitchModTable.resize (MOD_TABLE_SIZE);
+        ampModTable.resize (MOD_TABLE_SIZE);
+
+        const float invTableSize = 1.0f / static_cast<float> (MOD_TABLE_SIZE);
+
+        for (int i = 0; i < MOD_TABLE_SIZE; ++i)
+        {
+            const float phase = static_cast<float> (i) * invTableSize;
+            const float modValue = std::sin (juce::MathConstants<float>::twoPi * phase);
+
+            pitchModTable[i] = 1.0f + (modValue * PITCH_MOD_DEPTH);
+            ampModTable[i] = juce::jlimit (0.7f, 1.0f, 1.0f + (modValue * AMP_MOD_DEPTH));
+        }
     }
 
-    void updateFadeOut()
+    void triggerGrain()
     {
-        if (fadeOutRemaining > 0)
+        for (auto& grain : grains)
         {
-            fadeOutRemaining--;
-            // FIX: Calculate fade multiplier correctly
-            const float fadeMultiplier = fadeOutRemaining / static_cast<float> (fadeOutSamples);
-            droneGain = 0.5f * fadeMultiplier; // Start at 0.5, fade to 0
-        }
-        else
-        {
-            isFadingOut = false;
-            droneGain = 0.5f; // Reset for next activation
-
-            // Deactivate all grains
-            for (auto& grain : grains)
-                grain.reset();
+            if (! grain.isActive)
+            {
+                grain.isActive = true;
+                grain.envPosition = 0.0f;
+                grain.envIncrement = grainEnvIncrement;
+                grain.position = random.nextFloat() * bufferSizeFloat_;
+                grain.increment = 1.0f;
+                return;
+            }
         }
     }
+
+    BufferManager circularBuffer;
+    juce::AudioBuffer<float> frozenBuffer;
+    std::array<Grain, MAX_GRAINS> grains;
+    std::vector<float> windowTable;
+    std::vector<float> pitchModTable;
+    std::vector<float> ampModTable;
+
+    double sampleRate_ = 0.0;
+    int bufferSize_ = 0;
+    float bufferSizeFloat_ = 0.0f;
+    int nextGrainTime = 0;
+    float grainEnvIncrement = 0.0f;
+    float modPhase = 0.0f;
+    float modPhaseInc = 0.0f;
+
+    std::atomic<bool> isFrozen { false };
+    std::atomic<bool> needsSnapshot { false };
+    juce::Random random;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GranularFreeze)
 };
