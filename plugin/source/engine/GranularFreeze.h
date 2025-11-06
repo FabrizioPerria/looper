@@ -1,22 +1,334 @@
 #pragma once
 #include "BufferManager.h"
 #include "Constants.h"
+#include "juce_gui_extra/juce_gui_extra.h"
 #include <JuceHeader.h>
+#include <array>
 #include <atomic>
+class WindowTable
+{
+public:
+    WindowTable()
+    {
+        createWindow();
+    }
+
+    ~WindowTable()
+    {
+        table.clear();
+    }
+
+    float operator[] (int index) const
+    {
+        return table[(size_t) index];
+    }
+
+    size_t size() const
+    {
+        return table.size();
+    }
+
+private:
+    void createWindow()
+    {
+        table.resize (WINDOW_SIZE);
+        for (int i = 0; i < WINDOW_SIZE; ++i)
+        {
+            const float x = static_cast<float> (i) * (1.0f / (static_cast<float> (WINDOW_SIZE) - 1.0f));
+            table[(size_t) i] = 0.5f * (1.0f - std::cos (juce::MathConstants<float>::twoPi * x));
+        }
+    }
+
+    static constexpr int WINDOW_SIZE = 2048;
+    std::vector<float> table;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WindowTable)
+};
+
+class Modulator
+{
+public:
+    struct Parameters
+    {
+        float rate = 0.04f;        // MOD_RATE - speed of variation
+        float pitchDepth = 0.005f; // PITCH_MOD_DEPTH - amount of pitch variation
+        float ampDepth = 0.01f;    // AMP_MOD_DEPTH - amount of amplitude variation
+    };
+
+    void setParameters (const Parameters& params)
+    {
+        modRate = params.rate;
+        updateModulationTables (params.pitchDepth, params.ampDepth);
+    }
+
+    Modulator()
+    {
+        createModulation();
+    }
+
+    void prepare (double sampleRate)
+    {
+        modPhaseInc = modRate / static_cast<float> (sampleRate);
+    }
+
+    void updatePhase()
+    {
+        modPhase += modPhaseInc;
+        modPhase -= static_cast<float> (modPhase >= 1.0f);
+    }
+
+    void reset()
+    {
+        modPhase = 0.0f;
+    }
+
+    std::pair<float, float> getModulation (int grainIndex, int numGrains) const
+    {
+        // Calculate base modulation index
+        const int modIdx = static_cast<int> (modPhase * MOD_TABLE_SIZE) & MOD_TABLE_MASK;
+
+        // Offset by grain position in pool
+        const int modOffset = (modIdx + (grainIndex * MOD_TABLE_SIZE / numGrains)) & MOD_TABLE_MASK;
+
+        return { pitchModTable[modOffset], ampModTable[modOffset] };
+    }
+
+    static constexpr int MOD_TABLE_SIZE = 1024;
+    static constexpr int MOD_TABLE_MASK = MOD_TABLE_SIZE - 1;
+
+private:
+    void createModulation()
+    {
+        pitchModTable.resize (MOD_TABLE_SIZE);
+        ampModTable.resize (MOD_TABLE_SIZE);
+
+        static constexpr float PITCH_MOD_DEPTH = 0.005f;
+        static constexpr float AMP_MOD_DEPTH = 0.01f;
+        updateModulationTables (PITCH_MOD_DEPTH, AMP_MOD_DEPTH);
+    }
+
+    void updateModulationTables (float pitchDepth, float ampDepth)
+    {
+        for (int i = 0; i < MOD_TABLE_SIZE; ++i)
+        {
+            const float phase = static_cast<float> (i) / static_cast<float> (MOD_TABLE_SIZE);
+            const float modValue = std::sin (juce::MathConstants<float>::twoPi * phase);
+
+            pitchModTable[(size_t) i] = 1.0f + (modValue * pitchDepth);
+            ampModTable[(size_t) i] = juce::jlimit (0.7f, 1.0f, 1.0f + (modValue * ampDepth));
+        }
+    }
+
+    std::vector<float> pitchModTable;
+    std::vector<float> ampModTable;
+    float modPhase = 0.0f;
+    float modPhaseInc = 0.0f;
+
+    float modRate = 0.04f;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Modulator)
+};
+
+class Grain
+{
+public:
+    struct Parameters
+    {
+        float duration = 16384.0f; // GRAIN_LENGTH - controls grain size
+        float density = 512.0f;    // GRAIN_SPACING - controls overlap
+    };
+    void trigger (float startPosition, Parameters params)
+    {
+        position = startPosition;
+        envPosition = 0.0f;
+        envIncrement = 1.0f / params.duration;
+        increment = 1.0f;
+        isActive = true;
+    }
+
+    std::pair<float, float> process (const juce::AudioBuffer<float>& frozenBuffer, const WindowTable& window, float pitchMod, float ampMod)
+    {
+        if (! isActive)
+            return { 0.0f, 0.0f };
+
+        // Get envelope
+        const int envIdx = static_cast<int> (envPosition * (float) window.size());
+        const float env = window[envIdx];
+
+        // Get interpolated samples
+        const int pos1 = static_cast<int> (position);
+        const int pos2 = (pos1 + 1) % frozenBuffer.getNumSamples();
+        const float frac = position - static_cast<float> (pos1);
+
+        const float* frozenL = frozenBuffer.getReadPointer (0);
+        const float* frozenR = frozenBuffer.getReadPointer (1);
+
+        const float sampleL = frozenL[pos1] + frac * (frozenL[pos2] - frozenL[pos1]);
+        const float sampleR = frozenR[pos1] + frac * (frozenR[pos2] - frozenR[pos1]);
+
+        // Apply envelope and modulation
+        const float amp = env * ampMod;
+
+        // Update positions
+        position += increment * pitchMod;
+        position = std::fmod (position, frozenBuffer.getNumSamples());
+
+        envPosition += envIncrement;
+        isActive = envPosition < 1.0f;
+
+        return { sampleL * amp, sampleR * amp };
+    }
+
+    bool isPlaying() const
+    {
+        return isActive;
+    }
+
+    float position = 0.0f;
+    float envPosition = 0.0f;
+
+private:
+    float increment = 1.0f;
+    float envIncrement = 0.0f;
+    bool isActive = false;
+};
 
 class GranularFreeze
 {
 public:
-    struct alignas (16) Grain
+    class CloudController
     {
-        float position = 0.0f;
-        float envPosition = 0.0f;
-        float envIncrement = 0.0f;
-        float increment = 1.0f;
-        float pitchMod = 1.0f;
-        float ampMod = 1.0f;
-        bool isActive = false;
-        char padding[7];
+    public:
+        struct Parameters
+        {
+            Grain::Parameters grainParams;
+            Modulator::Parameters modParams;
+            int maxGrains = 64;
+            float positionSpread = 1.0f; // How much of the buffer to use
+            float amplitude = 0.25f;
+        };
+
+        void setParameters (const Parameters& params)
+        {
+            cloudParams = params;
+            modulator.setParameters (params.modParams);
+            nextGrainTime = static_cast<int> (params.grainParams.density);
+        }
+        void prepare (double sampleRate, float bufferDuration)
+        {
+            sampleRate_ = sampleRate;
+            clearAllGrains();
+            bufferSizeFloat_ = sampleRate_ * bufferDuration;
+        }
+
+        std::array<Grain, MAX_GRAINS> getActiveGrains() const
+        {
+            return grains;
+        }
+
+        void processBlock (juce::AudioBuffer<float>& output, const juce::AudioBuffer<float>& frozenBuffer)
+        {
+            for (int i = 0; i < output.getNumSamples(); ++i)
+            {
+                modulator.updatePhase(); // Update global modulation phase
+
+                if (--nextGrainTime <= 0)
+                {
+                    startNewGrain();
+                    nextGrainTime = static_cast<int> (cloudParams.grainParams.density);
+                }
+
+                float leftSum = 0.0f;
+                float rightSum = 0.0f;
+                int activeCount = 0;
+
+                // Process all active grains with correct phase offset
+                for (size_t g = 0; g < cloudParams.maxGrains; ++g)
+                {
+                    if (! grains[g].isPlaying())
+                        continue;
+
+                    // Get modulation with grain index offset
+                    auto [pitchMod, ampMod] = modulator.getModulation (g, cloudParams.maxGrains);
+                    auto [left, right] = grains[g].process (frozenBuffer, window, pitchMod, ampMod);
+
+                    leftSum += left;
+                    rightSum += right;
+                    activeCount++;
+                }
+
+                // Apply normalization and add to output
+                if (activeCount > 0)
+                {
+                    const float scale = cloudParams.amplitude
+                                        * (activeCount <= 1 ? 1.0f : fastInverseSqrt (static_cast<float> (activeCount)));
+
+                    output.addSample (0, i, output.getSample (0, i) + juce::jlimit (-1.0f, 1.0f, leftSum * scale));
+                    output.addSample (1, i, output.getSample (1, i) + juce::jlimit (-1.0f, 1.0f, rightSum * scale));
+                }
+            }
+        }
+
+        void triggerFreeze()
+        {
+            nextGrainTime = 0;
+        }
+
+        void stopFreeze()
+        {
+            clearAllGrains();
+            modulator.reset();
+        }
+
+    private:
+        void triggerGrainIfNeeded()
+        {
+            if (--nextGrainTime <= 0)
+            {
+                startNewGrain();
+                nextGrainTime = cloudParams.grainParams.density;
+            }
+        }
+
+        void startNewGrain()
+        {
+            for (auto& grain : grains)
+            {
+                if (! grain.isPlaying())
+                {
+                    float startPosition = random.nextFloat() * (bufferSizeFloat_ * cloudParams.positionSpread);
+                    grain.trigger (startPosition, cloudParams.grainParams);
+                    return;
+                }
+            }
+        }
+
+        void clearAllGrains()
+        {
+            std::memset (grains.data(), 0, sizeof (Grain) * MAX_GRAINS);
+        }
+
+        static float fastInverseSqrt (float x)
+        {
+            union
+            {
+                float f;
+                uint32_t i;
+            } conv = { x };
+            conv.i = 0x5f3759df - (conv.i >> 1);
+            conv.f = conv.f * (1.5f - 0.5f * x * conv.f * conv.f);
+            return conv.f;
+        }
+        std::array<Grain, MAX_GRAINS> grains;
+        WindowTable window;
+        Modulator modulator;
+
+        double sampleRate_ = 44100.0;
+        int nextGrainTime = 0;
+        float bufferSizeFloat_ = 0.0f;
+        juce::Random random;
+        Parameters cloudParams;
+
+        // static constexpr int MAX_GRAINS = 64;
+        // static constexpr int GRAIN_SPACING = 512;
     };
 
     GranularFreeze() : snapshotThread ("Snapshot")
@@ -25,17 +337,33 @@ public:
         snapshotThread.owner = this;
     }
 
-    ~GranularFreeze() { snapshotThread.stopThread (2000); }
+    ~GranularFreeze()
+    {
+        snapshotThread.stopThread (2000);
+    }
 
-    double getSampleRate() const { return sampleRate_; }
+    double getSampleRate() const
+    {
+        return sampleRate_;
+    }
 
-    std::array<Grain, MAX_GRAINS> getActiveGrains() const { return grains; }
+    std::array<Grain, MAX_GRAINS> getActiveGrains() const
+    {
+        return cloudController.getActiveGrains();
+    }
 
-    const juce::AudioBuffer<float>& getFrozenBuffer() const { return frozenBuffer; }
-    int getBufferSize() const { return bufferSize_; }
+    const juce::AudioBuffer<float>& getFrozenBuffer() const
+    {
+        return frozenBuffer;
+    }
+    int getBufferSize() const
+    {
+        return bufferSize_;
+    }
 
     void prepareToPlay (double sampleRate, int numChannels)
     {
+        constexpr float FREEZE_BUFFER_DURATION_SECONDS = 0.5f;
         const int bufferSize = static_cast<int> (sampleRate * FREEZE_BUFFER_DURATION_SECONDS);
 
         frozenBuffer.setSize (numChannels, bufferSize);
@@ -44,17 +372,9 @@ public:
 
         sampleRate_ = sampleRate;
         bufferSize_ = bufferSize;
-        bufferSizeFloat_ = static_cast<float> (bufferSize);
         isFrozen.store (false);
 
-        grainEnvIncrement = 1.0f / static_cast<float> (GRAIN_LENGTH);
-
-        std::memset (grains.data(), 0, sizeof (Grain) * MAX_GRAINS);
-
-        createWindowLookup();
-        createModulationLookup();
-
-        modPhaseInc = MOD_RATE / static_cast<float> (sampleRate);
+        cloudController.prepare (sampleRate, FREEZE_BUFFER_DURATION_SECONDS);
     }
 
     void toggleActiveState()
@@ -68,13 +388,13 @@ public:
             }
 
             isFrozen.store (true);
-            nextGrainTime = 0;
+            cloudController.setParameters (getDefaultParameters());
+            cloudController.triggerFreeze();
         }
         else
         {
             isFrozen.store (false);
-
-            juce::Thread::launch ([this]() { std::memset (grains.data(), 0, sizeof (Grain) * MAX_GRAINS); });
+            cloudController.stopFreeze();
         }
     }
 
@@ -96,95 +416,25 @@ public:
                                            true,
                                            false);
 
-        if (! isFrozen.load()) return;
+        if (! isFrozen.load())
+            return;
 
-        float* leftChannel = buffer.getWritePointer (0);
-        float* rightChannel = buffer.getWritePointer (1);
-        const float* frozenL = frozenBuffer.getReadPointer (0);
-        const float* frozenR = frozenBuffer.getReadPointer (1);
-
-        for (int i = 0; i < numSamples; ++i)
-        {
-            // Update mod phase
-            modPhase += modPhaseInc;
-            modPhase -= static_cast<float> (modPhase >= 1.0f);
-
-            // Grain triggering
-            if (--nextGrainTime <= 0)
-            {
-                triggerGrain();
-                nextGrainTime = GRAIN_SPACING;
-            }
-
-            float leftSum = 0.0f;
-            float rightSum = 0.0f;
-            int activeCount = 0;
-
-            const int modIdx = static_cast<int> (modPhase * MOD_TABLE_SIZE) & MOD_TABLE_MASK;
-
-            // Unrolled grain loop for better CPU pipelining
-            for (int g = 0; g < MAX_GRAINS; ++g)
-            {
-                Grain& grain = grains[g];
-
-                // Branch prediction optimization - most grains are active during freeze
-                if (! grain.isActive) continue;
-
-                activeCount++;
-
-                // Modulation lookup
-                const int modOffset = (modIdx + (g * MOD_TABLE_SIZE / MAX_GRAINS)) & MOD_TABLE_MASK;
-                const float pitchMod = pitchModTable[modOffset];
-                const float ampMod = ampModTable[modOffset];
-
-                // Window envelope
-                const int envIdx = static_cast<int> (grain.envPosition * WINDOW_SIZE_1);
-                const float env = windowTable[envIdx];
-
-                // Sample interpolation
-                const int pos1 = static_cast<int> (grain.position);
-                const int pos2 = (pos1 + 1) % bufferSize_;
-                const float frac = grain.position - static_cast<float> (pos1);
-
-                const float sampleL = frozenL[pos1] + frac * (frozenL[pos2] - frozenL[pos1]);
-                const float sampleR = frozenR[pos1] + frac * (frozenR[pos2] - frozenR[pos1]);
-
-                const float amp = env * ampMod;
-                leftSum += sampleL * amp;
-                rightSum += sampleR * amp;
-
-                // Update grain state
-                grain.position += grain.increment * pitchMod;
-                grain.position -= bufferSizeFloat_ * static_cast<float> (grain.position >= bufferSizeFloat_);
-
-                grain.envPosition += grain.envIncrement;
-                grain.isActive = grain.envPosition < 1.0f;
-            }
-
-            // Normalization with fast inverse sqrt
-            if (activeCount > 0)
-            {
-                const float scale = 0.25f * juce::approximatelyEqual (activeCount, 1)
-                                        ? 1.0f
-                                        : (1.0f / std::sqrt (static_cast<float> (activeCount)));
-                leftSum *= scale;
-                rightSum *= scale;
-            }
-
-            // Hard clipping (fastest)
-            leftChannel[i] += juce::jlimit (-1.0f, 1.0f, leftSum);
-            rightChannel[i] += juce::jlimit (-1.0f, 1.0f, rightSum);
-        }
+        cloudController.processBlock (buffer, frozenBuffer);
     }
 
-    bool isEnabled() const { return isFrozen.load(); }
+    bool isEnabled() const
+    {
+        return isFrozen.load();
+    }
 
 private:
     // Background snapshot thread
     class SnapshotThread : public juce::Thread
     {
     public:
-        SnapshotThread (const juce::String& name) : juce::Thread (name) {}
+        SnapshotThread (const juce::String& name) : juce::Thread (name)
+        {
+        }
 
         void run() override
         {
@@ -212,67 +462,49 @@ private:
         GranularFreeze* owner = nullptr;
     } snapshotThread;
 
-    void createWindowLookup()
+    void setParameters (const CloudController::Parameters& params)
     {
-        windowTable.resize (WINDOW_SIZE);
-        for (int i = 0; i < WINDOW_SIZE; ++i)
-        {
-            const float x = static_cast<float> (i) * (1.0f / WINDOW_SIZE_1);
-            windowTable[i] = 0.5f * (1.0f - std::cos (juce::MathConstants<float>::twoPi * x));
-        }
+        cloudController.setParameters (params);
     }
 
-    void createModulationLookup()
+    // Example presets
+    static CloudController::Parameters getDefaultParameters()
     {
-        pitchModTable.resize (MOD_TABLE_SIZE);
-        ampModTable.resize (MOD_TABLE_SIZE);
-
-        const float invTableSize = 1.0f / static_cast<float> (MOD_TABLE_SIZE);
-
-        for (int i = 0; i < MOD_TABLE_SIZE; ++i)
-        {
-            const float phase = static_cast<float> (i) * invTableSize;
-            const float modValue = std::sin (juce::MathConstants<float>::twoPi * phase);
-
-            pitchModTable[i] = 1.0f + (modValue * PITCH_MOD_DEPTH);
-            ampModTable[i] = juce::jlimit (0.7f, 1.0f, 1.0f + (modValue * AMP_MOD_DEPTH));
-        }
+        CloudController::Parameters params;
+        // Default values as they are now
+        return params;
     }
 
-    void triggerGrain()
+    static CloudController::Parameters getSmoothTexture()
     {
-        for (auto& grain : grains)
-        {
-            if (! grain.isActive)
-            {
-                grain.isActive = true;
-                grain.envPosition = 0.0f;
-                grain.envIncrement = grainEnvIncrement;
-                grain.position = random.nextFloat() * bufferSizeFloat_;
-                grain.increment = 1.0f;
-                return;
-            }
-        }
+        CloudController::Parameters params;
+        params.grainParams.duration = 32768.0f; // Longer grains
+        params.grainParams.density = 128.0f;    // More overlap
+        params.modParams.rate = 0.02f;          // Slower modulation
+        params.modParams.pitchDepth = 0.002f;   // Less pitch variation
+        return params;
+    }
+
+    static CloudController::Parameters getGranularTexture()
+    {
+        CloudController::Parameters params;
+        params.grainParams.duration = 8192.0f; // Shorter grains
+        params.grainParams.density = 1024.0f;  // Less overlap
+        params.modParams.rate = 0.08f;         // Faster modulation
+        params.modParams.pitchDepth = 0.01f;   // More pitch variation
+        return params;
     }
 
     BufferManager circularBuffer;
     juce::AudioBuffer<float> frozenBuffer;
-    std::array<Grain, MAX_GRAINS> grains;
-    std::vector<float> windowTable;
-    std::vector<float> pitchModTable;
-    std::vector<float> ampModTable;
+
+    CloudController cloudController;
 
     double sampleRate_ = 0.0;
     int bufferSize_ = 0;
-    float bufferSizeFloat_ = 0.0f;
-    int nextGrainTime = 0;
-    float grainEnvIncrement = 0.0f;
-    float modPhase = 0.0f;
-    float modPhaseInc = 0.0f;
 
     std::atomic<bool> isFrozen { false };
     std::atomic<bool> needsSnapshot { false };
-    juce::Random random;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GranularFreeze)
 };

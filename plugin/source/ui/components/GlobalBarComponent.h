@@ -1,6 +1,7 @@
 #pragma once
 
 #include "audio/EngineStateToUIBridge.h"
+#include "engine/GranularFreeze.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/FreezeComponent.h"
 #include "ui/components/MeterWithGainComponent.h"
@@ -11,12 +12,12 @@
 class GlobalControlBar : public juce::Component
 {
 public:
-    GlobalControlBar (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge, Metronome* m)
+    GlobalControlBar (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge, Metronome* m, GranularFreeze* freezer)
         : transportControls (engineMessageBus, bridge)
         , metronomeComponent (engineMessageBus, m)
         , inputMeter ("IN", engineMessageBus, bridge)
         , outputMeter ("OUT", engineMessageBus, bridge)
-        , droneComponent (engineMessageBus)
+        , droneComponent (engineMessageBus, freezer)
     {
         looperLabel.setText ("LOOPER", juce::NotificationType::dontSendNotification);
         juce::FontOptions fontOptions = juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 16.0f, juce::Font::bold);
