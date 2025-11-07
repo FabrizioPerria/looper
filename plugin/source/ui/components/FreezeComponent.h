@@ -40,38 +40,49 @@ public:
             if (grain.isPlaying()) activeCount++;
         }
 
-        auto center = getLocalBounds().getCentre().toFloat();
-        float scale = 0.6f;
+        // auto center = getLocalBounds().getCentre().toFloat();
+        float scale = 0.5f;
 
         // Draw rotating snowflake
-        paintSnowflake (g, center.x, center.y, scale, 0.0f);
+        // paintSnowflake (g, center.x, center.y, scale, 0.0f);
+        auto dataSvg = BinaryData::freeze_svg;
+        auto sizeSvg = BinaryData::freeze_svgSize;
 
-        if (freezeSynth->isEnabled())
-        {
-            float radius = 10.0f + (activeCount * 0.5f);
-            auto center = getLocalBounds().getCentre().toFloat();
+        juce::MemoryInputStream stream (dataSvg, static_cast<size_t> (sizeSvg), false);
+        auto svg = juce::Drawable::createFromImageDataStream (stream);
 
-            for (int i = 0; i < activeCount; i++)
-            {
-                // auto color = juce::Colour::fromHSV (i / (float) activeCount, 0.8f, 1.0f, 1.0f);
-                auto color = LooperTheme::Colors::cyan.withAlpha (i / (float) activeCount);
-                g.setColour (color);
-                float angle = (i / (float) activeCount) + rotation;
-                float x = std::cos (angle * juce::MathConstants<float>::twoPi) * radius;
-                float y = std::sin (angle * juce::MathConstants<float>::twoPi) * radius;
-                g.drawEllipse (center.x + x, center.y + y, 3, 3, 1);
-            }
-        }
-        else
-        {
-            float radius = 14.0f;
+        auto currentBounds = getLocalBounds().toFloat();
+        auto size = juce::jmin (currentBounds.getWidth(), currentBounds.getHeight()) / 2.0f;
+        auto bounds = currentBounds.withSizeKeepingCentre (size, size).reduced (5.0f);
+        auto center = currentBounds.getCentre(); // Use the main bounds center for everything
 
-            g.setColour (LooperTheme::Colors::cyan.withAlpha (0.3f));
-            float angle = rotation;
-            float x = std::cos (angle * juce::MathConstants<float>::twoPi) * radius;
-            float y = std::sin (angle * juce::MathConstants<float>::twoPi) * radius;
-            g.drawEllipse (center.x + x, center.y + y, 3, 3, 1);
-        }
+        svg->replaceColour (juce::Colours::black, LooperTheme::Colors::cyan.withAlpha (freezeSynth->isEnabled() ? 1.0f : 0.3f));
+        svg->drawWithin (g, bounds, juce::RectanglePlacement::centred, 1.0f);
+
+        // if (freezeSynth->isEnabled())
+        // {
+        //     float radius = 10.0f + (static_cast<float> (activeCount) * 0.5f);
+        //
+        //     for (int i = 0; i < activeCount; i++)
+        //     {
+        //         auto color = LooperTheme::Colors::cyan.withAlpha (static_cast<float> (i) / static_cast<float> (activeCount));
+        //         g.setColour (color);
+        //         float angle = (static_cast<float> (i) / static_cast<float> (activeCount)) + rotation;
+        //         float x = std::cos (angle * juce::MathConstants<float>::twoPi) * radius;
+        //         float y = std::sin (angle * juce::MathConstants<float>::twoPi) * radius;
+        //         g.drawEllipse (center.x + x, center.y + y, 2, 2, 1);
+        //     }
+        // }
+        // else
+        // {
+        //     float radius = 14.0f;
+        //
+        //     g.setColour (LooperTheme::Colors::cyan.withAlpha (0.3f));
+        //     float angle = rotation;
+        //     float x = std::cos (angle * juce::MathConstants<float>::twoPi) * radius;
+        //     float y = std::sin (angle * juce::MathConstants<float>::twoPi) * radius;
+        //     g.drawEllipse (center.x + x, center.y + y, 2, 2, 1);
+        // }
     }
 
 private:
@@ -82,8 +93,6 @@ private:
     {
         g.setColour (juce::Colours::white);
 
-        centerX += 2.0f;
-        centerY += 2.0f;
         auto drawArm = [&] (float angle)
         {
             float rad = angle * juce::MathConstants<float>::twoPi;
@@ -97,14 +106,14 @@ private:
 
             // Left sub-branch
             float subAngle1 = rad + (juce::MathConstants<float>::pi / 3.0f);
-            float sub1X = centerX + cos_a * 10.0f * scale + std::cos (subAngle1) * 6.0f * scale;
-            float sub1Y = centerY + sin_a * 10.0f * scale + std::sin (subAngle1) * 6.0f * scale;
+            float sub1X = centerX + cos_a * 10.0f * scale + std::cos (subAngle1) * 5.0f * scale;
+            float sub1Y = centerY + sin_a * 10.0f * scale + std::sin (subAngle1) * 5.0f * scale;
             g.drawLine (centerX + cos_a * 10.0f * scale, centerY + sin_a * 10.0f * scale, sub1X, sub1Y, 1.0f);
 
             // Right sub-branch
             float subAngle2 = rad - (juce::MathConstants<float>::pi / 3.0f);
-            float sub2X = centerX + cos_a * 10.0f * scale + std::cos (subAngle2) * 6.0f * scale;
-            float sub2Y = centerY + sin_a * 10.0f * scale + std::sin (subAngle2) * 6.0f * scale;
+            float sub2X = centerX + cos_a * 10.0f * scale + std::cos (subAngle2) * 5.0f * scale;
+            float sub2Y = centerY + sin_a * 10.0f * scale + std::sin (subAngle2) * 5.0f * scale;
             g.drawLine (centerX + cos_a * 10.0f * scale, centerY + sin_a * 10.0f * scale, sub2X, sub2Y, 1.0f);
         };
 

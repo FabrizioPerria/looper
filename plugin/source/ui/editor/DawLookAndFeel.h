@@ -280,9 +280,6 @@ public:
 
     juce::Font getTextButtonFont (juce::TextButton&, int) override { return LooperTheme::Fonts::getBoldFont (13.0f); }
 
-private:
-    std::map<juce::String, std::unique_ptr<juce::Drawable>> svgCache;
-
     juce::Drawable* loadSvg (const juce::String& componentId)
     {
         // Check cache first
@@ -318,6 +315,11 @@ private:
             data = BinaryData::solo_svg;
             size = BinaryData::solo_svgSize;
         }
+        else if (componentId == "freeze")
+        {
+            data = BinaryData::freeze_svg;
+            size = BinaryData::freeze_svgSize;
+        }
 
         if (data != nullptr)
         {
@@ -330,6 +332,9 @@ private:
 
         return nullptr;
     }
+
+private:
+    std::map<juce::String, std::unique_ptr<juce::Drawable>> svgCache;
 
     void drawSpeedTickMarks (juce::Graphics& g, juce::Rectangle<float> trackBounds, PlaybackSpeedSlider& slider)
     {
