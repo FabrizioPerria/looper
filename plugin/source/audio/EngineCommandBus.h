@@ -51,8 +51,6 @@ public:
 
         SetOverdubGains,
 
-        MidiMessage,
-
         SetMetronomeEnabled,
         SetMetronomeBPM,
         SetMetronomeTimeSignature,
@@ -78,7 +76,6 @@ public:
                      int,                      // Single int (BPM, track index)
                      bool,                     // Boolean (mute, solo, keepPitch)
                      juce::File,               // File path
-                     juce::MidiBuffer,         // MIDI data
                      juce::AudioBuffer<float>, // Audio buffer (for backing tracks)
                      std::pair<int, int>,      // Two ints (time signature)
                      std::pair<float, float>   // Two floats (overdub gains)

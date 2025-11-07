@@ -210,7 +210,6 @@ private:
         { EngineMessageBus::CommandType::ToggleSyncTrack, [this] (const auto& cmd) { toggleSync (cmd.trackIndex); } },
 
         { EngineMessageBus::CommandType::ToggleVolumeNormalize, [this] (const auto& cmd) { toggleVolumeNormalize (cmd.trackIndex); } },
-        { EngineMessageBus::CommandType::ToggleFreeze, [this] (const auto& cmd) { toggleGranularFreeze(); } },
 
         { EngineMessageBus::CommandType::SetPlaybackSpeed,
           [this] (const auto& cmd)
@@ -252,15 +251,6 @@ private:
               {
                   auto gains = std::get<std::pair<float, float>> (cmd.payload);
                   setOverdubGainsForTrack (cmd.trackIndex, gains.first, gains.second);
-              }
-          } },
-        { EngineMessageBus::CommandType::MidiMessage,
-          [this] (const auto& cmd)
-          {
-              if (std::holds_alternative<juce::MidiBuffer> (cmd.payload))
-              {
-                  auto midiBuffer = std::get<juce::MidiBuffer> (cmd.payload);
-                  handleMidiCommand (midiBuffer, cmd.trackIndex);
               }
           } },
         { EngineMessageBus::CommandType::SetMetronomeEnabled,
