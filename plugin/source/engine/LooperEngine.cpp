@@ -654,15 +654,19 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages, int 
         // Handle CC messages for continuous controls
         if (m.isController())
         {
-            uint8_t cc = (uint8_t) m.getControllerNumber();
-            uint8_t value = (uint8_t) m.getControllerValue();
+            auto ccId = MidiControlChangeMapping::getControlChangeId (m.getControllerNumber());
+            int value = m.getControllerValue();
 
-            MidiControlChangeId ccId = MidiControlChangeMapping::getControlChangeId (cc);
-            if (ccId != MidiControlChangeId::None)
+            // Handle special CC (track select changes target)
+            if (ccId == MidiControlChangeId::TrackSelect)
             {
-                MidiCommandDispatcher::dispatch (ccId, *this, targetTrack, value);
+                targetTrack = jlimit (0, numTracks - 1, value % numTracks);
+                messageBus->pushCommand ({ EngineMessageBus::CommandType::SelectTrack, targetTrack, std::monostate {} });
                 continue;
             }
+
+            // Convert other CCs to semantic commands
+            convertCCToCommand (ccId, value, targetTrack);
         }
 
         // Handle note messages via constexpr lookup table
@@ -671,24 +675,14 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages, int 
             uint8_t note = (uint8_t) m.getNoteNumber();
 
             // O(1) lookup in compile-time table!
-            MidiCommandId commandId = m.isNoteOn() ? MidiCommandMapping::getCommandForNoteOn (note)
-                                                   : MidiCommandMapping::getCommandForNoteOff (note);
+            auto commandId = m.isNoteOn() ? MidiCommandMapping::getCommandForNoteOn (note)
+                                          : MidiCommandMapping::getCommandForNoteOff (note);
 
-            if (commandId != MidiCommandId::None)
-            {
-                // Check if command can run during recording
-                if (StateConfig::isRecording (currentState) && ! MidiCommandMapping::canRunDuringRecording (commandId))
-                {
-                    continue;
-                }
-
-                int midiTrackIndex = MidiCommandMapping::needsTrackIndex (commandId) ? targetTrack : -1;
-
-                MidiCommandDispatcher::dispatch (commandId, *this, midiTrackIndex);
-            }
+            messageBus->pushCommand ({ commandId, targetTrack, std::monostate {} });
         }
     }
 }
+
 bool LooperEngine::shouldTrackPlay (int trackIndex) const
 {
     if (singlePlayMode)
