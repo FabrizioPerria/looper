@@ -41,10 +41,10 @@ public:
         }
 
         auto center = getLocalBounds().getCentre().toFloat();
-        float scale = 0.6f + (activeCount * 0.05f); // scale up slightly with activity
+        float scale = 0.6f;
 
         // Draw rotating snowflake
-        paintSnowflake (g, center.x, center.y, scale, rotation / 10.0f);
+        paintSnowflake (g, center.x, center.y, scale, 0.0f);
 
         if (freezeSynth->isEnabled())
         {
@@ -53,7 +53,8 @@ public:
 
             for (int i = 0; i < activeCount; i++)
             {
-                auto color = juce::Colour::fromHSV (i / (float) activeCount, 0.8f, 1.0f, 1.0f);
+                // auto color = juce::Colour::fromHSV (i / (float) activeCount, 0.8f, 1.0f, 1.0f);
+                auto color = LooperTheme::Colors::cyan.withAlpha (i / (float) activeCount);
                 g.setColour (color);
                 float angle = (i / (float) activeCount) + rotation;
                 float x = std::cos (angle * juce::MathConstants<float>::twoPi) * radius;
@@ -63,7 +64,7 @@ public:
         }
         else
         {
-            float radius = 12.0f;
+            float radius = 14.0f;
 
             g.setColour (LooperTheme::Colors::cyan.withAlpha (0.3f));
             float angle = rotation;
@@ -81,6 +82,8 @@ private:
     {
         g.setColour (juce::Colours::white);
 
+        centerX += 2.0f;
+        centerY += 2.0f;
         auto drawArm = [&] (float angle)
         {
             float rad = angle * juce::MathConstants<float>::twoPi;
