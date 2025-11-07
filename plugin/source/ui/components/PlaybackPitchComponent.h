@@ -66,16 +66,9 @@ public:
         pitchSlider.setValue (0.0);
         pitchSlider.onValueChange = [this]()
         {
-            // // Convert float semitones to 0-127 MIDI range
-            // float semitones = (float) pitchSlider.getValue(); // -2.0 to +2.0
-            // int midiValue = juce::jmap (semitones, -2.0f, 2.0f, 0.0f, 127.0f);
-            juce::MidiBuffer midiBuffer;
-            juce::MidiMessage msg = juce::MidiMessage::controllerEvent (1,
-                                                                        MidiNotes::PITCH_SHIFT_CC,
-                                                                        (juce::uint8)
-                                                                            juce::jmap (pitchSlider.getValue(), -2.0, 2.0, 0.0, 127.0));
-            midiBuffer.addEvent (msg, 0);
-            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::MidiMessage, trackIndex, midiBuffer });
+            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackPitch,
+                                                                    trackIndex,
+                                                                    (float) pitchSlider.getValue() });
         };
         addAndMakeVisible (pitchSlider);
     }

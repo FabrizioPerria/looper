@@ -143,7 +143,10 @@ private:
     void cancelRecording();
     void setKeepPitchWhenChangingSpeed (int trackIndex, bool shouldKeepPitch);
     bool getKeepPitchWhenChangingSpeed (int trackIndex) const;
-    void setOverdubGainsForTrack (int trackIndex, double oldGain, double newGain);
+
+    void setNewOverdubGainForTrack (int trackIndex, double newGain);
+    void setExistingGainForTrack (int trackIndex, double oldGain);
+
     void loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex);
     void loadWaveFileToTrack (const juce::File& audioFile, int trackIndex);
     void setTrackPlaybackDirectionForward (int trackIndex);
@@ -244,13 +247,22 @@ private:
                   loadWaveFileToTrack (file, cmd.trackIndex);
               }
           } },
-        { EngineMessageBus::CommandType::SetOverdubGains,
+        { EngineMessageBus::CommandType::SetExistingAudioGain,
           [this] (const auto& cmd)
           {
-              if (std::holds_alternative<std::pair<float, float>> (cmd.payload))
+              if (std::holds_alternative<float> (cmd.payload))
               {
-                  auto gains = std::get<std::pair<float, float>> (cmd.payload);
-                  setOverdubGainsForTrack (cmd.trackIndex, gains.first, gains.second);
+                  auto gain = std::get<float> (cmd.payload);
+                  setExistingGainForTrack (cmd.trackIndex, static_cast<double> (gain));
+              }
+          } },
+        { EngineMessageBus::CommandType::SetNewOverdubGain,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<float> (cmd.payload))
+              {
+                  auto gain = std::get<float> (cmd.payload);
+                  setNewOverdubGainForTrack (cmd.trackIndex, static_cast<double> (gain));
               }
           } },
         { EngineMessageBus::CommandType::SetMetronomeEnabled,

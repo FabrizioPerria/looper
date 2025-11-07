@@ -49,7 +49,8 @@ public:
 
         LoadAudioFile,
 
-        SetOverdubGains,
+        SetExistingAudioGain,
+        SetNewOverdubGain,
 
         SetMetronomeEnabled,
         SetMetronomeBPM,

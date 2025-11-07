@@ -63,8 +63,6 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        auto bounds = getLocalBounds().toFloat();
-
         // Draw main label (IN/OUT)
         g.setColour (LooperTheme::Colors::cyan);
         g.setFont (juce::Font (juce::Font::getDefaultMonospacedFontName(), 11.0f, juce::Font::bold));

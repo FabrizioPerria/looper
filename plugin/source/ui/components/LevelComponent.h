@@ -8,8 +8,8 @@
 class LevelComponent : public juce::Component
 {
 public:
-    LevelComponent (EngineMessageBus* engineMessageBus, int trackIdx, juce::String label, int cc)
-        : uiToEngineBus (engineMessageBus), trackIndex (trackIdx)
+    LevelComponent (EngineMessageBus* engineMessageBus, int trackIdx, juce::String label, EngineMessageBus::CommandType command)
+        : uiToEngineBus (engineMessageBus), trackIndex (trackIdx), commandType (command)
     {
         knobLabel.setText (label, juce::dontSendNotification);
         knobLabel.setFont (LooperTheme::Fonts::getBoldFont (9.0f));
@@ -21,17 +21,10 @@ public:
         slider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
         slider.setRange (0.0, 1.0, 0.01);
         slider.setValue (0.75);
-        slider.onValueChange = [this, cc]()
+        slider.onValueChange = [this]()
         {
-            auto ccValue = (int) std::clamp (slider.getValue() * 127.0, 0.0, 127.0);
-            juce::MidiBuffer midiBuffer;
-            juce::MidiMessage msg = juce::MidiMessage::controllerEvent (1, (juce::uint8) cc, (juce::uint8) ccValue);
-            midiBuffer.addEvent (msg, 0);
-
             if (uiToEngineBus)
-                uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::MidiMessage,
-                                                                        trackIndex,
-                                                                        midiBuffer });
+                uiToEngineBus->pushCommand (EngineMessageBus::Command { commandType, trackIndex, (float) slider.getValue() });
         };
         addAndMakeVisible (slider);
     }
@@ -54,6 +47,7 @@ public:
 private:
     EngineMessageBus* uiToEngineBus = nullptr;
     int trackIndex;
+    EngineMessageBus::CommandType commandType;
 
     juce::Label knobLabel;
     juce::Slider slider;

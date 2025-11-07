@@ -450,7 +450,20 @@ void LooperEngine::processPendingActions()
 }
 
 // Track control implementations (delegating to tracks)
-void LooperEngine::setOverdubGainsForTrack (int trackIndex, double oldGain, double newGain)
+void LooperEngine::setExistingGainForTrack (int trackIndex, double oldGain)
+{
+    PERFETTO_FUNCTION();
+    if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
+    auto* track = getTrackByIndex (trackIndex);
+    if (track)
+    {
+        track->setOverdubGainOld (oldGain);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::OldOverdubGainLevels,
+                                                             trackIndex,
+                                                             (float) oldGain));
+    }
+}
+void LooperEngine::setNewOverdubGainForTrack (int trackIndex, double newGain)
 {
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
@@ -461,10 +474,6 @@ void LooperEngine::setOverdubGainsForTrack (int trackIndex, double oldGain, doub
         messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::NewOverdubGainLevels,
                                                              trackIndex,
                                                              (float) newGain));
-        track->setOverdubGainOld (oldGain);
-        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::OldOverdubGainLevels,
-                                                             trackIndex,
-                                                             (float) oldGain));
     }
 }
 
