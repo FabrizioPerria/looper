@@ -166,64 +166,7 @@ private:
     void setMetronomeStrongBeat (int beatIndex, bool isStrong);
 
     void handleMidiCommand (const juce::MidiBuffer& midiMessages, int trackIndex);
-
-    // EngineMessageBus::Command convertMidiCommandToBusCommand (const MidiCommandId midiCommand, int trackIndex)
-    // {
-    //     EngineMessageBus::Command busCommand;
-    //     busCommand.trackIndex = trackIndex;
-    //
-    //     switch (midiCommand)
-    //     {
-    //         case MidiCommandId::TogglePlay:
-    //             busCommand.type = EngineMessageBus::CommandType::TogglePlay;
-    //             break;
-    //         case MidiCommandId::ToggleRecord:
-    //             busCommand.type = EngineMessageBus::CommandType::ToggleRecord;
-    //             break;
-    //         case MidiCommandId::Stop:
-    //             busCommand.type = EngineMessageBus::CommandType::Stop;
-    //             break;
-    //         case MidiCommandId::Undo:
-    //             busCommand.type = EngineMessageBus::CommandType::Undo;
-    //             break;
-    //         case MidiCommandId::Redo:
-    //             busCommand.type = EngineMessageBus::CommandType::Redo;
-    //             break;
-    //         case MidiCommandId::Clear:
-    //             busCommand.type = EngineMessageBus::CommandType::Clear;
-    //             break;
-    //         case MidiCommandId::NextTrack:
-    //             busCommand.type = EngineMessageBus::CommandType::NextTrack;
-    //             break;
-    //         case MidiCommandId::PrevTrack:
-    //             busCommand.type = EngineMessageBus::CommandType::PreviousTrack;
-    //             break;
-    //         case MidiCommandId::SelectTrack:
-    //             busCommand.type = EngineMessageBus::CommandType::SelectTrack;
-    //             break;
-    //         case MidiCommandId::ToggleMute:
-    //             busCommand.type = EngineMessageBus::CommandType::ToggleMute;
-    //             break;
-    //         case MidiCommandId::ToggleSolo:
-    //             busCommand.type = EngineMessageBus::CommandType::ToggleSolo;
-    //             break;
-    //         case MidiCommandId::ToggleReverse:
-    //             busCommand.type = EngineMessageBus::CommandType::ToggleReverse;
-    //             break;
-    //         case MidiCommandId::ToggleKeepPitch:
-    //             busCommand.type = EngineMessageBus::CommandType::TogglePitchLock;
-    //             break;
-    //         case MidiCommandId::ToggleVolumeNormalize:
-    //             busCommand.type = EngineMessageBus::CommandType::ToggleVolumeNormalize;
-    //             break;
-    //
-    //         default:
-    //             busCommand.type = EngineMessageBus::CommandType::Stop; // Default fallback
-    //             break;
-    //     }
-    //
-    //     return busCommand;
-    // }
+    void convertCCToCommand (EngineMessageBus::CommandType ccId, int value, int trackIndex);
 
     const std::unordered_map<EngineMessageBus::CommandType, std::function<void (const EngineMessageBus::Command&)>> commandHandlers = {
         { EngineMessageBus::CommandType::TogglePlay, [this] (const auto& /*cmd*/) { togglePlay(); } },

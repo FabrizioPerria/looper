@@ -66,22 +66,17 @@ public:
         SetInputGain
     };
 
+    typedef std::
+        variant<std::monostate, float, int, bool, juce::File, juce::AudioBuffer<float>, std::pair<int, int>, std::pair<float, float>>
+            CommandPayload;
+
     struct Command
     {
         CommandType type;
         int trackIndex = -1;
 
         // Flexible payload using variant
-        std::variant<std::monostate,           // Empty
-                     float,                    // Single float (volume, speed, pitch)
-                     int,                      // Single int (BPM, track index)
-                     bool,                     // Boolean (mute, solo, keepPitch)
-                     juce::File,               // File path
-                     juce::AudioBuffer<float>, // Audio buffer (for backing tracks)
-                     std::pair<int, int>,      // Two ints (time signature)
-                     std::pair<float, float>   // Two floats (overdub gains)
-                     >
-            payload;
+        CommandPayload payload;
     };
 
     // ============================================================================
@@ -121,20 +116,13 @@ public:
         FreezeStateChanged,
     };
 
+    typedef std::variant<std::monostate, float, int, bool, std::pair<int, int>, std::pair<int, bool>, juce::String> EventData;
     struct Event
     {
         EventType type;
         int trackIndex = -1;
 
-        std::variant<std::monostate,
-                     float,
-                     int,
-                     bool,
-                     std::pair<int, int>,  // Time signature
-                     std::pair<int, bool>, // Strong beat info
-                     juce::String          // Error messages, file paths, etc.
-                     >
-            data;
+        EventData data;
     };
 
     // Listener interface - components implement this to receive events
