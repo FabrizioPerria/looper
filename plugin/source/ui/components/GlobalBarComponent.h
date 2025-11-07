@@ -1,7 +1,9 @@
 #pragma once
 
 #include "audio/EngineStateToUIBridge.h"
+#include "engine/GranularFreeze.h"
 #include "ui/colors/TokyoNight.h"
+#include "ui/components/FreezeComponent.h"
 #include "ui/components/MeterWithGainComponent.h"
 #include "ui/components/MetronomeComponent.h"
 #include "ui/components/TransportControlsComponent.h"
@@ -10,11 +12,12 @@
 class GlobalControlBar : public juce::Component
 {
 public:
-    GlobalControlBar (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge, Metronome* m)
+    GlobalControlBar (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge, Metronome* m, GranularFreeze* freezer)
         : transportControls (engineMessageBus, bridge)
         , metronomeComponent (engineMessageBus, m)
         , inputMeter ("IN", engineMessageBus, bridge)
         , outputMeter ("OUT", engineMessageBus, bridge)
+        , droneComponent (engineMessageBus, freezer)
     {
         looperLabel.setText ("LOOPER", juce::NotificationType::dontSendNotification);
         juce::FontOptions fontOptions = juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 16.0f, juce::Font::bold);
@@ -25,12 +28,12 @@ public:
 
         addAndMakeVisible (transportControls);
         addAndMakeVisible (metronomeComponent);
+        addAndMakeVisible (droneComponent);
         addAndMakeVisible (inputMeter);
         addAndMakeVisible (outputMeter);
 
         // Utility buttons
         setupButton (saveButton);
-        setupButton (droneButton);
     }
 
     ~GlobalControlBar() override {}
@@ -50,7 +53,7 @@ public:
         // Utility buttons
         mainBox.items.add (juce::FlexItem (metronomeComponent).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 0)));
         mainBox.items.add (juce::FlexItem (saveButton).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        mainBox.items.add (juce::FlexItem (droneButton).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
+        mainBox.items.add (juce::FlexItem (droneComponent).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
 
         mainBox.performLayout (bounds.toFloat());
     }
@@ -68,7 +71,7 @@ private:
     MeterWithGainComponent outputMeter;
 
     juce::TextButton saveButton { "SAVE" };
-    juce::TextButton droneButton { "DRONE" };
+    FreezeComponent droneComponent;
 
     void setupButton (juce::TextButton& button)
     {

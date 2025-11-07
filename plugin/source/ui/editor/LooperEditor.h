@@ -11,7 +11,10 @@ class LooperEditor : public juce::Component
 public:
     LooperEditor (LooperEngine* engine) : looperEngine (engine)
     {
-        globalBar = std::make_unique<GlobalControlBar> (engine->getMessageBus(), engine->getEngineStateBridge(), engine->getMetronome());
+        globalBar = std::make_unique<GlobalControlBar> (engine->getMessageBus(),
+                                                        engine->getEngineStateBridge(),
+                                                        engine->getMetronome(),
+                                                        engine->getGranularFreeze());
 
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {

@@ -34,7 +34,8 @@ juce_add_binary_data(
   resources/solo.svg
   resources/undo.svg
   resources/redo.svg
-  resources/clear.svg)
+  resources/clear.svg
+  resources/freeze.svg)
 
 get_target_property(juce_library_code ${PROJECT_NAME}
                     JUCE_GENERATED_SOURCES_DIRECTORY)

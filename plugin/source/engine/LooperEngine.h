@@ -4,6 +4,7 @@
 #include "audio/EngineCommandBus.h"
 #include "audio/EngineStateToUIBridge.h"
 #include "engine/Constants.h"
+#include "engine/GranularFreeze.h"
 #include "engine/LevelMeter.h"
 #include "engine/LoopTrack.h"
 #include "engine/LooperStateConfig.h"
@@ -84,6 +85,9 @@ public:
     void toggleSinglePlayMode();
     bool isSinglePlayMode() const { return singlePlayMode.load(); }
 
+    void toggleGranularFreeze();
+    GranularFreeze* getGranularFreeze() const { return granularFreeze.get(); }
+
 private:
     // State machine
     LooperStateMachine stateMachine;
@@ -92,6 +96,7 @@ private:
     std::unique_ptr<EngineStateToUIBridge> engineStateBridge = std::make_unique<EngineStateToUIBridge>();
     std::unique_ptr<EngineMessageBus> messageBus = std::make_unique<EngineMessageBus>();
     std::unique_ptr<Metronome> metronome = std::make_unique<Metronome>();
+    std::unique_ptr<GranularFreeze> granularFreeze = std::make_unique<GranularFreeze>();
 
     std::unique_ptr<LevelMeter> inputMeter = std::make_unique<LevelMeter>();
     std::unique_ptr<LevelMeter> outputMeter = std::make_unique<LevelMeter>();
@@ -205,6 +210,7 @@ private:
         { EngineMessageBus::CommandType::ToggleSyncTrack, [this] (const auto& cmd) { toggleSync (cmd.trackIndex); } },
 
         { EngineMessageBus::CommandType::ToggleVolumeNormalize, [this] (const auto& cmd) { toggleVolumeNormalize (cmd.trackIndex); } },
+        { EngineMessageBus::CommandType::ToggleFreeze, [this] (const auto& cmd) { toggleGranularFreeze(); } },
 
         { EngineMessageBus::CommandType::SetPlaybackSpeed,
           [this] (const auto& cmd)

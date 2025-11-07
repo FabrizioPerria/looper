@@ -27,6 +27,7 @@ public:
         Stop,
         ToggleSyncTrack,
         ToggleSinglePlayMode,
+        ToggleFreeze,
 
         Undo,
         Redo,
@@ -119,6 +120,7 @@ public:
 
         TrackSyncChanged,
         SinglePlayModeChanged,
+        FreezeStateChanged,
     };
 
     struct Event
