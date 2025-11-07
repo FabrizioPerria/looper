@@ -20,7 +20,7 @@ public:
         : trackIndex (trackIdx)
         , waveformDisplay (trackIdx, audioBridge, engineMessageBus)
         , accentBar (engineMessageBus, trackIdx, audioBridge, engineBridge)
-        , volumeFader (engineMessageBus, trackIdx, "VOLUME", MidiNotes::TRACK_VOLUME_CC)
+        , volumeFader (engineMessageBus, trackIdx, "VOLUME", EngineMessageBus::CommandType::SetVolume)
         , speedFader (engineMessageBus, trackIdx)
         , pitchFader (engineMessageBus, trackIdx)
         , trackEditComponent (engineMessageBus, trackIdx)

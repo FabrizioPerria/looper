@@ -86,12 +86,9 @@ public:
         speedSlider.setValue (1.0);
         speedSlider.onValueChange = [this]()
         {
-            juce::MidiBuffer midiBuffer;
-            juce::MidiMessage msg = juce::MidiMessage::controllerEvent (1,
-                                                                        MidiNotes::PLAYBACK_SPEED_CC,
-                                                                        (juce::uint8) ((speedSlider.getValue() - 0.5) / 1.5 * 127.0));
-            midiBuffer.addEvent (msg, 0);
-            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::MidiMessage, trackIndex, midiBuffer });
+            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
+                                                                    trackIndex,
+                                                                    (float) speedSlider.getValue() });
         };
         addAndMakeVisible (speedSlider);
     }

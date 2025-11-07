@@ -10,6 +10,7 @@
 #include "engine/LooperStateConfig.h"
 #include "engine/LooperStateMachine.h"
 #include "engine/Metronome.h"
+#include "engine/MidiCommandConfig.h"
 #include <JuceHeader.h>
 
 struct PendingAction
@@ -143,7 +144,10 @@ private:
     void cancelRecording();
     void setKeepPitchWhenChangingSpeed (int trackIndex, bool shouldKeepPitch);
     bool getKeepPitchWhenChangingSpeed (int trackIndex) const;
-    void setOverdubGainsForTrack (int trackIndex, double oldGain, double newGain);
+
+    void setNewOverdubGainForTrack (int trackIndex, double newGain);
+    void setExistingGainForTrack (int trackIndex, double oldGain);
+
     void loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex);
     void loadWaveFileToTrack (const juce::File& audioFile, int trackIndex);
     void setTrackPlaybackDirectionForward (int trackIndex);
@@ -162,6 +166,7 @@ private:
     void setMetronomeStrongBeat (int beatIndex, bool isStrong);
 
     void handleMidiCommand (const juce::MidiBuffer& midiMessages, int trackIndex);
+    void convertCCToCommand (EngineMessageBus::CommandType ccId, int value, int trackIndex);
 
     const std::unordered_map<EngineMessageBus::CommandType, std::function<void (const EngineMessageBus::Command&)>> commandHandlers = {
         { EngineMessageBus::CommandType::TogglePlay, [this] (const auto& /*cmd*/) { togglePlay(); } },
@@ -210,7 +215,6 @@ private:
         { EngineMessageBus::CommandType::ToggleSyncTrack, [this] (const auto& cmd) { toggleSync (cmd.trackIndex); } },
 
         { EngineMessageBus::CommandType::ToggleVolumeNormalize, [this] (const auto& cmd) { toggleVolumeNormalize (cmd.trackIndex); } },
-        { EngineMessageBus::CommandType::ToggleFreeze, [this] (const auto& cmd) { toggleGranularFreeze(); } },
 
         { EngineMessageBus::CommandType::SetPlaybackSpeed,
           [this] (const auto& cmd)
@@ -245,22 +249,22 @@ private:
                   loadWaveFileToTrack (file, cmd.trackIndex);
               }
           } },
-        { EngineMessageBus::CommandType::SetOverdubGains,
+        { EngineMessageBus::CommandType::SetExistingAudioGain,
           [this] (const auto& cmd)
           {
-              if (std::holds_alternative<std::pair<float, float>> (cmd.payload))
+              if (std::holds_alternative<float> (cmd.payload))
               {
-                  auto gains = std::get<std::pair<float, float>> (cmd.payload);
-                  setOverdubGainsForTrack (cmd.trackIndex, gains.first, gains.second);
+                  auto gain = std::get<float> (cmd.payload);
+                  setExistingGainForTrack (cmd.trackIndex, static_cast<double> (gain));
               }
           } },
-        { EngineMessageBus::CommandType::MidiMessage,
+        { EngineMessageBus::CommandType::SetNewOverdubGain,
           [this] (const auto& cmd)
           {
-              if (std::holds_alternative<juce::MidiBuffer> (cmd.payload))
+              if (std::holds_alternative<float> (cmd.payload))
               {
-                  auto midiBuffer = std::get<juce::MidiBuffer> (cmd.payload);
-                  handleMidiCommand (midiBuffer, cmd.trackIndex);
+                  auto gain = std::get<float> (cmd.payload);
+                  setNewOverdubGainForTrack (cmd.trackIndex, static_cast<double> (gain));
               }
           } },
         { EngineMessageBus::CommandType::SetMetronomeEnabled,

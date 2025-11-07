@@ -2,7 +2,6 @@
 
 #include "audio/EngineCommandBus.h"
 #include "engine/Metronome.h"
-#include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/BeatIndicatorComponent.h"
 #include "ui/components/DraggableToggleButtonComponent.h"
@@ -15,7 +14,7 @@ class MetronomeComponent : public juce::Component, public EngineMessageBus::List
 public:
     MetronomeComponent (EngineMessageBus* engineMessageBus, Metronome* m)
         : uiToEngineBus (engineMessageBus)
-        , metronomeLevel (engineMessageBus, -1, "Level", MidiNotes::METRONOME_VOLUME_CC)
+        , metronomeLevel (engineMessageBus, -1, "Level", EngineMessageBus::CommandType::SetMetronomeVolume)
         , beatIndicator (engineMessageBus, m)
     {
         metronomeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);

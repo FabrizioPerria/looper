@@ -1,7 +1,7 @@
 #include "LooperEngine.h"
+#include "audio/EngineCommandBus.h"
 #include "engine/LooperStateConfig.h"
 #include "engine/MidiCommandConfig.h"
-#include "engine/MidiCommandDispatcher.h"
 #include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 
@@ -450,7 +450,20 @@ void LooperEngine::processPendingActions()
 }
 
 // Track control implementations (delegating to tracks)
-void LooperEngine::setOverdubGainsForTrack (int trackIndex, double oldGain, double newGain)
+void LooperEngine::setExistingGainForTrack (int trackIndex, double oldGain)
+{
+    PERFETTO_FUNCTION();
+    if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
+    auto* track = getTrackByIndex (trackIndex);
+    if (track)
+    {
+        track->setOverdubGainOld (oldGain);
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::OldOverdubGainLevels,
+                                                             trackIndex,
+                                                             (float) oldGain));
+    }
+}
+void LooperEngine::setNewOverdubGainForTrack (int trackIndex, double newGain)
 {
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
@@ -461,10 +474,6 @@ void LooperEngine::setOverdubGainsForTrack (int trackIndex, double oldGain, doub
         messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::NewOverdubGainLevels,
                                                              trackIndex,
                                                              (float) newGain));
-        track->setOverdubGainOld (oldGain);
-        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::OldOverdubGainLevels,
-                                                             trackIndex,
-                                                             (float) oldGain));
     }
 }
 
@@ -645,15 +654,19 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages, int 
         // Handle CC messages for continuous controls
         if (m.isController())
         {
-            uint8_t cc = (uint8_t) m.getControllerNumber();
-            uint8_t value = (uint8_t) m.getControllerValue();
+            auto ccId = MidiControlChangeMapping::getControlChangeId (m.getControllerNumber());
+            int value = m.getControllerValue();
 
-            MidiControlChangeId ccId = MidiControlChangeMapping::getControlChangeId (cc);
-            if (ccId != MidiControlChangeId::None)
+            // Handle special CC (track select changes target)
+            if (ccId == EngineMessageBus::CommandType::SelectTrack)
             {
-                MidiCommandDispatcher::dispatch (ccId, *this, targetTrack, value);
+                targetTrack = jlimit (0, numTracks - 1, value % numTracks);
+                messageBus->pushCommand ({ EngineMessageBus::CommandType::SelectTrack, targetTrack, std::monostate {} });
                 continue;
             }
+
+            // Convert other CCs to semantic commands
+            convertCCToCommand (ccId, value, targetTrack);
         }
 
         // Handle note messages via constexpr lookup table
@@ -662,33 +675,100 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages, int 
             uint8_t note = (uint8_t) m.getNoteNumber();
 
             // O(1) lookup in compile-time table!
-            MidiCommandId commandId = m.isNoteOn() ? MidiCommandMapping::getCommandForNoteOn (note)
-                                                   : MidiCommandMapping::getCommandForNoteOff (note);
+            auto commandId = m.isNoteOn() ? MidiCommandMapping::getCommandForNoteOn (note)
+                                          : MidiCommandMapping::getCommandForNoteOff (note);
 
-            if (commandId != MidiCommandId::None)
-            {
-                // Check if command can run during recording
-                if (StateConfig::isRecording (currentState) && ! MidiCommandMapping::canRunDuringRecording (commandId))
-                {
-                    continue;
-                }
-
-                int midiTrackIndex = MidiCommandMapping::needsTrackIndex (commandId) ? targetTrack : -1;
-
-                MidiCommandDispatcher::dispatch (commandId, *this, midiTrackIndex);
-            }
+            messageBus->pushCommand ({ commandId, targetTrack, std::monostate {} });
         }
     }
 }
+
+void LooperEngine::convertCCToCommand (EngineMessageBus::CommandType ccId, int value, int trackIndex)
+{
+    EngineMessageBus::CommandPayload payload;
+
+    switch (ccId)
+    {
+        case EngineMessageBus::CommandType::SelectTrack:
+        {
+            trackIndex = juce::jlimit (0, numTracks - 1, value % numTracks);
+            payload = std::monostate {};
+        }
+        break;
+
+        case EngineMessageBus::CommandType::SetVolume:
+        {
+            payload = (float) value / 127.0f;
+        }
+        break;
+
+        case EngineMessageBus::CommandType::SetPlaybackSpeed:
+        {
+            float normalizedValue = (float) value / 127.0f;
+            payload = 0.5f + (normalizedValue * 1.5f); // Maps 0-127 to 0.5-2.0
+        }
+        break;
+
+        case EngineMessageBus::CommandType::SetNewOverdubGain:
+        {
+            float normalizedValue = (float) value / 127.0f;
+            payload = juce::jmap (normalizedValue, 0.0f, 2.0f); // Maps 0-127 to 0.0-2.0
+        }
+        break;
+
+        case EngineMessageBus::CommandType::SetExistingAudioGain:
+        {
+            float normalizedValue = (float) value / 127.0f;
+            payload = juce::jmap (normalizedValue, 0.0f, 2.0f); // Maps 0-127 to 0.0-2.0
+        }
+        break;
+
+        case EngineMessageBus::CommandType::SetPlaybackPitch:
+        {
+            payload = juce::jmap ((float) value, 0.0f, 127.0f, -2.0f, 2.0f); // Maps 0-127 to -2 to +2 semitones
+        }
+        break;
+
+        case EngineMessageBus::CommandType::SetMetronomeBPM:
+        {
+            payload = juce::jmap ((float) value, 40.0f, 240.0f); // Maps 0-127 to 40-240 BPM
+            trackIndex = -1;                                     // Global
+        }
+        break;
+        case EngineMessageBus::CommandType::SetMetronomeVolume:
+        {
+            payload = (float) value / 127.0f;
+            trackIndex = -1; // Global
+        }
+        break;
+        case EngineMessageBus::CommandType::SetInputGain:
+        {
+            payload = (float) value / 127.0f;
+            trackIndex = -1; // Global
+        }
+        break;
+        case EngineMessageBus::CommandType::SetOutputGain:
+        {
+            payload = (float) value / 127.0f;
+            trackIndex = -1; // Global
+        }
+        break;
+
+        default:
+            return;
+    }
+    messageBus->pushCommand ({ .type = ccId, .trackIndex = trackIndex, .payload = payload });
+}
+
 bool LooperEngine::shouldTrackPlay (int trackIndex) const
 {
     if (singlePlayMode)
     {
-        return trackIndex == activeTrackIndex && trackHasContent (activeTrackIndex) && ! isTrackMuted (trackIndex);
+        return trackIndex == activeTrackIndex && trackHasContent (activeTrackIndex); // && ! isTrackMuted (trackIndex);
     }
     auto* track = getTrackByIndex (trackIndex);
     if (! track || track->getTrackLengthSamples() == 0) return false;
-    if (track->isMuted()) return false;
+    // if (track->isMuted()) return false;
     return true;
 }
 
