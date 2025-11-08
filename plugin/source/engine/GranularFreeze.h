@@ -8,30 +8,15 @@
 class WindowTable
 {
 public:
-    WindowTable()
-    {
-        createWindow();
-    }
+    WindowTable() { createWindow(); }
 
-    ~WindowTable()
-    {
-        table.clear();
-    }
+    float operator[] (int index) const { return table[(size_t) index]; }
 
-    float operator[] (int index) const
-    {
-        return table[(size_t) index];
-    }
-
-    size_t size() const
-    {
-        return table.size();
-    }
+    size_t size() const { return WINDOW_SIZE; }
 
 private:
     void createWindow()
     {
-        table.resize (WINDOW_SIZE);
         for (int i = 0; i < WINDOW_SIZE; ++i)
         {
             const float x = static_cast<float> (i) * (1.0f / (static_cast<float> (WINDOW_SIZE) - 1.0f));
@@ -40,7 +25,7 @@ private:
     }
 
     static constexpr int WINDOW_SIZE = 2048;
-    std::vector<float> table;
+    float table[WINDOW_SIZE];
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WindowTable)
 };
 
@@ -60,15 +45,9 @@ public:
         updateModulationTables (params.pitchDepth, params.ampDepth);
     }
 
-    Modulator()
-    {
-        createModulation();
-    }
+    Modulator() { createModulation(); }
 
-    void prepare (double sampleRate)
-    {
-        modPhaseInc = modRate / static_cast<float> (sampleRate);
-    }
+    void prepare (double sampleRate) { modPhaseInc = modRate / static_cast<float> (sampleRate); }
 
     void updatePhase()
     {
@@ -76,12 +55,15 @@ public:
         modPhase -= static_cast<float> (modPhase >= 1.0f);
     }
 
-    void reset()
-    {
-        modPhase = 0.0f;
-    }
+    void reset() { modPhase = 0.0f; }
 
-    std::pair<float, float> getModulation (int grainIndex, int numGrains) const
+    struct ModulationValues
+    {
+        float pitchMod = 1.0f;
+        float ampMod = 1.0f;
+    };
+
+    ModulationValues getModulation (int grainIndex, int numGrains) const
     {
         // Calculate base modulation index
         const int modIdx = static_cast<int> (modPhase * MOD_TABLE_SIZE) & MOD_TABLE_MASK;
@@ -144,10 +126,14 @@ public:
         isActive = true;
     }
 
-    std::pair<float, float> process (const juce::AudioBuffer<float>& frozenBuffer, const WindowTable& window, float pitchMod, float ampMod)
+    struct SamplePair
     {
-        if (! isActive)
-            return { 0.0f, 0.0f };
+        float left = 0.0f;
+        float right = 0.0f;
+    };
+    SamplePair process (const juce::AudioBuffer<float>& frozenBuffer, const WindowTable& window, float pitchMod, float ampMod)
+    {
+        if (! isActive) return { 0.0f, 0.0f };
 
         // Get envelope
         const int envIdx = static_cast<int> (envPosition * (float) window.size());
@@ -177,10 +163,7 @@ public:
         return { sampleL * amp, sampleR * amp };
     }
 
-    bool isPlaying() const
-    {
-        return isActive;
-    }
+    bool isPlaying() const { return isActive; }
 
     float position = 0.0f;
     float envPosition = 0.0f;
@@ -219,10 +202,7 @@ public:
             bufferSizeFloat_ = sampleRate_ * bufferDuration;
         }
 
-        std::array<Grain, MAX_GRAINS> getActiveGrains() const
-        {
-            return grains;
-        }
+        std::array<Grain, MAX_GRAINS> getActiveGrains() const { return grains; }
 
         void processBlock (juce::AudioBuffer<float>& output, const juce::AudioBuffer<float>& frozenBuffer)
         {
@@ -243,8 +223,7 @@ public:
                 // Process all active grains with correct phase offset
                 for (size_t g = 0; g < cloudParams.maxGrains; ++g)
                 {
-                    if (! grains[g].isPlaying())
-                        continue;
+                    if (! grains[g].isPlaying()) continue;
 
                     // Get modulation with grain index offset
                     auto [pitchMod, ampMod] = modulator.getModulation (g, cloudParams.maxGrains);
@@ -267,10 +246,7 @@ public:
             }
         }
 
-        void triggerFreeze()
-        {
-            nextGrainTime = 0;
-        }
+        void triggerFreeze() { nextGrainTime = 0; }
 
         void stopFreeze()
         {
@@ -301,10 +277,7 @@ public:
             }
         }
 
-        void clearAllGrains()
-        {
-            std::memset (grains.data(), 0, sizeof (Grain) * MAX_GRAINS);
-        }
+        void clearAllGrains() { std::memset (grains.data(), 0, sizeof (Grain) * MAX_GRAINS); }
 
         static float fastInverseSqrt (float x)
         {
@@ -337,29 +310,14 @@ public:
         snapshotThread.owner = this;
     }
 
-    ~GranularFreeze()
-    {
-        snapshotThread.stopThread (2000);
-    }
+    ~GranularFreeze() { snapshotThread.stopThread (2000); }
 
-    double getSampleRate() const
-    {
-        return sampleRate_;
-    }
+    double getSampleRate() const { return sampleRate_; }
 
-    std::array<Grain, MAX_GRAINS> getActiveGrains() const
-    {
-        return cloudController.getActiveGrains();
-    }
+    std::array<Grain, MAX_GRAINS> getActiveGrains() const { return cloudController.getActiveGrains(); }
 
-    const juce::AudioBuffer<float>& getFrozenBuffer() const
-    {
-        return frozenBuffer;
-    }
-    int getBufferSize() const
-    {
-        return bufferSize_;
-    }
+    const juce::AudioBuffer<float>& getFrozenBuffer() const { return frozenBuffer; }
+    int getBufferSize() const { return bufferSize_; }
 
     void prepareToPlay (double sampleRate, int numChannels)
     {
@@ -416,25 +374,19 @@ public:
                                            true,
                                            false);
 
-        if (! isFrozen.load())
-            return;
+        if (! isFrozen.load()) return;
 
         cloudController.processBlock (buffer, frozenBuffer);
     }
 
-    bool isEnabled() const
-    {
-        return isFrozen.load();
-    }
+    bool isEnabled() const { return isFrozen.load(); }
 
 private:
     // Background snapshot thread
     class SnapshotThread : public juce::Thread
     {
     public:
-        SnapshotThread (const juce::String& name) : juce::Thread (name)
-        {
-        }
+        SnapshotThread (const juce::String& name) : juce::Thread (name) {}
 
         void run() override
         {
@@ -462,10 +414,7 @@ private:
         GranularFreeze* owner = nullptr;
     } snapshotThread;
 
-    void setParameters (const CloudController::Parameters& params)
-    {
-        cloudController.setParameters (params);
-    }
+    void setParameters (const CloudController::Parameters& params) { cloudController.setParameters (params); }
 
     // Example presets
     static CloudController::Parameters getDefaultParameters()
