@@ -187,9 +187,9 @@ private:
             g.drawText (lastMidiMessage, getLocalBounds().withTrimmedLeft (10), juce::Justification::centredLeft);
         }
 
-        void setMidiMessage (const juce::String& message)
+        void setMidiMessage (const juce::MidiMessage& message)
         {
-            lastMidiMessage = message;
+            lastMidiMessage = "Last MIDI: " + message.getDescription();
             repaint();
         }
 

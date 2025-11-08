@@ -110,9 +110,9 @@ void MidiMappingComponent::handleEngineEvent (const EngineMessageBus::Event& eve
     }
     else if (event.type == EngineMessageBus::EventType::MidiActivityReceived)
     {
-        if (std::holds_alternative<juce::String> (event.data))
+        if (std::holds_alternative<juce::MidiMessage> (event.data))
         {
-            activityIndicator.setMidiMessage (std::get<juce::String> (event.data));
+            activityIndicator.setMidiMessage (std::get<juce::MidiMessage> (event.data));
         }
     }
     else if (event.type == EngineMessageBus::EventType::MidiMenuEnabledChanged)

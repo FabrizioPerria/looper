@@ -197,7 +197,8 @@ public:
         MidiActivityReceived,
     };
 
-    typedef std::variant<std::monostate, float, int, bool, std::pair<int, int>, std::pair<int, bool>, juce::String> EventData;
+    typedef std::variant<std::monostate, float, int, bool, std::pair<int, int>, std::pair<int, bool>, juce::String, juce::MidiMessage>
+        EventData;
     struct Event
     {
         EventType type;

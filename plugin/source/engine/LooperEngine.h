@@ -170,7 +170,7 @@ private:
     void setMetronomeStrongBeat (int beatIndex, bool isStrong);
 
     void handleMidiCommand (const juce::MidiBuffer& midiMessages, int trackIndex);
-    void convertCCToCommand (EngineMessageBus::CommandType ccId, int value, int trackIndex);
+    EngineMessageBus::CommandPayload convertCCToCommand (const EngineMessageBus::CommandType ccId, const int value, int& trackIndex);
 
     const std::unordered_map<EngineMessageBus::CommandType, std::function<void (const EngineMessageBus::Command&)>> commandHandlers = {
         { EngineMessageBus::CommandType::TogglePlay, [this] (const auto& /*cmd*/) { togglePlay(); } },
@@ -360,7 +360,19 @@ private:
                   inputGain.store (gain);
               }
           } },
-        { EngineMessageBus::CommandType::SaveMidiMappings, [this] (const auto& /*cmd*/) { saveMidiMappings(); } }
+        { EngineMessageBus::CommandType::SaveMidiMappings, [this] (const auto& /*cmd*/) { saveMidiMappings(); } },
+        { EngineMessageBus::CommandType::StartMidiLearn,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<int> (cmd.payload))
+              {
+                  auto commandId = static_cast<EngineMessageBus::CommandType> (std::get<int> (cmd.payload));
+                  midiMappingManager->startMidiLearn (commandId);
+              }
+          } },
+        { EngineMessageBus::CommandType::StopMidiLearn, [this] (const auto& /*cmd*/) { midiMappingManager->stopMidiLearn(); } },
+        { EngineMessageBus::CommandType::CancelMidiLearn, [this] (const auto& /*cmd*/) { midiMappingManager->stopMidiLearn(); } },
+        { EngineMessageBus::CommandType::ClearMidiMappings, [this] (const auto& /*cmd*/) { midiMappingManager->clearAllMappings(); } }
 
     };
 

@@ -75,21 +75,7 @@ constexpr std::array<EngineMessageBus::CommandType, MAX_MIDI_NOTES> buildNoteOnC
     return table;
 }
 
-constexpr std::array<EngineMessageBus::CommandType, MAX_MIDI_NOTES> buildNoteOffCommands()
-{
-    std::array<EngineMessageBus::CommandType, MAX_MIDI_NOTES> table {};
-
-    // Initialize all to None
-    for (size_t i = 0; i < MAX_MIDI_NOTES; ++i)
-        table[i] = EngineMessageBus::CommandType::None;
-
-    // Currently no note-off commands, but structure is here if needed
-
-    return table;
-}
-
 constexpr auto NOTE_ON_COMMANDS = buildNoteOnCommands();
-constexpr auto NOTE_OFF_COMMANDS = buildNoteOffCommands();
 
 } // namespace MidiCommandMapping
 
@@ -130,11 +116,6 @@ public:
         return note < MidiCommandMapping::MAX_MIDI_NOTES ? noteOnMapping[note] : EngineMessageBus::CommandType::None;
     }
 
-    EngineMessageBus::CommandType getCommandForNoteOff (uint8_t note)
-    {
-        return note < MidiCommandMapping::MAX_MIDI_NOTES ? noteOffMapping[note] : EngineMessageBus::CommandType::None;
-    }
-
     EngineMessageBus::CommandType getControlChangeId (uint8_t ccNumber)
     {
         return ccNumber < MidiControlChangeMapping::MAX_CC_NUMBERS ? ccMapping[ccNumber] : EngineMessageBus::CommandType::None;
@@ -146,16 +127,6 @@ public:
         {
             clearMappingForCommand (command);
             noteOnMapping[note] = command;
-            isDirty = true;
-        }
-    }
-
-    void mapNoteOff (uint8_t note, EngineMessageBus::CommandType command)
-    {
-        if (note < MidiCommandMapping::MAX_MIDI_NOTES)
-        {
-            clearMappingForCommand (command);
-            noteOffMapping[note] = command;
             isDirty = true;
         }
     }
@@ -199,13 +170,6 @@ public:
             stopMidiLearn();
             return true;
         }
-        else if (msg.isNoteOff() && (learnState.learnType == LearnType::Any || learnState.learnType == LearnType::NoteOnly))
-        {
-            uint8_t note = (uint8_t) msg.getNoteNumber();
-            mapNoteOff (note, learnState.targetCommand);
-            stopMidiLearn();
-            return true;
-        }
         else if (msg.isController() && (learnState.learnType == LearnType::Any || learnState.learnType == LearnType::CCOnly))
         {
             uint8_t ccNumber = (uint8_t) msg.getControllerNumber();
@@ -222,7 +186,6 @@ public:
         using json = nlohmann::json;
         json j;
         j["noteOnMapping"] = noteOnMapping;
-        j["noteOffMapping"] = noteOffMapping;
         j["ccMapping"] = ccMapping;
 
         auto jsonFile = getMidiMappingFile();
@@ -244,8 +207,6 @@ public:
             file >> j;
             if (j.contains ("noteOnMapping"))
                 noteOnMapping = j["noteOnMapping"].get<std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES>>();
-            if (j.contains ("noteOffMapping"))
-                noteOffMapping = j["noteOffMapping"].get<std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES>>();
             if (j.contains ("ccMapping"))
                 ccMapping = j["ccMapping"].get<std::array<EngineMessageBus::CommandType, MidiControlChangeMapping::MAX_CC_NUMBERS>>();
             file.close();
@@ -269,10 +230,6 @@ public:
         {
             if (cmd == command) return true;
         }
-        for (const auto& cmd : noteOffMapping)
-        {
-            if (cmd == command) return true;
-        }
         return false;
     }
 
@@ -285,11 +242,9 @@ public:
         return false;
     }
 
-private:
     void resetToDefaults()
     {
         noteOnMapping = MidiCommandMapping::NOTE_ON_COMMANDS;
-        noteOffMapping = MidiCommandMapping::NOTE_OFF_COMMANDS;
         ccMapping = MidiControlChangeMapping::CC_MAPPING;
         isDirty = false;
     }
@@ -297,18 +252,14 @@ private:
     void clearAllMappings()
     {
         noteOnMapping.fill (EngineMessageBus::CommandType::None);
-        noteOffMapping.fill (EngineMessageBus::CommandType::None);
         ccMapping.fill (EngineMessageBus::CommandType::None);
         isDirty = true;
     }
 
+private:
     void clearMappingForCommand (EngineMessageBus::CommandType command)
     {
         for (auto& cmd : noteOnMapping)
-        {
-            if (cmd == command) cmd = EngineMessageBus::CommandType::None;
-        }
-        for (auto& cmd : noteOffMapping)
         {
             if (cmd == command) cmd = EngineMessageBus::CommandType::None;
         }
@@ -336,7 +287,6 @@ private:
     bool isDirty = false;
 
     std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES> noteOnMapping = MidiCommandMapping::NOTE_ON_COMMANDS;
-    std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES> noteOffMapping = MidiCommandMapping::NOTE_OFF_COMMANDS;
     std::array<EngineMessageBus::CommandType, MidiControlChangeMapping::MAX_CC_NUMBERS> ccMapping = MidiControlChangeMapping::CC_MAPPING;
     juce::File appDataDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
 

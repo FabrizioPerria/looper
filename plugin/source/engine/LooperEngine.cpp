@@ -336,15 +336,16 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 {
     PERFETTO_FUNCTION();
 
+    // juce::MidiBuffer outBuffer;
+    // midiMessages.addEvents (outBuffer, 0, buffer.getNumSamples(), 0);
+
+    handleMidiCommand (midiMessages, activeTrackIndex);
+
     buffer.applyGain (inputGain.load());
     inputMeter->processBuffer (buffer);
 
     processCommandsFromMessageBus();
 
-    juce::MidiBuffer outBuffer;
-    midiMessages.addEvents (outBuffer, 0, buffer.getNumSamples(), 0);
-
-    handleMidiCommand (midiMessages, activeTrackIndex);
     auto* activeTrack = getActiveTrack();
     if (! activeTrack) return;
 
@@ -645,45 +646,45 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages, int 
     PERFETTO_FUNCTION();
     if (midiMessages.getNumEvents() == 0) return;
 
-    int targetTrack = trackIndex < 0 ? activeTrackIndex : trackIndex;
-
     for (auto midi : midiMessages)
     {
         auto m = midi.getMessage();
 
-        // Handle CC messages for continuous controls
+        if (midiMappingManager->isLearning())
+        {
+            if (midiMappingManager->processMidiLearn (m))
+                messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MidiMappingChanged,
+                                                                     -1,
+                                                                     std::monostate {}));
+            continue;
+        }
+        EngineMessageBus::CommandType commandId;
+        EngineMessageBus::CommandPayload payload;
+        int targetTrack = trackIndex < 0 ? activeTrackIndex : trackIndex;
+
         if (m.isController())
         {
-            auto ccId = midiMappingManager->getControlChangeId (m.getControllerNumber());
+            commandId = midiMappingManager->getControlChangeId (m.getControllerNumber());
             int value = m.getControllerValue();
-
-            // Handle special CC (track select changes target)
-            if (ccId == EngineMessageBus::CommandType::SelectTrack)
-            {
-                targetTrack = jlimit (0, numTracks - 1, value % numTracks);
-                messageBus->pushCommand ({ EngineMessageBus::CommandType::SelectTrack, targetTrack, std::monostate {} });
-                continue;
-            }
-
-            // Convert other CCs to semantic commands
-            convertCCToCommand (ccId, value, targetTrack);
+            payload = convertCCToCommand (commandId, value, targetTrack);
         }
-
-        // Handle note messages via constexpr lookup table
-        if (m.isNoteOn() || m.isNoteOff())
+        else if (m.isNoteOn())
         {
             uint8_t note = (uint8_t) m.getNoteNumber();
-
-            // O(1) lookup in compile-time table!
-            auto commandId = m.isNoteOn() ? midiMappingManager->getCommandForNoteOn (note)
-                                          : midiMappingManager->getCommandForNoteOff (note);
-
-            messageBus->pushCommand ({ commandId, targetTrack, std::monostate {} });
+            commandId = midiMappingManager->getCommandForNoteOn (note);
+            payload = std::monostate {}; // TODO
         }
+        else
+        {
+            continue; // Unsupported MIDI message
+        }
+        messageBus->pushCommand ({ commandId, targetTrack, payload });
+        messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MidiActivityReceived, targetTrack, m));
     }
 }
 
-void LooperEngine::convertCCToCommand (EngineMessageBus::CommandType ccId, int value, int trackIndex)
+EngineMessageBus::CommandPayload
+    LooperEngine::convertCCToCommand (const EngineMessageBus::CommandType ccId, const int value, int& trackIndex)
 {
     EngineMessageBus::CommandPayload payload;
 
@@ -755,9 +756,9 @@ void LooperEngine::convertCCToCommand (EngineMessageBus::CommandType ccId, int v
         break;
 
         default:
-            return;
+            return std::monostate {};
     }
-    messageBus->pushCommand ({ .type = ccId, .trackIndex = trackIndex, .payload = payload });
+    return payload;
 }
 
 bool LooperEngine::shouldTrackPlay (int trackIndex) const
