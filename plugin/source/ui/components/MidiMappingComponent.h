@@ -63,10 +63,7 @@ private:
         {
             auto bounds = getLocalBounds();
 
-            if (isLearning)
-                g.fillAll (LooperTheme::Colors::orange.darker());
-            else
-                g.fillAll (getToggleState() ? LooperTheme::Colors::surface : LooperTheme::Colors::backgroundDark);
+            g.fillAll (rowColor);
 
             g.setColour (LooperTheme::Colors::white);
             g.setFont (LooperTheme::Fonts::getRegularFont (13.0f));
@@ -105,25 +102,17 @@ private:
             auto bounds = getLocalBounds();
             bounds.removeFromLeft (200 + 60 + 60); // Skip to buttons area
 
-            if (isLearning)
-            {
-                learnButton.setBounds (bounds.removeFromLeft (80).reduced (2));
-                clearButton.setVisible (false);
-            }
-            else
-            {
-                learnButton.setBounds (bounds.removeFromLeft (80).reduced (2));
-                clearButton.setBounds (bounds.removeFromLeft (80).reduced (2));
-                clearButton.setVisible (true);
-            }
+            learnButton.setBounds (bounds.removeFromLeft (80).reduced (2));
+            clearButton.setBounds (bounds.removeFromLeft (80).reduced (2));
         }
 
         void setLearning (bool learning)
         {
             isLearning = learning;
             learnButton.setButtonText (learning ? "Cancel" : "Learn");
+            rowColor = learning ? LooperTheme::Colors::orange.darker() : LooperTheme::Colors::backgroundDark;
             repaint();
-            resized();
+            clearButton.setVisible (! learning);
         }
 
         void refresh() { repaint(); }
@@ -173,7 +162,8 @@ private:
         MappingRowData rowData;
         juce::TextButton learnButton;
         juce::TextButton clearButton;
-        bool isLearning = false;
+        std::atomic<bool> isLearning { false };
+        juce::Colour rowColor { LooperTheme::Colors::backgroundDark };
     };
 
     class MidiActivityIndicator : public juce::Component
@@ -223,6 +213,7 @@ private:
     MappingRow* currentLearningRow = nullptr;
 
     std::atomic<bool> midiMenuEnabled { false };
+    int lastLearningSessionId = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiMappingComponent)
 };

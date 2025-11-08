@@ -336,9 +336,6 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 {
     PERFETTO_FUNCTION();
 
-    // juce::MidiBuffer outBuffer;
-    // midiMessages.addEvents (outBuffer, 0, buffer.getNumSamples(), 0);
-
     handleMidiCommand (midiMessages, activeTrackIndex);
 
     buffer.applyGain (inputGain.load());
@@ -369,6 +366,7 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
                                               numTracks,
                                               inputMeter->getMeterContext(),
                                               outputMeter->getMeterContext());
+    midiMessages.clear();
 }
 
 void LooperEngine::processCommandsFromMessageBus()
@@ -646,16 +644,18 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages, int 
     PERFETTO_FUNCTION();
     if (midiMessages.getNumEvents() == 0) return;
 
+    static int learningSessionId = 0;
     for (auto midi : midiMessages)
     {
         auto m = midi.getMessage();
+        if (! m.isController() && ! m.isNoteOn()) continue;
 
         if (midiMappingManager->isLearning())
         {
             if (midiMappingManager->processMidiLearn (m))
                 messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MidiMappingChanged,
                                                                      -1,
-                                                                     std::monostate {}));
+                                                                     learningSessionId++));
             continue;
         }
         EngineMessageBus::CommandType commandId;
@@ -668,15 +668,12 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages, int 
             int value = m.getControllerValue();
             payload = convertCCToCommand (commandId, value, targetTrack);
         }
-        else if (m.isNoteOn())
+
+        if (m.isNoteOn())
         {
             uint8_t note = (uint8_t) m.getNoteNumber();
             commandId = midiMappingManager->getCommandForNoteOn (note);
             payload = std::monostate {}; // TODO
-        }
-        else
-        {
-            continue; // Unsupported MIDI message
         }
         messageBus->pushCommand ({ commandId, targetTrack, payload });
         messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MidiActivityReceived, targetTrack, m));
@@ -779,11 +776,13 @@ void LooperEngine::toggleSinglePlayMode()
     messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::SinglePlayModeChanged, -1, singlePlayMode.load()));
 }
 
-void LooperEngine::enableMetronome (bool enable)
+void LooperEngine::toggleMetronomeEnabled()
 {
+    bool enable = ! metronome->isEnabled();
     metronome->setEnabled (enable);
     messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeEnabledChanged, -1, enable));
 }
+
 void LooperEngine::setMetronomeBpm (int bpm)
 {
     metronome->setBpm (bpm);

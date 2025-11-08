@@ -101,10 +101,13 @@ void MidiMappingComponent::handleEngineEvent (const EngineMessageBus::Event& eve
 {
     if (event.type == EngineMessageBus::EventType::MidiMappingChanged)
     {
-        if (currentLearningRow)
+        if (currentLearningRow && std::holds_alternative<int> (event.data))
         {
+            int learningSessionId = std::get<int> (event.data);
+            if (learningSessionId <= lastLearningSessionId) return; // Ignore duplicate events
             currentLearningRow->setLearning (false);
             currentLearningRow = nullptr;
+            lastLearningSessionId = learningSessionId;
         }
         refreshAllRows();
     }
@@ -164,6 +167,7 @@ void MidiMappingComponent::startLearning (MappingRow* row)
     if (currentLearningRow && currentLearningRow != row)
     {
         currentLearningRow->setLearning (false);
+        currentLearningRow = nullptr;
     }
 
     currentLearningRow = row;
@@ -187,6 +191,7 @@ void MidiMappingComponent::cancelLearning()
 
 void MidiMappingComponent::clearMapping (EngineMessageBus::CommandType command)
 {
+    currentLearningRow = nullptr;
     uiToEngineBus->pushCommand ({ .type = EngineMessageBus::CommandType::ClearMidiMappings, .trackIndex = -1, .payload = (int) command });
     refreshAllRows();
 }
