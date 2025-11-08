@@ -451,7 +451,16 @@ private:
           [this] (const auto& cmd)
           {
               if (std::holds_alternative<std::monostate> (cmd.payload)) midiMappingManager->clearAllMappings();
-          } }
+          } },
+        { EngineMessageBus::CommandType::SetFreezeLevel,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<float> (cmd.payload))
+              {
+                  auto level = std::get<float> (cmd.payload);
+                  granularFreeze->setLevel (level);
+              }
+          } },
 
     };
 

@@ -9,7 +9,6 @@ public:
 
     ~Metronome() = default;
 
-    // void setEnabled (bool shouldBeEnabled) { enabled = shouldBeEnabled; }
     bool isEnabled() const { return enabled; }
 
     void setBpm (int newBpm)
@@ -26,16 +25,15 @@ public:
     {
         timeSignature.numerator = numerator;
         timeSignature.denominator = denominator;
-        samplesPerBeat = calculateSamplesPerBeat(); // ✅ Recalculate
+        samplesPerBeat = calculateSamplesPerBeat();
 
-        // ✅ Clamp strongBeatIndex if it's now out of range
         if (strongBeatIndex >= timeSignature.numerator) strongBeatIndex = -1;
     }
 
     void setStrongBeat (int beatIndex, bool isStrong)
     {
         if (isStrong)
-            strongBeatIndex = juce::jlimit (0, timeSignature.numerator - 1, beatIndex - 1); // ✅ Convert 1-based to 0-based
+            strongBeatIndex = juce::jlimit (0, timeSignature.numerator - 1, beatIndex - 1);
         else
             strongBeatIndex = -1;
     }

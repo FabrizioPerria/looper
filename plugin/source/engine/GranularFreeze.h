@@ -186,7 +186,7 @@ public:
             Modulator::Parameters modParams;
             int maxGrains = 64;
             float positionSpread = 1.0f; // How much of the buffer to use
-            float amplitude = 0.25f;
+            float amplitude = 0.75f;
         };
 
         void setParameters (const Parameters& params)
@@ -195,6 +195,10 @@ public:
             modulator.setParameters (params.modParams);
             nextGrainTime = static_cast<int> (params.grainParams.density);
         }
+
+        void setLevelParameters (float amplitude) { cloudParams.amplitude = amplitude; }
+        float getLevelParameters() const { return cloudParams.amplitude; }
+
         void prepare (double sampleRate, float bufferDuration)
         {
             sampleRate_ = sampleRate;
@@ -380,6 +384,9 @@ public:
     }
 
     bool isEnabled() const { return isFrozen.load(); }
+
+    void setLevel (float amplitude) { cloudController.setLevelParameters (amplitude); }
+    float getLevel() const { return cloudController.getLevelParameters(); }
 
 private:
     // Background snapshot thread

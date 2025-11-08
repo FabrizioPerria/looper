@@ -127,7 +127,6 @@ public:
         {
             clearMappingForCommand (command);
             noteOnMapping[note] = command;
-            isDirty = true;
         }
     }
 
@@ -137,7 +136,6 @@ public:
         {
             clearMappingForCommand (command);
             ccMapping[ccNumber] = command;
-            isDirty = true;
         }
     }
 
@@ -210,12 +208,8 @@ public:
             if (j.contains ("ccMapping"))
                 ccMapping = j["ccMapping"].get<std::array<EngineMessageBus::CommandType, MidiControlChangeMapping::MAX_CC_NUMBERS>>();
             file.close();
-            isDirty = false;
         }
     }
-
-    bool isMappingDirty() const { return isDirty; }
-    void clearDirtyFlag() { isDirty = false; }
 
     void restoreDefaultMappings()
     {
@@ -246,14 +240,12 @@ public:
     {
         noteOnMapping = MidiCommandMapping::NOTE_ON_COMMANDS;
         ccMapping = MidiControlChangeMapping::CC_MAPPING;
-        isDirty = false;
     }
 
     void clearAllMappings()
     {
         noteOnMapping.fill (EngineMessageBus::CommandType::None);
         ccMapping.fill (EngineMessageBus::CommandType::None);
-        isDirty = true;
     }
 
 private:
@@ -284,7 +276,6 @@ private:
     };
 
     LearnState learnState;
-    bool isDirty = false;
 
     std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES> noteOnMapping = MidiCommandMapping::NOTE_ON_COMMANDS;
     std::array<EngineMessageBus::CommandType, MidiControlChangeMapping::MAX_CC_NUMBERS> ccMapping = MidiControlChangeMapping::CC_MAPPING;

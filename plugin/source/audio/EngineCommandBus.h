@@ -73,7 +73,8 @@ public:
         StartMidiLearn,
         StopMidiLearn,
         CancelMidiLearn,
-        ClearMidiMappings
+        ClearMidiMappings,
+        SetFreezeLevel,
 
     };
 
@@ -100,6 +101,7 @@ public:
         { CommandType::ToggleReverse, "Toggle Reverse" },
         { CommandType::SetExistingAudioGain, "Set Existing Audio Gain" },
         { CommandType::SetNewOverdubGain, "Set Overdub Gain" },
+        { CommandType::SetFreezeLevel, "Set Freeze Level" },
         { CommandType::ToggleMetronomeEnabled, "Set Metronome Enabled" },
         { CommandType::SetMetronomeBPM, "Set Metronome BPM" },
         { CommandType::SetMetronomeVolume, "Set Metronome Volume" },
@@ -138,6 +140,18 @@ public:
             case CommandType::SetMetronomeBPM:
             case CommandType::SetMetronomeVolume:
                 return "Metronome";
+
+            case CommandType::SetExistingAudioGain:
+            case CommandType::SetNewOverdubGain:
+                return "Overdub";
+
+            case CommandType::SetFreezeLevel:
+            case CommandType::ToggleFreeze:
+                return "Freeze";
+
+            case CommandType::SetOutputGain:
+            case CommandType::SetInputGain:
+                return "Global Gain";
 
             default:
                 return "Other";

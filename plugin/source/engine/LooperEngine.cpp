@@ -241,9 +241,7 @@ void LooperEngine::toggleVolumeNormalize (int trackIndex)
 void LooperEngine::toggleGranularFreeze()
 {
     granularFreeze->toggleActiveState();
-    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::FreezeStateChanged,
-                                                         activeTrackIndex,
-                                                         granularFreeze->isEnabled()));
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::FreezeStateChanged, -1, granularFreeze->isEnabled()));
 }
 void LooperEngine::toggleKeepPitchWhenChangingSpeed (int trackIndex)
 {
