@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include <atomic>
+#include <map>
 #include <queue>
 #include <variant>
 #include <vector>
@@ -22,6 +23,7 @@ public:
 
     enum class CommandType : uint8_t
     {
+        None,
         TogglePlay,
         ToggleRecord,
         Stop,
@@ -63,8 +65,84 @@ public:
         ClearSubLoopRegion,
 
         SetOutputGain,
-        SetInputGain
+        SetInputGain,
+
+        SaveMidiMappings,
+        LoadMidiMappings,
+        ResetMidiMappings,
+        StartMidiLearn,
+        StopMidiLearn,
+        CancelMidiLearn,
+        ClearMidiMappings
+
     };
+
+    // NOTE: not every command needs to be exposed in the menu
+    static constexpr std::pair<CommandType, const char*> commandTypeNamesForMenu[] = {
+        { CommandType::TogglePlay, "Toggle Play" },
+        { CommandType::ToggleRecord, "Toggle Record" },
+        { CommandType::Stop, "Stop" },
+        { CommandType::ToggleSyncTrack, "Toggle Sync Track" },
+        { CommandType::ToggleSinglePlayMode, "Toggle Single PlayMode" },
+        { CommandType::ToggleFreeze, "Toggle Freeze" },
+        { CommandType::Undo, "Undo" },
+        { CommandType::Redo, "Redo" },
+        { CommandType::Clear, "Clear" },
+        { CommandType::NextTrack, "Next Track" },
+        { CommandType::PreviousTrack, "Previous Track" },
+        { CommandType::SetVolume, "Set Volume" },
+        { CommandType::ToggleMute, "Toggle Mute" },
+        { CommandType::ToggleSolo, "Toggle Solo" },
+        { CommandType::ToggleVolumeNormalize, "Toggle Volume Normalize" },
+        { CommandType::SetPlaybackSpeed, "Set Playback Speed" },
+        { CommandType::SetPlaybackPitch, "Set Playback Pitch" },
+        { CommandType::TogglePitchLock, "Toggle Pitch Lock" },
+        { CommandType::ToggleReverse, "Toggle Reverse" },
+        { CommandType::SetExistingAudioGain, "Set Existing Audio Gain" },
+        { CommandType::SetNewOverdubGain, "Set Overdub Gain" },
+        { CommandType::SetMetronomeEnabled, "Set Metronome Enabled" },
+        { CommandType::SetMetronomeBPM, "Set Metronome BPM" },
+        { CommandType::SetMetronomeVolume, "Set Metronome Volume" },
+        { CommandType::SetOutputGain, "Set Output Gain" },
+        { CommandType::SetInputGain, "Set Input Gain" },
+    };
+
+    static std::string getCategoryForCommandType (CommandType type)
+    {
+        switch (type)
+        {
+            case CommandType::TogglePlay:
+            case CommandType::ToggleRecord:
+            case CommandType::Stop:
+            case CommandType::Undo:
+            case CommandType::Redo:
+            case CommandType::Clear:
+            case CommandType::NextTrack:
+            case CommandType::PreviousTrack:
+            case CommandType::SelectTrack:
+                return "Transport";
+
+            case CommandType::SetVolume:
+            case CommandType::ToggleMute:
+            case CommandType::ToggleSolo:
+            case CommandType::ToggleVolumeNormalize:
+                return "Track Controls";
+
+            case CommandType::SetPlaybackSpeed:
+            case CommandType::SetPlaybackPitch:
+            case CommandType::TogglePitchLock:
+            case CommandType::ToggleReverse:
+                return "Playback";
+
+            case CommandType::SetMetronomeEnabled:
+            case CommandType::SetMetronomeBPM:
+            case CommandType::SetMetronomeVolume:
+                return "Metronome";
+
+            default:
+                return "Other";
+        }
+    }
 
     typedef std::
         variant<std::monostate, float, int, bool, juce::File, juce::AudioBuffer<float>, std::pair<int, int>, std::pair<float, float>>
@@ -114,9 +192,13 @@ public:
         TrackSyncChanged,
         SinglePlayModeChanged,
         FreezeStateChanged,
+        MidiMenuEnabledChanged,
+        MidiMappingChanged,
+        MidiActivityReceived,
     };
 
-    typedef std::variant<std::monostate, float, int, bool, std::pair<int, int>, std::pair<int, bool>, juce::String> EventData;
+    typedef std::variant<std::monostate, float, int, bool, std::pair<int, int>, std::pair<int, bool>, juce::String, juce::MidiMessage>
+        EventData;
     struct Event
     {
         EventType type;

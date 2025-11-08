@@ -63,6 +63,9 @@ cpmaddpackage(
   "BUILD_SOUNDSTRETCH OFF"
   "SOUNDTOUCH_DLL OFF")
 
+# add package for json
+cpmaddpackage("gh:nlohmann/json@3.12.0")
+
 enable_testing()
 
 if(MSVC)

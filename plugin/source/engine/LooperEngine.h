@@ -89,9 +89,13 @@ public:
     void toggleGranularFreeze();
     GranularFreeze* getGranularFreeze() const { return granularFreeze.get(); }
 
+    MidiMappingManager* getMidiMappingManager() { return midiMappingManager.get(); }
+    void saveMidiMappings() { midiMappingManager->saveToJson(); }
+
 private:
     // State machine
     LooperStateMachine stateMachine;
+    std::unique_ptr<MidiMappingManager> midiMappingManager = std::make_unique<MidiMappingManager>();
     LooperState currentState = LooperState::Idle;
     PendingAction pendingAction;
     std::unique_ptr<EngineStateToUIBridge> engineStateBridge = std::make_unique<EngineStateToUIBridge>();
@@ -160,18 +164,30 @@ private:
     float getTrackVolume (int trackIndex) const;
     bool isTrackMuted (int trackIndex) const;
 
-    void enableMetronome (bool enable);
+    void toggleMetronomeEnabled();
     void setMetronomeBpm (int bpm);
     void setMetronomeTimeSignature (int numerator, int denominator);
     void setMetronomeStrongBeat (int beatIndex, bool isStrong);
 
     void handleMidiCommand (const juce::MidiBuffer& midiMessages, int trackIndex);
-    void convertCCToCommand (EngineMessageBus::CommandType ccId, int value, int trackIndex);
+    EngineMessageBus::CommandPayload convertCCToCommand (const EngineMessageBus::CommandType ccId, const int value, int& trackIndex);
 
     const std::unordered_map<EngineMessageBus::CommandType, std::function<void (const EngineMessageBus::Command&)>> commandHandlers = {
-        { EngineMessageBus::CommandType::TogglePlay, [this] (const auto& /*cmd*/) { togglePlay(); } },
-        { EngineMessageBus::CommandType::ToggleRecord, [this] (const auto& /*cmd*/) { toggleRecord(); } },
-        { EngineMessageBus::CommandType::Stop, [this] (const auto& /*cmd*/) { stop(); } },
+        { EngineMessageBus::CommandType::TogglePlay,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) togglePlay();
+          } },
+        { EngineMessageBus::CommandType::ToggleRecord,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) toggleRecord();
+          } },
+        { EngineMessageBus::CommandType::Stop,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) stop();
+          } },
         { EngineMessageBus::CommandType::Undo,
           [this] (const auto& cmd)
           {
@@ -187,8 +203,16 @@ private:
           {
               if (std::holds_alternative<std::monostate> (cmd.payload)) clear (cmd.trackIndex);
           } },
-        { EngineMessageBus::CommandType::NextTrack, [this] (const auto& /*cmd*/) { selectNextTrack(); } },
-        { EngineMessageBus::CommandType::PreviousTrack, [this] (const auto& /*cmd*/) { selectPreviousTrack(); } },
+        { EngineMessageBus::CommandType::NextTrack,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) selectNextTrack();
+          } },
+        { EngineMessageBus::CommandType::PreviousTrack,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) selectPreviousTrack();
+          } },
 
         { EngineMessageBus::CommandType::SelectTrack,
           [this] (const auto& cmd)
@@ -206,15 +230,41 @@ private:
               }
           } },
 
-        { EngineMessageBus::CommandType::ToggleMute, [this] (const auto& cmd) { toggleMute (cmd.trackIndex); } },
+        { EngineMessageBus::CommandType::ToggleMute,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) toggleMute (cmd.trackIndex);
+          } },
 
-        { EngineMessageBus::CommandType::ToggleSinglePlayMode, [this] (const auto& /*cmd*/) { toggleSinglePlayMode(); } },
+        { EngineMessageBus::CommandType::ToggleSinglePlayMode,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) toggleSinglePlayMode();
+          } },
 
-        { EngineMessageBus::CommandType::ToggleSolo, [this] (const auto& cmd) { toggleSolo (cmd.trackIndex); } },
+        { EngineMessageBus::CommandType::ToggleFreeze,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) toggleGranularFreeze();
+          } },
 
-        { EngineMessageBus::CommandType::ToggleSyncTrack, [this] (const auto& cmd) { toggleSync (cmd.trackIndex); } },
+        { EngineMessageBus::CommandType::ToggleSolo,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) toggleSolo (cmd.trackIndex);
+          } },
 
-        { EngineMessageBus::CommandType::ToggleVolumeNormalize, [this] (const auto& cmd) { toggleVolumeNormalize (cmd.trackIndex); } },
+        { EngineMessageBus::CommandType::ToggleSyncTrack,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) toggleSync (cmd.trackIndex);
+          } },
+
+        { EngineMessageBus::CommandType::ToggleVolumeNormalize,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) toggleVolumeNormalize (cmd.trackIndex);
+          } },
 
         { EngineMessageBus::CommandType::SetPlaybackSpeed,
           [this] (const auto& cmd)
@@ -236,9 +286,17 @@ private:
               }
           } },
 
-        { EngineMessageBus::CommandType::TogglePitchLock, [this] (const auto& cmd) { toggleKeepPitchWhenChangingSpeed (cmd.trackIndex); } },
+        { EngineMessageBus::CommandType::TogglePitchLock,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) toggleKeepPitchWhenChangingSpeed (cmd.trackIndex);
+          } },
 
-        { EngineMessageBus::CommandType::ToggleReverse, [this] (const auto& cmd) { toggleReverse (cmd.trackIndex); } },
+        { EngineMessageBus::CommandType::ToggleReverse,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) toggleReverse (cmd.trackIndex);
+          } },
 
         { EngineMessageBus::CommandType::LoadAudioFile,
           [this] (const auto& cmd)
@@ -270,10 +328,9 @@ private:
         { EngineMessageBus::CommandType::SetMetronomeEnabled,
           [this] (const auto& cmd)
           {
-              if (std::holds_alternative<bool> (cmd.payload))
+              if (std::holds_alternative<std::monostate> (cmd.payload))
               {
-                  auto enabled = std::get<bool> (cmd.payload);
-                  enableMetronome (enabled);
+                  toggleMetronomeEnabled();
               }
           } },
         { EngineMessageBus::CommandType::SetMetronomeBPM,
@@ -356,6 +413,45 @@ private:
                   inputGain.store (gain);
               }
           } },
+        { EngineMessageBus::CommandType::SaveMidiMappings,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) midiMappingManager->saveToJson();
+          } },
+        { EngineMessageBus::CommandType::LoadMidiMappings,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) midiMappingManager->loadFromJson();
+          } },
+        { EngineMessageBus::CommandType::ResetMidiMappings,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) midiMappingManager->resetToDefaults();
+          } },
+        { EngineMessageBus::CommandType::StartMidiLearn,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<int> (cmd.payload))
+              {
+                  auto commandId = static_cast<EngineMessageBus::CommandType> (std::get<int> (cmd.payload));
+                  midiMappingManager->startMidiLearn (commandId);
+              }
+          } },
+        { EngineMessageBus::CommandType::StopMidiLearn,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) midiMappingManager->stopMidiLearn();
+          } },
+        { EngineMessageBus::CommandType::CancelMidiLearn,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) midiMappingManager->stopMidiLearn();
+          } },
+        { EngineMessageBus::CommandType::ClearMidiMappings,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<std::monostate> (cmd.payload)) midiMappingManager->clearAllMappings();
+          } }
 
     };
 

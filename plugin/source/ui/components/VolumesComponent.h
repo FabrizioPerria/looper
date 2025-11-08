@@ -107,8 +107,8 @@ private:
                 {
                     auto oldGain = std::get<float> (event.data);
 
-                    if (std::abs (existingAudioLevelKnob.getValue() - oldGain / 2.0) > 0.01)
-                        existingAudioLevelKnob.setValue (oldGain / 2.0, juce::dontSendNotification);
+                    if (std::abs (existingAudioLevelKnob.getValue() - oldGain) > 0.01)
+                        existingAudioLevelKnob.setValue (oldGain, juce::dontSendNotification);
                 }
                 break;
             case EngineMessageBus::EventType::NewOverdubGainLevels:
@@ -116,8 +116,8 @@ private:
                 {
                     auto newGain = std::get<float> (event.data);
 
-                    if (std::abs (overdubLevelKnob.getValue() - newGain / 2.0) > 0.01)
-                        overdubLevelKnob.setValue (newGain / 2.0, juce::dontSendNotification);
+                    if (std::abs (overdubLevelKnob.getValue() - newGain) > 0.01)
+                        overdubLevelKnob.setValue (newGain, juce::dontSendNotification);
                 }
                 break;
             default:

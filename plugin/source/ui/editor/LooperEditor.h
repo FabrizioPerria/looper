@@ -2,6 +2,7 @@
 #include "engine/LooperEngine.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/GlobalBarComponent.h"
+#include "ui/components/MidiMappingComponent.h"
 #include "ui/components/TrackComponent.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
@@ -16,6 +17,8 @@ public:
                                                         engine->getMetronome(),
                                                         engine->getGranularFreeze());
 
+        midiMappingComponent = std::make_unique<MidiMappingComponent> (engine->getMidiMappingManager(), engine->getMessageBus());
+
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {
             auto* channel = new TrackComponent (engine->getMessageBus(),
@@ -27,6 +30,8 @@ public:
         }
 
         addAndMakeVisible (*globalBar);
+        addAndMakeVisible (*midiMappingComponent);
+        midiMappingComponent->setVisible (false);
     }
 
     void paint (juce::Graphics& g) override
@@ -53,6 +58,12 @@ public:
         }
 
         mainFlex.performLayout (bounds.toFloat());
+
+        // the idea is to preallocate an overlay area for the midiMappingComponent. When it's visible, it will cover the right half of the editor.
+        // When it's hidden, it will be set to zero size internally in the midiMappingComponent's resized() method.
+        auto midiMappingArea = getLocalBounds().withTrimmedLeft (getWidth() / 2 - 60);
+        midiMappingArea.removeFromTop (globalBar->getHeight());
+        midiMappingComponent->setBounds (midiMappingArea);
     }
 
 private:
@@ -60,6 +71,7 @@ private:
 
     std::unique_ptr<GlobalControlBar> globalBar;
     juce::OwnedArray<TrackComponent> channels;
+    std::unique_ptr<MidiMappingComponent> midiMappingComponent;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LooperEditor)
 };

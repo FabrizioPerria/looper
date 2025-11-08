@@ -2,6 +2,8 @@
 #include "audio/EngineCommandBus.h"
 #include <array>
 #include <cstdint>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 namespace MidiNotes
 {
@@ -48,7 +50,7 @@ constexpr std::array<EngineMessageBus::CommandType, MAX_MIDI_NOTES> buildNoteOnC
 
     // Initialize all to None
     for (size_t i = 0; i < MAX_MIDI_NOTES; ++i)
-        table[i] = EngineMessageBus::CommandType::Stop;
+        table[i] = EngineMessageBus::CommandType::None;
 
     // Map specific notes to commands
     table[MidiNotes::TOGGLE_RECORD_BUTTON] = EngineMessageBus::CommandType::ToggleRecord;
@@ -73,30 +75,7 @@ constexpr std::array<EngineMessageBus::CommandType, MAX_MIDI_NOTES> buildNoteOnC
     return table;
 }
 
-constexpr std::array<EngineMessageBus::CommandType, MAX_MIDI_NOTES> buildNoteOffCommands()
-{
-    std::array<EngineMessageBus::CommandType, MAX_MIDI_NOTES> table {};
-
-    // Initialize all to None
-    for (size_t i = 0; i < MAX_MIDI_NOTES; ++i)
-        table[i] = EngineMessageBus::CommandType::Stop;
-
-    // Currently no note-off commands, but structure is here if needed
-
-    return table;
-}
-
 constexpr auto NOTE_ON_COMMANDS = buildNoteOnCommands();
-constexpr auto NOTE_OFF_COMMANDS = buildNoteOffCommands();
-
-constexpr EngineMessageBus::CommandType getCommandForNoteOn (uint8_t note)
-{
-    return note < MAX_MIDI_NOTES ? NOTE_ON_COMMANDS[note] : EngineMessageBus::CommandType::Stop;
-}
-constexpr EngineMessageBus::CommandType getCommandForNoteOff (uint8_t note)
-{
-    return note < MAX_MIDI_NOTES ? NOTE_OFF_COMMANDS[note] : EngineMessageBus::CommandType::Stop;
-}
 
 } // namespace MidiCommandMapping
 
@@ -125,9 +104,212 @@ constexpr std::array<EngineMessageBus::CommandType, MAX_CC_NUMBERS> buildCCMappi
 }
 
 constexpr auto CC_MAPPING = buildCCMapping();
-constexpr EngineMessageBus::CommandType getControlChangeId (uint8_t ccNumber)
-{
-    return ccNumber < MAX_CC_NUMBERS ? CC_MAPPING[ccNumber] : EngineMessageBus::CommandType::Stop;
-}
 
 } // namespace MidiControlChangeMapping
+
+class MidiMappingManager
+{
+public:
+    MidiMappingManager() { loadFromJson(); }
+    EngineMessageBus::CommandType getCommandForNoteOn (uint8_t note)
+    {
+        return note < MidiCommandMapping::MAX_MIDI_NOTES ? noteOnMapping[note] : EngineMessageBus::CommandType::None;
+    }
+
+    EngineMessageBus::CommandType getControlChangeId (uint8_t ccNumber)
+    {
+        return ccNumber < MidiControlChangeMapping::MAX_CC_NUMBERS ? ccMapping[ccNumber] : EngineMessageBus::CommandType::None;
+    }
+
+    void mapNoteOn (uint8_t note, EngineMessageBus::CommandType command)
+    {
+        if (note < MidiCommandMapping::MAX_MIDI_NOTES)
+        {
+            clearMappingForCommand (command);
+            noteOnMapping[note] = command;
+            isDirty = true;
+        }
+    }
+
+    void mapControlChange (uint8_t ccNumber, EngineMessageBus::CommandType command)
+    {
+        if (ccNumber < MidiControlChangeMapping::MAX_CC_NUMBERS)
+        {
+            clearMappingForCommand (command);
+            ccMapping[ccNumber] = command;
+            isDirty = true;
+        }
+    }
+
+    void startMidiLearn (EngineMessageBus::CommandType targetCommand)
+    {
+        learnState.isLearning = true;
+        learnState.targetCommand = targetCommand;
+        learnState.learnType = isNoteCommand (targetCommand) ? LearnType::NoteOnly
+                               : isCCCommand (targetCommand) ? LearnType::CCOnly
+                                                             : LearnType::Any;
+    }
+
+    void stopMidiLearn()
+    {
+        learnState.isLearning = false;
+        learnState.targetCommand = EngineMessageBus::CommandType::None;
+        learnState.learnType = LearnType::Any;
+    }
+
+    bool isLearning() const { return learnState.isLearning; }
+
+    bool processMidiLearn (const juce::MidiMessage& msg)
+    {
+        if (! learnState.isLearning) return false;
+
+        if (msg.isNoteOn() && (learnState.learnType == LearnType::Any || learnState.learnType == LearnType::NoteOnly))
+        {
+            uint8_t note = (uint8_t) msg.getNoteNumber();
+            mapNoteOn (note, learnState.targetCommand);
+            stopMidiLearn();
+            return true;
+        }
+        else if (msg.isController() && (learnState.learnType == LearnType::Any || learnState.learnType == LearnType::CCOnly))
+        {
+            uint8_t ccNumber = (uint8_t) msg.getControllerNumber();
+            mapControlChange (ccNumber, learnState.targetCommand);
+            stopMidiLearn();
+            return true;
+        }
+        return false;
+    }
+
+    // Save/Load
+    void saveToJson()
+    {
+        using json = nlohmann::json;
+        json j;
+        j["noteOnMapping"] = noteOnMapping;
+        j["ccMapping"] = ccMapping;
+
+        auto jsonFile = getMidiMappingFile();
+        jsonFile.replaceWithText (j.dump (4));
+    }
+    void loadFromJson()
+    {
+        using json = nlohmann::json;
+        auto jsonFile = getMidiMappingFile();
+        if (! jsonFile.existsAsFile())
+        {
+            resetToDefaults();
+            return;
+        }
+        std::ifstream file (jsonFile.getFullPathName().toStdString());
+        if (file.is_open())
+        {
+            json j;
+            file >> j;
+            if (j.contains ("noteOnMapping"))
+                noteOnMapping = j["noteOnMapping"].get<std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES>>();
+            if (j.contains ("ccMapping"))
+                ccMapping = j["ccMapping"].get<std::array<EngineMessageBus::CommandType, MidiControlChangeMapping::MAX_CC_NUMBERS>>();
+            file.close();
+            isDirty = false;
+        }
+    }
+
+    bool isMappingDirty() const { return isDirty; }
+    void clearDirtyFlag() { isDirty = false; }
+
+    void restoreDefaultMappings()
+    {
+        auto jsonFile = getMidiMappingFile();
+        if (jsonFile.existsAsFile()) jsonFile.deleteFile();
+        resetToDefaults();
+    }
+
+    bool isNoteCommand (EngineMessageBus::CommandType command)
+    {
+        for (const auto& cmd : noteOnMapping)
+        {
+            if (cmd == command) return true;
+        }
+        return false;
+    }
+
+    bool isCCCommand (EngineMessageBus::CommandType command)
+    {
+        for (const auto& cmd : ccMapping)
+        {
+            if (cmd == command) return true;
+        }
+        return false;
+    }
+
+    void resetToDefaults()
+    {
+        noteOnMapping = MidiCommandMapping::NOTE_ON_COMMANDS;
+        ccMapping = MidiControlChangeMapping::CC_MAPPING;
+        isDirty = false;
+    }
+
+    void clearAllMappings()
+    {
+        noteOnMapping.fill (EngineMessageBus::CommandType::None);
+        ccMapping.fill (EngineMessageBus::CommandType::None);
+        isDirty = true;
+    }
+
+private:
+    void clearMappingForCommand (EngineMessageBus::CommandType command)
+    {
+        for (auto& cmd : noteOnMapping)
+        {
+            if (cmd == command) cmd = EngineMessageBus::CommandType::None;
+        }
+        for (auto& cmd : ccMapping)
+        {
+            if (cmd == command) cmd = EngineMessageBus::CommandType::None;
+        }
+    }
+
+    enum class LearnType
+    {
+        Any,
+        NoteOnly,
+        CCOnly
+    };
+
+    struct LearnState
+    {
+        bool isLearning = false;
+        EngineMessageBus::CommandType targetCommand = EngineMessageBus::CommandType::None;
+        LearnType learnType = LearnType::Any;
+    };
+
+    LearnState learnState;
+    bool isDirty = false;
+
+    std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES> noteOnMapping = MidiCommandMapping::NOTE_ON_COMMANDS;
+    std::array<EngineMessageBus::CommandType, MidiControlChangeMapping::MAX_CC_NUMBERS> ccMapping = MidiControlChangeMapping::CC_MAPPING;
+    juce::File appDataDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+
+    const static juce::File getMidiMappingFile()
+    {
+        juce::String companyName = "YourCompany";
+        juce::String pluginName = "YourPlugin";
+        juce::File appDataDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+
+#if JUCE_WINDOWS
+        // Windows: C:\Users\username\AppData\Roaming\YourCompany\YourPlugin
+        appDataDir = appDataDir.getChildFile (companyName).getChildFile (pluginName);
+#elif JUCE_MAC
+        // macOS: ~/Library/Application Support/YourCompany/YourPlugin
+        appDataDir = appDataDir.getChildFile ("Application Support").getChildFile (companyName).getChildFile (pluginName);
+#elif JUCE_LINUX
+        // Linux: ~/.config/YourCompany/YourPlugin
+        appDataDir = appDataDir.getChildFile (".config").getChildFile (companyName).getChildFile (pluginName);
+#endif
+        if (! appDataDir.exists()) appDataDir.createDirectory();
+
+        return appDataDir.getChildFile ("midi_mappings.json");
+    }
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiMappingManager)
+};
