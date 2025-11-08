@@ -22,6 +22,7 @@ public:
 
     enum class CommandType : uint8_t
     {
+        None,
         TogglePlay,
         ToggleRecord,
         Stop,
@@ -65,6 +66,83 @@ public:
         SetOutputGain,
         SetInputGain
     };
+
+    static juce::String commandTypeToString (CommandType type)
+    {
+        switch (type)
+        {
+            case CommandType::None:
+                return "None";
+            case CommandType::TogglePlay:
+                return "TogglePlay";
+            case CommandType::ToggleRecord:
+                return "ToggleRecord";
+            case CommandType::Stop:
+                return "Stop";
+            case CommandType::ToggleSyncTrack:
+                return "ToggleSyncTrack";
+            case CommandType::ToggleSinglePlayMode:
+                return "ToggleSinglePlayMode";
+            case CommandType::ToggleFreeze:
+                return "ToggleFreeze";
+            case CommandType::Undo:
+                return "Undo";
+            case CommandType::Redo:
+                return "Redo";
+            case CommandType::Clear:
+                return "Clear";
+            case CommandType::NextTrack:
+                return "NextTrack";
+            case CommandType::PreviousTrack:
+                return "PreviousTrack";
+            case CommandType::SelectTrack:
+                return "SelectTrack";
+            case CommandType::SetVolume:
+                return "SetVolume";
+            case CommandType::ToggleMute:
+                return "ToggleMute";
+            case CommandType::ToggleSolo:
+                return "ToggleSolo";
+            case CommandType::ToggleVolumeNormalize:
+                return "ToggleVolumeNormalize";
+            case CommandType::SetPlaybackSpeed:
+                return "SetPlaybackSpeed";
+            case CommandType::SetPlaybackPitch:
+                return "SetPlaybackPitch";
+            case CommandType::TogglePitchLock:
+                return "TogglePitchLock";
+            case CommandType::ToggleReverse:
+                return "ToggleReverse";
+            case CommandType::LoadAudioFile:
+                return "LoadAudioFile";
+            case CommandType::SetExistingAudioGain:
+                return "SetExistingAudioGain";
+            case CommandType::SetNewOverdubGain:
+                return "SetNewOverdubGain";
+            case CommandType::SetMetronomeEnabled:
+                return "SetMetronomeEnabled";
+            case CommandType::SetMetronomeBPM:
+                return "SetMetronomeBPM";
+            case CommandType::SetMetronomeTimeSignature:
+                return "SetMetronomeTimeSignature";
+            case CommandType::SetMetronomeStrongBeat:
+                return "SetMetronomeStrongBeat";
+            case CommandType::DisableMetronomeStrongBeat:
+                return "DisableMetronomeStrongBeat";
+            case CommandType::SetMetronomeVolume:
+                return "SetMetronomeVolume";
+            case CommandType::SetSubLoopRegion:
+                return "SetSubLoopRegion";
+            case CommandType::ClearSubLoopRegion:
+                return "ClearSubLoopRegion";
+            case CommandType::SetOutputGain:
+                return "SetOutputGain";
+            case CommandType::SetInputGain:
+                return "SetInputGain";
+            default:
+                return "Unknown";
+        }
+    }
 
     typedef std::
         variant<std::monostate, float, int, bool, juce::File, juce::AudioBuffer<float>, std::pair<int, int>, std::pair<float, float>>
