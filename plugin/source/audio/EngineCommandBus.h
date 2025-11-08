@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include <atomic>
+#include <map>
 #include <queue>
 #include <variant>
 #include <vector>
@@ -66,85 +67,45 @@ public:
         SetOutputGain,
         SetInputGain,
 
-        saveMidiMappings
+        SaveMidiMappings,
+        LoadMidiMappings,
+        ResetMidiMappings,
+        StartMidiLearn,
+        StopMidiLearn,
+        CancelMidiLearn,
+        ClearMidiMappings
+
     };
 
-    static juce::String commandTypeToString (CommandType type)
-    {
-        switch (type)
-        {
-            case CommandType::None:
-                return "None";
-            case CommandType::TogglePlay:
-                return "TogglePlay";
-            case CommandType::ToggleRecord:
-                return "ToggleRecord";
-            case CommandType::Stop:
-                return "Stop";
-            case CommandType::ToggleSyncTrack:
-                return "ToggleSyncTrack";
-            case CommandType::ToggleSinglePlayMode:
-                return "ToggleSinglePlayMode";
-            case CommandType::ToggleFreeze:
-                return "ToggleFreeze";
-            case CommandType::Undo:
-                return "Undo";
-            case CommandType::Redo:
-                return "Redo";
-            case CommandType::Clear:
-                return "Clear";
-            case CommandType::NextTrack:
-                return "NextTrack";
-            case CommandType::PreviousTrack:
-                return "PreviousTrack";
-            case CommandType::SelectTrack:
-                return "SelectTrack";
-            case CommandType::SetVolume:
-                return "SetVolume";
-            case CommandType::ToggleMute:
-                return "ToggleMute";
-            case CommandType::ToggleSolo:
-                return "ToggleSolo";
-            case CommandType::ToggleVolumeNormalize:
-                return "ToggleVolumeNormalize";
-            case CommandType::SetPlaybackSpeed:
-                return "SetPlaybackSpeed";
-            case CommandType::SetPlaybackPitch:
-                return "SetPlaybackPitch";
-            case CommandType::TogglePitchLock:
-                return "TogglePitchLock";
-            case CommandType::ToggleReverse:
-                return "ToggleReverse";
-            case CommandType::LoadAudioFile:
-                return "LoadAudioFile";
-            case CommandType::SetExistingAudioGain:
-                return "SetExistingAudioGain";
-            case CommandType::SetNewOverdubGain:
-                return "SetNewOverdubGain";
-            case CommandType::SetMetronomeEnabled:
-                return "SetMetronomeEnabled";
-            case CommandType::SetMetronomeBPM:
-                return "SetMetronomeBPM";
-            case CommandType::SetMetronomeTimeSignature:
-                return "SetMetronomeTimeSignature";
-            case CommandType::SetMetronomeStrongBeat:
-                return "SetMetronomeStrongBeat";
-            case CommandType::DisableMetronomeStrongBeat:
-                return "DisableMetronomeStrongBeat";
-            case CommandType::SetMetronomeVolume:
-                return "SetMetronomeVolume";
-            case CommandType::SetSubLoopRegion:
-                return "SetSubLoopRegion";
-            case CommandType::ClearSubLoopRegion:
-                return "ClearSubLoopRegion";
-            case CommandType::SetOutputGain:
-                return "SetOutputGain";
-            case CommandType::SetInputGain:
-                return "SetInputGain";
-            default:
-                return "Unknown";
-        }
-    }
+    // NOTE: not every command needs to be exposed in the menu
+    const std::map<CommandType, std::string> CommandTypeNamesForMenu = {
+        { CommandType::TogglePlay, "Toggle Play" },
+        { CommandType::ToggleRecord, "Toggle Record" },
+        { CommandType::Stop, "Stop" },
+        { CommandType::ToggleSyncTrack, "Toggle Sync Track" },
+        { CommandType::ToggleSinglePlayMode, "Toggle Single PlayMode" },
+        { CommandType::ToggleFreeze, "Toggle Freeze" },
+        { CommandType::Undo, "Undo" },
+        { CommandType::Redo, "Redo" },
+        { CommandType::Clear, "Clear" },
+        { CommandType::NextTrack, "Next Track" },
+        { CommandType::PreviousTrack, "Previous Track" },
+        { CommandType::SetVolume, "Set Volume" },
+        { CommandType::ToggleMute, "Toggle Mute" },
+        { CommandType::ToggleSolo, "Toggle Solo" },
+        { CommandType::ToggleVolumeNormalize, "Toggle Volume Normalize" },
+        { CommandType::SetPlaybackSpeed, "Set Playback Speed" },
+        { CommandType::SetPlaybackPitch, "Set Playback Pitch" },
+        { CommandType::TogglePitchLock, "Toggle Pitch Lock" },
+        { CommandType::ToggleReverse, "Toggle Reverse" },
+        { CommandType::SetExistingAudioGain, "Set Existing Audio Gain" },
+        { CommandType::SetNewOverdubGain, "Set Overdub Gain" },
+        { CommandType::SetMetronomeEnabled, "Set Metronome Enabled" },
+        { CommandType::SetMetronomeBPM, "Set Metronome BPM" },
+        { CommandType::SetMetronomeVolume, "Set Metronome Volume" },
+        { CommandType::SetOutputGain, "Set Output Gain" },
+        { CommandType::SetInputGain, "Set Input Gain" },
+    };
 
     typedef std::
         variant<std::monostate, float, int, bool, juce::File, juce::AudioBuffer<float>, std::pair<int, int>, std::pair<float, float>>
@@ -194,6 +155,8 @@ public:
         TrackSyncChanged,
         SinglePlayModeChanged,
         FreezeStateChanged,
+        MidiMappingChanged,
+        MidiActivityReceived,
     };
 
     typedef std::variant<std::monostate, float, int, bool, std::pair<int, int>, std::pair<int, bool>, juce::String> EventData;

@@ -1,0 +1,221 @@
+#pragma once
+#include "audio/EngineCommandBus.h"
+#include "engine/MidiCommandConfig.h"
+#include <JuceHeader.h>
+
+class LooperEngine;
+
+class MidiMappingComponent : public juce::Component, public EngineMessageBus::Listener
+{
+public:
+    MidiMappingComponent (MidiMappingManager* mappingManager, EngineMessageBus* messageBus);
+    ~MidiMappingComponent() override;
+
+    void paint (juce::Graphics& g) override;
+    void resized() override;
+    void handleEngineEvent (const EngineMessageBus::Event& event) override;
+
+private:
+    struct MappingRowData
+    {
+        EngineMessageBus::CommandType command;
+        juce::String displayName;
+        juce::String category;
+        bool isCCCommand;
+    };
+
+    class CategoryHeader : public juce::Component
+    {
+    public:
+        CategoryHeader (const juce::String& name) : categoryName (name) {}
+
+        void paint (juce::Graphics& g) override
+        {
+            g.fillAll (juce::Colours::darkgrey.darker());
+            g.setColour (juce::Colours::white);
+            g.setFont (14.0f);
+            g.drawText (categoryName, getLocalBounds().withTrimmedLeft (10), juce::Justification::centredLeft);
+        }
+
+    private:
+        juce::String categoryName;
+    };
+
+    class MappingRow : public juce::Component
+    {
+    public:
+        MappingRow (MidiMappingComponent* parent, const MappingRowData& data) : parentComponent (parent), rowData (data)
+        {
+            addAndMakeVisible (learnButton);
+            learnButton.setButtonText ("Learn");
+            learnButton.onClick = [this]() { onLearnClicked(); };
+
+            addAndMakeVisible (clearButton);
+            clearButton.setButtonText ("Clear");
+            clearButton.onClick = [this]() { onClearClicked(); };
+        }
+
+        void paint (juce::Graphics& g) override
+        {
+            auto bounds = getLocalBounds();
+
+            if (isLearning)
+                g.fillAll (juce::Colours::orange.withAlpha (0.3f));
+            else
+                g.fillAll (getToggleState() ? juce::Colours::grey.darker() : juce::Colours::transparentBlack);
+
+            g.setColour (juce::Colours::white);
+            g.setFont (13.0f);
+
+            // Command name column (200px)
+            auto commandRect = bounds.removeFromLeft (200);
+            juce::String commandText = rowData.displayName;
+            if (g.getCurrentFont().getStringWidth (commandText) > commandRect.getWidth() - 10)
+            {
+                while (g.getCurrentFont().getStringWidth (commandText + "...") > commandRect.getWidth() - 10 && commandText.length() > 0)
+                    commandText = commandText.dropLastCharacters (1);
+                commandText += "...";
+            }
+            g.drawText (commandText, commandRect.withTrimmedLeft (10), juce::Justification::centredLeft);
+
+            // Type column (60px)
+            auto typeRect = bounds.removeFromLeft (60);
+            g.drawText (rowData.isCCCommand ? "CC" : "Note", typeRect, juce::Justification::centred);
+
+            // Key column (60px)
+            auto keyRect = bounds.removeFromLeft (60);
+            juce::String keyText = isLearning ? "--" : getMappingString();
+            g.drawText (keyText, keyRect, juce::Justification::centred);
+
+            // Waiting text for learning
+            if (isLearning)
+            {
+                g.setColour (juce::Colours::orange);
+                g.drawText ("⏳ Waiting for MIDI input...", bounds.removeFromLeft (160), juce::Justification::centredLeft);
+            }
+        }
+
+        void resized() override
+        {
+            auto bounds = getLocalBounds();
+            bounds.removeFromLeft (200 + 60 + 60); // Skip to buttons area
+
+            if (isLearning)
+            {
+                learnButton.setBounds (bounds.removeFromLeft (80).reduced (2));
+                clearButton.setVisible (false);
+            }
+            else
+            {
+                learnButton.setBounds (bounds.removeFromLeft (80).reduced (2));
+                clearButton.setBounds (bounds.removeFromLeft (80).reduced (2));
+                clearButton.setVisible (true);
+            }
+        }
+
+        void setLearning (bool learning)
+        {
+            isLearning = learning;
+            learnButton.setButtonText (learning ? "Cancel" : "Learn");
+            repaint();
+            resized();
+        }
+
+        void refresh() { repaint(); }
+
+        EngineMessageBus::CommandType getCommandType() const { return rowData.command; }
+
+    private:
+        void onLearnClicked()
+        {
+            if (isLearning)
+            {
+                parentComponent->cancelLearning();
+            }
+            else
+            {
+                parentComponent->startLearning (this);
+            }
+        }
+
+        void onClearClicked() { parentComponent->clearMapping (rowData.command); }
+
+        juce::String getMappingString()
+        {
+            auto* manager = parentComponent->getMappingManager();
+            if (! manager) return "--";
+
+            if (rowData.isCCCommand)
+            {
+                for (uint8_t i = 0; i < 128; ++i)
+                {
+                    if (manager->getControlChangeId (i) == rowData.command) return juce::String (i);
+                }
+            }
+            else
+            {
+                for (uint8_t i = 0; i < 128; ++i)
+                {
+                    if (manager->getCommandForNoteOn (i) == rowData.command) return juce::String (i);
+                }
+            }
+            return "--";
+        }
+
+        bool getToggleState() const { return (reinterpret_cast<std::uintptr_t> (this) / 32) % 2 == 0; }
+
+        MidiMappingComponent* parentComponent;
+        MappingRowData rowData;
+        juce::TextButton learnButton;
+        juce::TextButton clearButton;
+        bool isLearning = false;
+    };
+
+    class MidiActivityIndicator : public juce::Component
+    {
+    public:
+        void paint (juce::Graphics& g) override
+        {
+            g.fillAll (juce::Colours::black);
+            g.setColour (juce::Colours::lightgreen);
+            g.setFont (12.0f);
+            g.drawText ("🎹 " + lastMidiMessage, getLocalBounds().withTrimmedLeft (10), juce::Justification::centredLeft);
+        }
+
+        void setMidiMessage (const juce::String& message)
+        {
+            lastMidiMessage = message;
+            repaint();
+        }
+
+    private:
+        juce::String lastMidiMessage = "No MIDI activity";
+    };
+
+    void buildMappingList();
+    void startLearning (MappingRow* row);
+    void cancelLearning();
+    void clearMapping (EngineMessageBus::CommandType command);
+    void refreshAllRows();
+
+    MidiMappingManager* midiMappingManager;
+    EngineMessageBus* uiToEngineBus;
+
+    MidiMappingManager* getMappingManager() const;
+
+    juce::Viewport viewport;
+    juce::Component contentComponent;
+    MidiActivityIndicator activityIndicator;
+
+    juce::TextButton saveButton;
+    juce::TextButton loadButton;
+    juce::TextButton resetButton;
+
+    std::vector<MappingRowData> mappingData;
+    juce::OwnedArray<CategoryHeader> categoryHeaders;
+    juce::OwnedArray<MappingRow> mappingRows;
+
+    MappingRow* currentLearningRow = nullptr;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiMappingComponent)
+};

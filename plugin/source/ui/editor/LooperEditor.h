@@ -2,6 +2,7 @@
 #include "engine/LooperEngine.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/GlobalBarComponent.h"
+#include "ui/components/MidiMappingComponent.h"
 #include "ui/components/TrackComponent.h"
 #include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
@@ -15,6 +16,10 @@ public:
                                                         engine->getEngineStateBridge(),
                                                         engine->getMetronome(),
                                                         engine->getGranularFreeze());
+
+        midiMappingComponent = std::make_unique<MidiMappingComponent> (engine->getMidiMappingManager(), engine->getMessageBus());
+
+        addAndMakeVisible (*midiMappingComponent);
 
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {
@@ -60,6 +65,7 @@ private:
 
     std::unique_ptr<GlobalControlBar> globalBar;
     juce::OwnedArray<TrackComponent> channels;
+    std::unique_ptr<MidiMappingComponent> midiMappingComponent;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LooperEditor)
 };
