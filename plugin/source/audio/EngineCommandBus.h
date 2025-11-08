@@ -78,7 +78,7 @@ public:
     };
 
     // NOTE: not every command needs to be exposed in the menu
-    const std::map<CommandType, std::string> CommandTypeNamesForMenu = {
+    static constexpr std::pair<CommandType, const char*> commandTypeNamesForMenu[] = {
         { CommandType::TogglePlay, "Toggle Play" },
         { CommandType::ToggleRecord, "Toggle Record" },
         { CommandType::Stop, "Stop" },
@@ -106,6 +106,43 @@ public:
         { CommandType::SetOutputGain, "Set Output Gain" },
         { CommandType::SetInputGain, "Set Input Gain" },
     };
+
+    static std::string getCategoryForCommandType (CommandType type)
+    {
+        switch (type)
+        {
+            case CommandType::TogglePlay:
+            case CommandType::ToggleRecord:
+            case CommandType::Stop:
+            case CommandType::Undo:
+            case CommandType::Redo:
+            case CommandType::Clear:
+            case CommandType::NextTrack:
+            case CommandType::PreviousTrack:
+            case CommandType::SelectTrack:
+                return "Transport";
+
+            case CommandType::SetVolume:
+            case CommandType::ToggleMute:
+            case CommandType::ToggleSolo:
+            case CommandType::ToggleVolumeNormalize:
+                return "Track Controls";
+
+            case CommandType::SetPlaybackSpeed:
+            case CommandType::SetPlaybackPitch:
+            case CommandType::TogglePitchLock:
+            case CommandType::ToggleReverse:
+                return "Playback";
+
+            case CommandType::SetMetronomeEnabled:
+            case CommandType::SetMetronomeBPM:
+            case CommandType::SetMetronomeVolume:
+                return "Metronome";
+
+            default:
+                return "Other";
+        }
+    }
 
     typedef std::
         variant<std::monostate, float, int, bool, juce::File, juce::AudioBuffer<float>, std::pair<int, int>, std::pair<float, float>>

@@ -263,23 +263,6 @@ public:
         resetToDefaults();
     }
 
-private:
-    void resetToDefaults()
-    {
-        noteOnMapping = MidiCommandMapping::NOTE_ON_COMMANDS;
-        noteOffMapping = MidiCommandMapping::NOTE_OFF_COMMANDS;
-        ccMapping = MidiControlChangeMapping::CC_MAPPING;
-        isDirty = false;
-    }
-
-    void clearAllMappings()
-    {
-        noteOnMapping.fill (EngineMessageBus::CommandType::None);
-        noteOffMapping.fill (EngineMessageBus::CommandType::None);
-        ccMapping.fill (EngineMessageBus::CommandType::None);
-        isDirty = true;
-    }
-
     bool isNoteCommand (EngineMessageBus::CommandType command)
     {
         for (const auto& cmd : noteOnMapping)
@@ -300,6 +283,23 @@ private:
             if (cmd == command) return true;
         }
         return false;
+    }
+
+private:
+    void resetToDefaults()
+    {
+        noteOnMapping = MidiCommandMapping::NOTE_ON_COMMANDS;
+        noteOffMapping = MidiCommandMapping::NOTE_OFF_COMMANDS;
+        ccMapping = MidiControlChangeMapping::CC_MAPPING;
+        isDirty = false;
+    }
+
+    void clearAllMappings()
+    {
+        noteOnMapping.fill (EngineMessageBus::CommandType::None);
+        noteOffMapping.fill (EngineMessageBus::CommandType::None);
+        ccMapping.fill (EngineMessageBus::CommandType::None);
+        isDirty = true;
     }
 
     void clearMappingForCommand (EngineMessageBus::CommandType command)

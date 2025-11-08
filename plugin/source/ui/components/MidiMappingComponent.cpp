@@ -1,6 +1,7 @@
 // MidiMappingComponent.cpp
 #include "MidiMappingComponent.h"
 #include "engine/LooperEngine.h"
+#include "engine/MidiCommandConfig.h"
 
 MidiMappingComponent::MidiMappingComponent (MidiMappingManager* mappingManager, EngineMessageBus* messageBus)
     : midiMappingManager (mappingManager), uiToEngineBus (messageBus)
@@ -105,49 +106,18 @@ void MidiMappingComponent::handleEngineEvent (const EngineMessageBus::Event& eve
 
 void MidiMappingComponent::buildMappingList()
 {
-    mappingData = {
-        // Transport
-        { EngineMessageBus::CommandType::ToggleRecord, "Toggle Record", "Transport", false },
-        { EngineMessageBus::CommandType::TogglePlay, "Toggle Play", "Transport", false },
-        { EngineMessageBus::CommandType::Stop, "Stop", "Transport", false },
+    constexpr size_t numCommands = std::size (EngineMessageBus::commandTypeNamesForMenu);
+    auto commandNamesMapping = EngineMessageBus::commandTypeNamesForMenu;
 
-        // Track Management
-        { EngineMessageBus::CommandType::NextTrack, "Next Track", "Track Management", false },
-        { EngineMessageBus::CommandType::PreviousTrack, "Previous Track", "Track Management", false },
-        { EngineMessageBus::CommandType::SelectTrack, "Select Track", "Track Management", true },
-        { EngineMessageBus::CommandType::ToggleSyncTrack, "Sync Track", "Track Management", false },
-        { EngineMessageBus::CommandType::ToggleSinglePlayMode, "Single Play Mode", "Track Management", false },
-        { EngineMessageBus::CommandType::ToggleFreeze, "Freeze", "Track Management", false },
+    for (int i = 0; i < numCommands; ++i)
+    {
+        auto commandType = commandNamesMapping[i].first;
+        auto name = commandNamesMapping[i].second;
+        juce::String category = EngineMessageBus::getCategoryForCommandType (commandNamesMapping[i].first);
+        bool isCCCommand = midiMappingManager->isCCCommand (commandNamesMapping[i].first);
 
-        // Track Operations
-        { EngineMessageBus::CommandType::Undo, "Undo", "Track Operations", false },
-        { EngineMessageBus::CommandType::Redo, "Redo", "Track Operations", false },
-        { EngineMessageBus::CommandType::Clear, "Clear", "Track Operations", false },
-        { EngineMessageBus::CommandType::ToggleMute, "Mute", "Track Operations", false },
-        { EngineMessageBus::CommandType::ToggleSolo, "Solo", "Track Operations", false },
-        { EngineMessageBus::CommandType::ToggleVolumeNormalize, "Normalize", "Track Operations", false },
-        { EngineMessageBus::CommandType::ToggleReverse, "Reverse", "Track Operations", false },
-        { EngineMessageBus::CommandType::TogglePitchLock, "Pitch Lock", "Track Operations", false },
-
-        // Playback Controls
-        { EngineMessageBus::CommandType::SetVolume, "Track Volume", "Playback Controls", true },
-        { EngineMessageBus::CommandType::SetPlaybackSpeed, "Playback Speed", "Playback Controls", true },
-        { EngineMessageBus::CommandType::SetPlaybackPitch, "Pitch Shift", "Playback Controls", true },
-
-        // Recording Controls
-        { EngineMessageBus::CommandType::SetNewOverdubGain, "Overdub Level", "Recording Controls", true },
-        { EngineMessageBus::CommandType::SetExistingAudioGain, "Existing Audio Level", "Recording Controls", true },
-
-        // Metronome
-        { EngineMessageBus::CommandType::SetMetronomeEnabled, "Metro Toggle", "Metronome", false },
-        { EngineMessageBus::CommandType::SetMetronomeStrongBeat, "Metro Strong Beat", "Metronome", false },
-        { EngineMessageBus::CommandType::SetMetronomeBPM, "Metronome BPM", "Metronome", true },
-        { EngineMessageBus::CommandType::SetMetronomeVolume, "Metronome Volume", "Metronome", true },
-
-        // Master
-        { EngineMessageBus::CommandType::SetInputGain, "Input Gain", "Master", true },
-        { EngineMessageBus::CommandType::SetOutputGain, "Output Gain", "Master", true },
-    };
+        mappingData.push_back ({ commandType, name, category, isCCCommand });
+    }
 
     juce::String currentCategory;
     int yPos = 0;
