@@ -69,16 +69,30 @@ void MidiMappingComponent::resized()
     int rowHeight = 30;
     int headerHeight = 25;
 
-    for (auto* header : categoryHeaders)
-    {
-        header->setBounds (0, yPos, viewport.getMaximumVisibleWidth(), headerHeight);
-        yPos += headerHeight;
-    }
+    // Interleave headers and rows by category
+    juce::String currentCategory;
+    size_t headerIndex = 0;
+    size_t rowIndex = 0;
 
-    for (auto* row : mappingRows)
+    for (const auto& data : mappingData)
     {
-        row->setBounds (0, yPos, viewport.getMaximumVisibleWidth(), rowHeight);
-        yPos += rowHeight;
+        if (data.category != currentCategory)
+        {
+            currentCategory = data.category;
+            if (headerIndex < categoryHeaders.size())
+            {
+                categoryHeaders[headerIndex]->setBounds (0, yPos, viewport.getMaximumVisibleWidth(), headerHeight);
+                yPos += headerHeight;
+                headerIndex++;
+            }
+        }
+
+        if (rowIndex < mappingRows.size())
+        {
+            mappingRows[rowIndex]->setBounds (0, yPos, viewport.getMaximumVisibleWidth(), rowHeight);
+            yPos += rowHeight;
+            rowIndex++;
+        }
     }
 
     contentComponent.setSize (viewport.getMaximumVisibleWidth(), yPos);
@@ -102,8 +116,16 @@ void MidiMappingComponent::handleEngineEvent (const EngineMessageBus::Event& eve
             activityIndicator.setMidiMessage (std::get<juce::String> (event.data));
         }
     }
+    else if (event.type == EngineMessageBus::EventType::MidiMenuEnabledChanged)
+    {
+        if (std::holds_alternative<bool> (event.data))
+        {
+            enableMidiMenu (std::get<bool> (event.data));
+        }
+    }
 }
 
+// MidiMappingComponent.cpp - updated buildMappingList() to not pre-position components
 void MidiMappingComponent::buildMappingList()
 {
     constexpr size_t numCommands = std::size (EngineMessageBus::commandTypeNamesForMenu);
@@ -119,8 +141,10 @@ void MidiMappingComponent::buildMappingList()
         mappingData.push_back ({ commandType, name, category, isCCCommand });
     }
 
+    // Sort by category
+    std::sort (mappingData.begin(), mappingData.end(), [] (const auto& a, const auto& b) { return a.category < b.category; });
+
     juce::String currentCategory;
-    int yPos = 0;
 
     for (const auto& data : mappingData)
     {

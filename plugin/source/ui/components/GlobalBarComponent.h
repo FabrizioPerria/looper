@@ -14,6 +14,7 @@ class GlobalControlBar : public juce::Component
 public:
     GlobalControlBar (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge, Metronome* m, GranularFreeze* freezer)
         : transportControls (engineMessageBus, bridge)
+        , uiToEngineBus (engineMessageBus)
         , metronomeComponent (engineMessageBus, m)
         , inputMeter ("IN", engineMessageBus, bridge)
         , outputMeter ("OUT", engineMessageBus, bridge)
@@ -33,8 +34,13 @@ public:
         addAndMakeVisible (outputMeter);
 
         // Utility buttons
-        saveButton.onClick = [engineMessageBus]()
-        { engineMessageBus->pushCommand ({ EngineMessageBus::CommandType::saveMidiMappings, -1, std::monostate {} }); };
+        saveButton.setClickingTogglesState (true);
+        saveButton.onClick = [this]()
+        {
+            uiToEngineBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MidiMenuEnabledChanged,
+                                                                    -1,
+                                                                    saveButton.getToggleState()));
+        };
         setupButton (saveButton);
     }
 
@@ -66,6 +72,7 @@ private:
     juce::Label looperLabel;
 
     TransportControlsComponent transportControls;
+    EngineMessageBus* uiToEngineBus;
 
     MetronomeComponent metronomeComponent;
 

@@ -15,6 +15,8 @@ public:
     void resized() override;
     void handleEngineEvent (const EngineMessageBus::Event& event) override;
 
+    void enableMidiMenu (bool enable) { setVisible (enable); }
+
 private:
     struct MappingRowData
     {
@@ -31,9 +33,9 @@ private:
 
         void paint (juce::Graphics& g) override
         {
-            g.fillAll (juce::Colours::darkgrey.darker());
+            g.fillAll (juce::Colour (0xff2a2a2a)); // Darker grey
             g.setColour (juce::Colours::white);
-            g.setFont (14.0f);
+            g.setFont (juce::Font (14.0f, juce::Font::bold));
             g.drawText (categoryName, getLocalBounds().withTrimmedLeft (10), juce::Justification::centredLeft);
         }
 
@@ -55,6 +57,7 @@ private:
             clearButton.onClick = [this]() { onClearClicked(); };
         }
 
+        // MidiMappingComponent.h - updated MappingRow paint() method
         void paint (juce::Graphics& g) override
         {
             auto bounds = getLocalBounds();
@@ -62,7 +65,7 @@ private:
             if (isLearning)
                 g.fillAll (juce::Colours::orange.withAlpha (0.3f));
             else
-                g.fillAll (getToggleState() ? juce::Colours::grey.darker() : juce::Colours::transparentBlack);
+                g.fillAll (getToggleState() ? juce::Colour (0xff3a3a3a) : juce::Colour (0xff2d2d2d));
 
             g.setColour (juce::Colours::white);
             g.setFont (13.0f);
@@ -87,11 +90,12 @@ private:
             juce::String keyText = isLearning ? "--" : getMappingString();
             g.drawText (keyText, keyRect, juce::Justification::centred);
 
-            // Waiting text for learning
+            // Waiting text for learning - AFTER buttons area
             if (isLearning)
             {
+                bounds.removeFromLeft (160); // Skip buttons area
                 g.setColour (juce::Colours::orange);
-                g.drawText ("⏳ Waiting for MIDI input...", bounds.removeFromLeft (160), juce::Justification::centredLeft);
+                g.drawText ("⏳ Waiting for MIDI input...", bounds, juce::Justification::centredLeft);
             }
         }
 
@@ -179,7 +183,7 @@ private:
             g.fillAll (juce::Colours::black);
             g.setColour (juce::Colours::lightgreen);
             g.setFont (12.0f);
-            g.drawText ("🎹 " + lastMidiMessage, getLocalBounds().withTrimmedLeft (10), juce::Justification::centredLeft);
+            g.drawText (lastMidiMessage, getLocalBounds().withTrimmedLeft (10), juce::Justification::centredLeft);
         }
 
         void setMidiMessage (const juce::String& message)
@@ -216,6 +220,8 @@ private:
     juce::OwnedArray<MappingRow> mappingRows;
 
     MappingRow* currentLearningRow = nullptr;
+
+    std::atomic<bool> midiMenuEnabled { false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiMappingComponent)
 };

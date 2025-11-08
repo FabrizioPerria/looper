@@ -19,8 +19,6 @@ public:
 
         midiMappingComponent = std::make_unique<MidiMappingComponent> (engine->getMidiMappingManager(), engine->getMessageBus());
 
-        addAndMakeVisible (*midiMappingComponent);
-
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {
             auto* channel = new TrackComponent (engine->getMessageBus(),
@@ -32,6 +30,8 @@ public:
         }
 
         addAndMakeVisible (*globalBar);
+        addAndMakeVisible (*midiMappingComponent);
+        midiMappingComponent->setVisible (false);
     }
 
     void paint (juce::Graphics& g) override
@@ -58,6 +58,12 @@ public:
         }
 
         mainFlex.performLayout (bounds.toFloat());
+
+        // the idea is to preallocate an overlay area for the midiMappingComponent. When it's visible, it will cover the right half of the editor.
+        // When it's hidden, it will be set to zero size internally in the midiMappingComponent's resized() method.
+        auto midiMappingArea = getLocalBounds().withTrimmedLeft (getWidth() / 2);
+        midiMappingArea.removeFromTop (globalBar->getHeight());
+        midiMappingComponent->setBounds (midiMappingArea);
     }
 
 private:

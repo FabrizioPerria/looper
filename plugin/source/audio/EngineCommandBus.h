@@ -192,6 +192,7 @@ public:
         TrackSyncChanged,
         SinglePlayModeChanged,
         FreezeStateChanged,
+        MidiMenuEnabledChanged,
         MidiMappingChanged,
         MidiActivityReceived,
     };
