@@ -2,6 +2,8 @@
 #include "audio/EngineCommandBus.h"
 #include <array>
 #include <cstdint>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 namespace MidiNotes
 {
@@ -122,6 +124,7 @@ constexpr auto CC_MAPPING = buildCCMapping();
 class MidiMappingManager
 {
 public:
+    MidiMappingManager() { loadFromJson(); }
     EngineMessageBus::CommandType getCommandForNoteOn (uint8_t note)
     {
         return note < MidiCommandMapping::MAX_MIDI_NOTES ? noteOnMapping[note] : EngineMessageBus::CommandType::None;
@@ -214,11 +217,51 @@ public:
     }
 
     // Save/Load
-    void saveToXml (juce::XmlElement& xml) {}
-    void loadFromXml (const juce::XmlElement& xml) {}
+    void saveToJson()
+    {
+        using json = nlohmann::json;
+        json j;
+        j["noteOnMapping"] = noteOnMapping;
+        j["noteOffMapping"] = noteOffMapping;
+        j["ccMapping"] = ccMapping;
+
+        auto jsonFile = getMidiMappingFile();
+        jsonFile.replaceWithText (j.dump (4));
+    }
+    void loadFromJson()
+    {
+        using json = nlohmann::json;
+        auto jsonFile = getMidiMappingFile();
+        if (! jsonFile.existsAsFile())
+        {
+            resetToDefaults();
+            return;
+        }
+        std::ifstream file (jsonFile.getFullPathName().toStdString());
+        if (file.is_open())
+        {
+            json j;
+            file >> j;
+            if (j.contains ("noteOnMapping"))
+                noteOnMapping = j["noteOnMapping"].get<std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES>>();
+            if (j.contains ("noteOffMapping"))
+                noteOffMapping = j["noteOffMapping"].get<std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES>>();
+            if (j.contains ("ccMapping"))
+                ccMapping = j["ccMapping"].get<std::array<EngineMessageBus::CommandType, MidiControlChangeMapping::MAX_CC_NUMBERS>>();
+            file.close();
+            isDirty = false;
+        }
+    }
 
     bool isMappingDirty() const { return isDirty; }
     void clearDirtyFlag() { isDirty = false; }
+
+    void restoreDefaultMappings()
+    {
+        auto jsonFile = getMidiMappingFile();
+        if (jsonFile.existsAsFile()) jsonFile.deleteFile();
+        resetToDefaults();
+    }
 
 private:
     void resetToDefaults()
@@ -295,5 +338,28 @@ private:
     std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES> noteOnMapping = MidiCommandMapping::NOTE_ON_COMMANDS;
     std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES> noteOffMapping = MidiCommandMapping::NOTE_OFF_COMMANDS;
     std::array<EngineMessageBus::CommandType, MidiControlChangeMapping::MAX_CC_NUMBERS> ccMapping = MidiControlChangeMapping::CC_MAPPING;
+    juce::File appDataDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+
+    const static juce::File getMidiMappingFile()
+    {
+        juce::String companyName = "YourCompany";
+        juce::String pluginName = "YourPlugin";
+        juce::File appDataDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+
+#if JUCE_WINDOWS
+        // Windows: C:\Users\username\AppData\Roaming\YourCompany\YourPlugin
+        appDataDir = appDataDir.getChildFile (companyName).getChildFile (pluginName);
+#elif JUCE_MAC
+        // macOS: ~/Library/Application Support/YourCompany/YourPlugin
+        appDataDir = appDataDir.getChildFile ("Application Support").getChildFile (companyName).getChildFile (pluginName);
+#elif JUCE_LINUX
+        // Linux: ~/.config/YourCompany/YourPlugin
+        appDataDir = appDataDir.getChildFile (".config").getChildFile (companyName).getChildFile (pluginName);
+#endif
+        if (! appDataDir.exists()) appDataDir.createDirectory();
+
+        return appDataDir.getChildFile ("midi_mappings.json");
+    }
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiMappingManager)
 };

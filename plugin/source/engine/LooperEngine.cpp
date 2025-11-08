@@ -654,7 +654,7 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages, int 
         // Handle CC messages for continuous controls
         if (m.isController())
         {
-            auto ccId = MidiControlChangeMapping::getControlChangeId (m.getControllerNumber());
+            auto ccId = midiMappingManager.getControlChangeId (m.getControllerNumber());
             int value = m.getControllerValue();
 
             // Handle special CC (track select changes target)
@@ -675,8 +675,7 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages, int 
             uint8_t note = (uint8_t) m.getNoteNumber();
 
             // O(1) lookup in compile-time table!
-            auto commandId = m.isNoteOn() ? MidiCommandMapping::getCommandForNoteOn (note)
-                                          : MidiCommandMapping::getCommandForNoteOff (note);
+            auto commandId = m.isNoteOn() ? midiMappingManager.getCommandForNoteOn (note) : midiMappingManager.getCommandForNoteOff (note);
 
             messageBus->pushCommand ({ commandId, targetTrack, std::monostate {} });
         }

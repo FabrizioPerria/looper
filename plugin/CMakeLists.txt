@@ -61,7 +61,7 @@ target_include_directories(
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE juce::juce_dsp juce::juce_audio_utils juce::juce_gui_basics BinaryData
-          SoundTouch
+          SoundTouch nlohmann_json::nlohmann_json
   PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags
          juce::juce_recommended_warning_flags)
 

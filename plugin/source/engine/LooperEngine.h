@@ -89,9 +89,12 @@ public:
     void toggleGranularFreeze();
     GranularFreeze* getGranularFreeze() const { return granularFreeze.get(); }
 
+    void saveMidiMappings() { midiMappingManager.saveToJson(); }
+
 private:
     // State machine
     LooperStateMachine stateMachine;
+    MidiMappingManager midiMappingManager;
     LooperState currentState = LooperState::Idle;
     PendingAction pendingAction;
     std::unique_ptr<EngineStateToUIBridge> engineStateBridge = std::make_unique<EngineStateToUIBridge>();
@@ -356,6 +359,7 @@ private:
                   inputGain.store (gain);
               }
           } },
+        { EngineMessageBus::CommandType::saveMidiMappings, [this] (const auto& /*cmd*/) { saveMidiMappings(); } }
 
     };
 

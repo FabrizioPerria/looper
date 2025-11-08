@@ -64,7 +64,9 @@ public:
         ClearSubLoopRegion,
 
         SetOutputGain,
-        SetInputGain
+        SetInputGain,
+
+        saveMidiMappings
     };
 
     static juce::String commandTypeToString (CommandType type)

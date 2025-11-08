@@ -33,6 +33,8 @@ public:
         addAndMakeVisible (outputMeter);
 
         // Utility buttons
+        saveButton.onClick = [engineMessageBus]()
+        { engineMessageBus->pushCommand ({ EngineMessageBus::CommandType::saveMidiMappings, -1, std::monostate {} }); };
         setupButton (saveButton);
     }
 
