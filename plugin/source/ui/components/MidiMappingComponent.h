@@ -1,6 +1,7 @@
 #pragma once
 #include "audio/EngineCommandBus.h"
 #include "engine/MidiCommandConfig.h"
+#include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
 class LooperEngine;
@@ -33,9 +34,9 @@ private:
 
         void paint (juce::Graphics& g) override
         {
-            g.fillAll (juce::Colour (0xff2a2a2a)); // Darker grey
-            g.setColour (juce::Colours::white);
-            g.setFont (juce::Font (14.0f, juce::Font::bold));
+            g.fillAll (LooperTheme::Colors::backgroundDark);
+            g.setColour (LooperTheme::Colors::cyan);
+            g.setFont (LooperTheme::Fonts::getBoldFont());
             g.drawText (categoryName, getLocalBounds().withTrimmedLeft (10), juce::Justification::centredLeft);
         }
 
@@ -63,12 +64,12 @@ private:
             auto bounds = getLocalBounds();
 
             if (isLearning)
-                g.fillAll (juce::Colours::orange.withAlpha (0.3f));
+                g.fillAll (LooperTheme::Colors::orange.darker());
             else
-                g.fillAll (getToggleState() ? juce::Colour (0xff3a3a3a) : juce::Colour (0xff2d2d2d));
+                g.fillAll (getToggleState() ? LooperTheme::Colors::surface : LooperTheme::Colors::backgroundDark);
 
-            g.setColour (juce::Colours::white);
-            g.setFont (13.0f);
+            g.setColour (LooperTheme::Colors::white);
+            g.setFont (LooperTheme::Fonts::getRegularFont (13.0f));
 
             // Command name column (200px)
             auto commandRect = bounds.removeFromLeft (200);
@@ -93,9 +94,9 @@ private:
             // Waiting text for learning - AFTER buttons area
             if (isLearning)
             {
-                bounds.removeFromLeft (160); // Skip buttons area
-                g.setColour (juce::Colours::orange);
-                g.drawText ("⏳ Waiting for MIDI input...", bounds, juce::Justification::centredLeft);
+                bounds.removeFromLeft (100); // Skip buttons area
+                g.setColour (LooperTheme::Colors::orange);
+                g.drawText ("Waiting for MIDI input...", bounds, juce::Justification::centredLeft);
             }
         }
 
@@ -180,9 +181,9 @@ private:
     public:
         void paint (juce::Graphics& g) override
         {
-            g.fillAll (juce::Colours::black);
-            g.setColour (juce::Colours::lightgreen);
-            g.setFont (12.0f);
+            g.fillAll (LooperTheme::Colors::backgroundDark);
+            g.setColour (LooperTheme::Colors::green);
+            g.setFont (LooperTheme::Fonts::getRegularFont (13.0f));
             g.drawText (lastMidiMessage, getLocalBounds().withTrimmedLeft (10), juce::Justification::centredLeft);
         }
 

@@ -1,6 +1,4 @@
-// MidiMappingComponent.cpp
 #include "MidiMappingComponent.h"
-#include "engine/LooperEngine.h"
 #include "engine/MidiCommandConfig.h"
 
 MidiMappingComponent::MidiMappingComponent (MidiMappingManager* mappingManager, EngineMessageBus* messageBus)
@@ -10,6 +8,7 @@ MidiMappingComponent::MidiMappingComponent (MidiMappingManager* mappingManager, 
 
     addAndMakeVisible (activityIndicator);
 
+    viewport.setScrollBarsShown (true, false, true, false);
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&contentComponent, false);
 
@@ -47,7 +46,7 @@ MidiMappingComponent::MidiMappingComponent (MidiMappingManager* mappingManager, 
 
 MidiMappingComponent::~MidiMappingComponent() { uiToEngineBus->removeListener (this); }
 
-void MidiMappingComponent::paint (juce::Graphics& g) { g.fillAll (juce::Colours::darkgrey); }
+void MidiMappingComponent::paint (juce::Graphics& g) { g.fillAll (LooperTheme::Colors::backgroundDark); }
 
 void MidiMappingComponent::resized()
 {
@@ -63,7 +62,7 @@ void MidiMappingComponent::resized()
     buttonArea.removeFromLeft (10);
     resetButton.setBounds (buttonArea.removeFromLeft (150));
 
-    viewport.setBounds (bounds);
+    viewport.setBounds (bounds.reduced (2, 0));
 
     int yPos = 0;
     int rowHeight = 30;

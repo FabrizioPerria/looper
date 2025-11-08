@@ -26,6 +26,7 @@ namespace Colors
     const juce::Colour orange = juce::Colour (0xffff9e64);  // Orange
     const juce::Colour red = juce::Colour (0xfff7768e);     // Red/pink
     const juce::Colour magenta = juce::Colour (0xffbb9af7); // Purple/magenta
+    const juce::Colour white = juce::Colour (0xffc0caf5);   // Light blue-white
 
     // Text
     const juce::Colour text = juce::Colour (0xffc0caf5);         // Light blue-white
