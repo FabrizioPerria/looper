@@ -145,7 +145,8 @@ public:
         layoutBox.alignItems = juce::FlexBox::AlignItems::stretch;
         layoutBox.justifyContent = juce::FlexBox::JustifyContent::flexStart;
 
-        layoutBox.items.add (juce::FlexItem (enableButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        // layoutBox.items.add (juce::FlexItem (enableButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        layoutBox.items.add (juce::FlexItem (beatIndicator).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
 
         juce::FlexBox bpmBox;
         bpmBox.flexDirection = juce::FlexBox::Direction::column;
@@ -170,7 +171,6 @@ public:
 
         layoutBox.items.add (juce::FlexItem (accentBox).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
         layoutBox.items.add (juce::FlexItem (metronomeLevel).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
-        layoutBox.items.add (juce::FlexItem (beatIndicator).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
 
         mainBox.items.add (juce::FlexItem (layoutBox).withFlex (3.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
         mainBox.performLayout (bounds.toFloat());

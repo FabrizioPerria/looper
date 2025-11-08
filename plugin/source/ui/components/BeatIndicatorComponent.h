@@ -78,21 +78,46 @@ public:
         ledBounds = juce::Rectangle<float> (center.x - diameter / 2, center.y - diameter / 2, diameter, diameter);
     }
 
-    void mouseDown (const juce::MouseEvent& e) override
+    // void mouseDown (const juce::MouseEvent& e) override
+    // {
+    //     if (! metronome || ! engineMessageBus) return;
+    //
+    //     bool enabled = metronome->isEnabled();
+    //
+    //     if (! enabled)
+    //     {
+    //         toggleMetronome();
+    //
+    //         return;
+    //     }
+    //
+    //     // Metronome is on - handle tap tempo
+    //     handleTap();
+    // }
+    void mouseDown (const juce::MouseEvent&) override
+    {
+        if (! metronome || ! engineMessageBus) return;
+        mouseDownTime = juce::Time::getMillisecondCounter();
+    }
+
+    void mouseUp (const juce::MouseEvent&) override
     {
         if (! metronome || ! engineMessageBus) return;
 
-        bool enabled = metronome->isEnabled();
-
-        if (! enabled)
+        auto holdDuration = juce::Time::getMillisecondCounter() - mouseDownTime;
+        if (holdDuration > 500) // 500ms = half second hold threshold
         {
-            toggleMetronome();
-
-            return;
+            // Long press - disable metronome
+            if (metronome->isEnabled()) toggleMetronome();
         }
-
-        // Metronome is on - handle tap tempo
-        handleTap();
+        else
+        {
+            // Short click - normal behavior
+            if (! metronome->isEnabled())
+                toggleMetronome();
+            else
+                handleTap();
+        }
     }
 
     void timerCallback() override
@@ -170,6 +195,7 @@ private:
     int lastBeat = -1;
     bool strongBeat = false;
     float flashIntensity = 0.0f;
+    uint32_t mouseDownTime = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BeatIndicatorComponent)
 };
