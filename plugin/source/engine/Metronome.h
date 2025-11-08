@@ -17,6 +17,10 @@ public:
         bpm = newBpm;
         samplesPerBeat = calculateSamplesPerBeat();
     }
+    int getBpm() const { return bpm; }
+
+    bool isTapTempoActive() const { return tapTempoActive; }
+    bool wasLastTapRecent() const { return (juce::Time::getMillisecondCounter() - lastTapTime) < 500; }
 
     void setTimeSignature (int numerator, int denominator)
     {
@@ -67,12 +71,6 @@ public:
                 bool isStrongBeat = (strongBeatIndex >= 0 && currentBeat == strongBeatIndex);
                 currentClickBuffer = isStrongBeat ? &strongClickBuffer : &weakClickBuffer;
                 currentClickPosition = 0;
-
-                // Trigger callback at the exact sample where beat occurs
-                // if (onBeatCallback)
-                // {
-                //     onBeatCallback (isStrongBeat);
-                // }
             }
 
             // Render one sample of the click sound if active
@@ -122,6 +120,52 @@ public:
 
     bool isStrongBeat() const { return (strongBeatIndex >= 0 && currentBeat == strongBeatIndex); }
     // std::function<void (bool isStrongBeat)> onBeatCallback;
+
+    void handleTap()
+    {
+        auto now = juce::Time::getMillisecondCounter();
+
+        // Check if this tap is too close to previous (debounce)
+        if (! tapTimes.empty() && (now - lastTapTime) < MIN_TAP_INTERVAL_MS) return;
+
+        lastTapTime = now;
+        tapTempoActive = true;
+
+        // Add this tap time
+        tapTimes.push_back (now);
+
+        // Remove taps older than timeout
+        tapTimes.erase (std::remove_if (tapTimes.begin(),
+                                        tapTimes.end(),
+                                        [now] (juce::uint32 tapTime) { return (now - tapTime) > TAP_TIMEOUT_MS; }),
+                        tapTimes.end());
+
+        // Need at least 2 taps to calculate BPM
+        if (tapTimes.size() < 2)
+        {
+            return;
+        }
+
+        // Calculate average interval between taps
+        double totalInterval = 0.0;
+        int numIntervals = 0;
+
+        for (size_t i = 1; i < tapTimes.size(); ++i)
+        {
+            double interval = tapTimes[i] - tapTimes[i - 1];
+            totalInterval += interval;
+            numIntervals++;
+        }
+
+        double averageInterval = totalInterval / numIntervals;
+
+        // Convert interval (milliseconds) to BPM
+        // BPM = 60000 / interval_ms
+        int newBPM = juce::roundToInt (60000.0 / averageInterval);
+
+        newBPM = juce::jlimit (MIN_BPM, MAX_BPM, newBPM);
+        setBpm (newBPM);
+    }
 
 private:
     void generateClickSounds()
@@ -178,6 +222,15 @@ private:
     juce::AudioBuffer<float> strongClickBuffer;
     juce::AudioBuffer<float> weakClickBuffer;
     juce::AudioBuffer<float>* currentClickBuffer;
+
+    // Tap tempo state
+    std::vector<juce::uint32> tapTimes;
+    juce::uint32 lastTapTime = 0;
+    bool tapTempoActive = false;
+    static constexpr int MIN_BPM = 30;
+    static constexpr int MAX_BPM = 300;
+    static constexpr int TAP_TIMEOUT_MS = 3000;     // Reset after 3 seconds of no taps
+    static constexpr int MIN_TAP_INTERVAL_MS = 100; // Debounce - ignore taps closer than 100ms
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Metronome)
 };

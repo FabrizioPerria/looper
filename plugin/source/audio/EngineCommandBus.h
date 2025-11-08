@@ -54,7 +54,7 @@ public:
         SetExistingAudioGain,
         SetNewOverdubGain,
 
-        SetMetronomeEnabled,
+        ToggleMetronomeEnabled,
         SetMetronomeBPM,
         SetMetronomeTimeSignature,
         SetMetronomeStrongBeat,
@@ -100,7 +100,7 @@ public:
         { CommandType::ToggleReverse, "Toggle Reverse" },
         { CommandType::SetExistingAudioGain, "Set Existing Audio Gain" },
         { CommandType::SetNewOverdubGain, "Set Overdub Gain" },
-        { CommandType::SetMetronomeEnabled, "Set Metronome Enabled" },
+        { CommandType::ToggleMetronomeEnabled, "Set Metronome Enabled" },
         { CommandType::SetMetronomeBPM, "Set Metronome BPM" },
         { CommandType::SetMetronomeVolume, "Set Metronome Volume" },
         { CommandType::SetOutputGain, "Set Output Gain" },
@@ -134,7 +134,7 @@ public:
             case CommandType::ToggleReverse:
                 return "Playback";
 
-            case CommandType::SetMetronomeEnabled:
+            case CommandType::ToggleMetronomeEnabled:
             case CommandType::SetMetronomeBPM:
             case CommandType::SetMetronomeVolume:
                 return "Metronome";

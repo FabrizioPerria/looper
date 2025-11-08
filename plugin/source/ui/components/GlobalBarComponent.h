@@ -20,13 +20,6 @@ public:
         , outputMeter ("OUT", engineMessageBus, bridge)
         , droneComponent (engineMessageBus, freezer)
     {
-        looperLabel.setText ("LOOPER", juce::NotificationType::dontSendNotification);
-        juce::FontOptions fontOptions = juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 16.0f, juce::Font::bold);
-
-        looperLabel.setFont (juce::Font (fontOptions));
-        looperLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
-        addAndMakeVisible (looperLabel);
-
         addAndMakeVisible (transportControls);
         addAndMakeVisible (metronomeComponent);
         addAndMakeVisible (droneComponent);
@@ -34,14 +27,16 @@ public:
         addAndMakeVisible (outputMeter);
 
         // Utility buttons
-        saveButton.setClickingTogglesState (true);
-        saveButton.onClick = [this]()
+        midiButton.setClickingTogglesState (true);
+        midiButton.onClick = [this]()
         {
             uiToEngineBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MidiMenuEnabledChanged,
                                                                     -1,
-                                                                    saveButton.getToggleState()));
+                                                                    midiButton.getToggleState()));
         };
-        setupButton (saveButton);
+        midiButton.setButtonText ("MIDI");
+        midiButton.setComponentID ("midi");
+        addAndMakeVisible (midiButton);
     }
 
     ~GlobalControlBar() override {}
@@ -60,7 +55,7 @@ public:
 
         // Utility buttons
         mainBox.items.add (juce::FlexItem (metronomeComponent).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 0)));
-        mainBox.items.add (juce::FlexItem (saveButton).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        mainBox.items.add (juce::FlexItem (midiButton).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         mainBox.items.add (juce::FlexItem (droneComponent).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
 
         mainBox.performLayout (bounds.toFloat());
@@ -79,7 +74,8 @@ private:
     MeterWithGainComponent inputMeter;
     MeterWithGainComponent outputMeter;
 
-    juce::TextButton saveButton { "SAVE" };
+    juce::TextButton midiButton { "MIDI" };
+
     FreezeComponent droneComponent;
 
     void setupButton (juce::TextButton& button)

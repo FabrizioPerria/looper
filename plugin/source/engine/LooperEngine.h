@@ -325,7 +325,7 @@ private:
                   setNewOverdubGainForTrack (cmd.trackIndex, static_cast<double> (gain));
               }
           } },
-        { EngineMessageBus::CommandType::SetMetronomeEnabled,
+        { EngineMessageBus::CommandType::ToggleMetronomeEnabled,
           [this] (const auto& cmd)
           {
               if (std::holds_alternative<std::monostate> (cmd.payload))

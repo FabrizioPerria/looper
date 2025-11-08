@@ -40,9 +40,9 @@ public:
         enableButton.setColour (juce::TextButton::textColourOnId, LooperTheme::Colors::background);
         enableButton.onClick = [this]()
         {
-            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetMetronomeEnabled,
+            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleMetronomeEnabled,
                                                                     -1,
-                                                                    ! enableButton.getToggleState() });
+                                                                    std::monostate {} });
         };
         addAndMakeVisible (enableButton);
 

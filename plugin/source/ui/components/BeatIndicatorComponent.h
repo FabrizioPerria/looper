@@ -59,14 +59,13 @@ public:
         }
 
         // Visual feedback during tap tempo
-        if (tapTempoActive && (juce::Time::getMillisecondCounter() - lastTapTime) < 500)
+        if (metronome->isTapTempoActive() && metronome->wasLastTapRecent())
         {
             // Show ring around LED during active tapping
             g.setColour (LooperTheme::Colors::yellow.withAlpha (0.5f));
             g.drawEllipse (ledBounds.expanded (2.0f), 2.0f);
         }
 
-        // Show lastBeat number inside LED for debugging
         g.setColour (LooperTheme::Colors::surface);
         g.setFont (juce::Font (juce::Font::getDefaultMonospacedFontName(), 10.0f, juce::Font::bold));
         g.drawText (juce::String (lastBeat + 1), ledBounds.toNearestInt(), juce::Justification::centred);
@@ -87,12 +86,8 @@ public:
 
         if (! enabled)
         {
-            // Metronome is off - enable it
-            enableMetronome (true);
+            toggleMetronome();
 
-            // Reset tap tempo state
-            tapTimes.clear();
-            tapTempoActive = false;
             return;
         }
 
@@ -136,35 +131,17 @@ public:
             needsRepaint = true;
         }
 
-        // Check if tap tempo has timed out
-        if (tapTempoActive)
-        {
-            auto now = juce::Time::getMillisecondCounter();
-            if (now - lastTapTime > TAP_TIMEOUT_MS)
-            {
-                // Timeout - reset tap tempo
-                tapTimes.clear();
-                tapTempoActive = false;
-                needsRepaint = true;
-            }
-            else if (now - lastTapTime < 500)
-            {
-                // Still in feedback window
-                needsRepaint = true;
-            }
-        }
-
         if (needsRepaint) repaint();
     }
 
 private:
-    void enableMetronome (bool enable)
+    void toggleMetronome()
     {
         if (! engineMessageBus) return;
 
         EngineMessageBus::Command cmd;
-        cmd.type = EngineMessageBus::CommandType::SetMetronomeEnabled;
-        cmd.payload = enable;
+        cmd.type = EngineMessageBus::CommandType::ToggleMetronomeEnabled;
+        cmd.payload = std::monostate {};
         engineMessageBus->pushCommand (cmd);
     }
 
@@ -180,49 +157,8 @@ private:
 
     void handleTap()
     {
-        auto now = juce::Time::getMillisecondCounter();
-
-        // Check if this tap is too close to previous (debounce)
-        if (! tapTimes.empty() && (now - lastTapTime) < MIN_TAP_INTERVAL_MS) return;
-
-        lastTapTime = now;
-        tapTempoActive = true;
-
-        // Add this tap time
-        tapTimes.push_back (now);
-
-        // Remove taps older than timeout
-        tapTimes.erase (std::remove_if (tapTimes.begin(),
-                                        tapTimes.end(),
-                                        [now] (juce::uint32 tapTime) { return (now - tapTime) > TAP_TIMEOUT_MS; }),
-                        tapTimes.end());
-
-        // Need at least 2 taps to calculate BPM
-        if (tapTimes.size() < 2)
-        {
-            repaint();
-            return;
-        }
-
-        // Calculate average interval between taps
-        double totalInterval = 0.0;
-        int numIntervals = 0;
-
-        for (size_t i = 1; i < tapTimes.size(); ++i)
-        {
-            double interval = tapTimes[i] - tapTimes[i - 1];
-            totalInterval += interval;
-            numIntervals++;
-        }
-
-        double averageInterval = totalInterval / numIntervals;
-
-        // Convert interval (milliseconds) to BPM
-        // BPM = 60000 / interval_ms
-        int newBPM = juce::roundToInt (60000.0 / averageInterval);
-
-        newBPM = juce::jlimit (MIN_BPM, MAX_BPM, newBPM);
-        setMetronomeBPM (newBPM);
+        metronome->handleTap();
+        engineMessageBus->broadcastEvent ({ EngineMessageBus::EventType::MetronomeBPMChanged, -1, metronome->getBpm() });
 
         repaint();
     }
@@ -231,21 +167,9 @@ private:
     EngineMessageBus* engineMessageBus;
     juce::Rectangle<float> ledBounds;
 
-    // Visual state
     int lastBeat = -1;
     bool strongBeat = false;
     float flashIntensity = 0.0f;
-
-    // Tap tempo state
-    std::vector<juce::uint32> tapTimes;
-    juce::uint32 lastTapTime = 0;
-    bool tapTempoActive = false;
-
-    // Tap tempo configuration
-    static constexpr int MIN_BPM = 30;
-    static constexpr int MAX_BPM = 300;
-    static constexpr int TAP_TIMEOUT_MS = 3000;     // Reset after 3 seconds of no taps
-    static constexpr int MIN_TAP_INTERVAL_MS = 100; // Debounce - ignore taps closer than 100ms
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BeatIndicatorComponent)
 };

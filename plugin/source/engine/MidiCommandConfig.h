@@ -69,7 +69,7 @@ constexpr std::array<EngineMessageBus::CommandType, MAX_MIDI_NOTES> buildNoteOnC
     table[MidiNotes::NORMALIZE_BUTTON] = EngineMessageBus::CommandType::ToggleVolumeNormalize;
     table[MidiNotes::PITCH_LOCK_BUTTON] = EngineMessageBus::CommandType::TogglePitchLock;
     table[MidiNotes::REVERSE_BUTTON] = EngineMessageBus::CommandType::ToggleReverse;
-    table[MidiNotes::METRO_TOGGLE_BUTTON] = EngineMessageBus::CommandType::SetMetronomeEnabled;
+    table[MidiNotes::METRO_TOGGLE_BUTTON] = EngineMessageBus::CommandType::ToggleMetronomeEnabled;
     table[MidiNotes::METRO_STRONG_BEAT_BUTTON] = EngineMessageBus::CommandType::SetMetronomeStrongBeat;
 
     return table;
