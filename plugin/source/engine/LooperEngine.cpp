@@ -814,18 +814,25 @@ void LooperEngine::setMetronomeVolume (float volume) { metronome->setVolume (vol
 void LooperEngine::setPlayheadPosition (int trackIndex, int positionSamples)
 {
     PERFETTO_FUNCTION();
-    if (singlePlayMode.load())
+
+    auto* sourceTrack = getTrackByIndex (trackIndex);
+    if (sourceTrack->getTrackLengthSamples() == 0) return;
+
+    sourceTrack->setReadPosition (positionSamples);
+
+    // Early return if syncing is not needed
+    if (singlePlayMode.load() || ! sourceTrack->isSynced()) return;
+
+    // Sync other tracks if they are synced and have content
+    for (int i = 0; i < numTracks; ++i)
     {
-        auto* track = getTrackByIndex (trackIndex);
-        if (track) track->setReadPosition (positionSamples);
-    }
-    else
-    {
-        for (int i = 0; i < numTracks; ++i)
-        {
-            auto* track = getTrackByIndex (i);
-            if (track && track->isSynced()) track->setReadPosition (positionSamples);
-        }
+        if (i == trackIndex) continue;
+
+        auto* targetTrack = getTrackByIndex (i);
+        if (! targetTrack->isSynced() || targetTrack->getTrackLengthSamples() == 0) continue;
+
+        int newPos = positionSamples % targetTrack->getTrackLengthSamples();
+        targetTrack->setReadPosition (newPos);
     }
 }
 
