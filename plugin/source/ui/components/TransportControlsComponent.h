@@ -75,26 +75,26 @@ public:
 
         juce::FlexBox playStopRecBox;
         playStopRecBox.flexDirection = juce::FlexBox::Direction::row;
-        playStopRecBox.items.add (juce::FlexItem (recButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
-        playStopRecBox.items.add (juce::FlexItem (playButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
-        playStopRecBox.items.add (juce::FlexItem (stopButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        playStopRecBox.items.add (juce::FlexItem (recButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 1, 0, 1)));
+        playStopRecBox.items.add (juce::FlexItem (playButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 1, 0, 1)));
+        playStopRecBox.items.add (juce::FlexItem (stopButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 1, 0, 1)));
 
         juce::FlexBox transportBox;
         transportBox.flexDirection = juce::FlexBox::Direction::column;
         transportBox.alignItems = juce::FlexBox::AlignItems::stretch;
-        transportBox.items.add (juce::FlexItem (transportLabel).withFlex (0.3f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
-        transportBox.items.add (juce::FlexItem (playStopRecBox).withFlex (0.9f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        transportBox.items.add (juce::FlexItem (transportLabel).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        transportBox.items.add (juce::FlexItem (playStopRecBox).withFlex (3.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
 
         juce::FlexBox trackSelectBox;
         trackSelectBox.flexDirection = juce::FlexBox::Direction::row;
-        trackSelectBox.items.add (juce::FlexItem (prevButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
-        trackSelectBox.items.add (juce::FlexItem (nextButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        trackSelectBox.items.add (juce::FlexItem (prevButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 1, 0, 1)));
+        trackSelectBox.items.add (juce::FlexItem (nextButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 1, 0, 1)));
 
         juce::FlexBox trackBox;
         trackBox.flexDirection = juce::FlexBox::Direction::column;
         trackBox.alignItems = juce::FlexBox::AlignItems::stretch;
-        trackBox.items.add (juce::FlexItem (trackLabel).withFlex (0.3f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
-        trackBox.items.add (juce::FlexItem (trackSelectBox).withFlex (0.9f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        trackBox.items.add (juce::FlexItem (trackLabel).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        trackBox.items.add (juce::FlexItem (trackSelectBox).withFlex (3.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
 
         mainBox.items.add (juce::FlexItem (transportBox).withFlex (0.6f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
         mainBox.items.add (juce::FlexItem (trackBox).withFlex (0.3f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
