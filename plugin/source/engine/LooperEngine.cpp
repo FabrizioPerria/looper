@@ -836,6 +836,54 @@ void LooperEngine::setPlayheadPosition (int trackIndex, int positionSamples)
     }
 }
 
+void LooperEngine::setLoopRegion (int trackIndex, int startSample, int endSample)
+{
+    PERFETTO_FUNCTION();
+
+    auto* sourceTrack = getTrackByIndex (trackIndex);
+    if (sourceTrack->getTrackLengthSamples() == 0) return;
+
+    sourceTrack->setLoopRegion (startSample, endSample);
+
+    // Early return if syncing is not needed
+    if (singlePlayMode.load() || ! sourceTrack->isSynced()) return;
+
+    // Sync other tracks if they are synced and have content
+    for (int i = 0; i < numTracks; ++i)
+    {
+        if (i == trackIndex) continue;
+
+        auto* targetTrack = getTrackByIndex (i);
+        if (! targetTrack->isSynced() || targetTrack->getTrackLengthSamples() == 0) continue;
+
+        targetTrack->setLoopRegion (startSample, endSample);
+    }
+}
+
+void LooperEngine::clearLoopRegion (int trackIndex)
+{
+    PERFETTO_FUNCTION();
+
+    auto* sourceTrack = getTrackByIndex (trackIndex);
+    if (sourceTrack->getTrackLengthSamples() == 0) return;
+
+    sourceTrack->clearLoopRegion();
+
+    // Early return if syncing is not needed
+    if (singlePlayMode.load() || ! sourceTrack->isSynced()) return;
+
+    // Sync other tracks if they are synced and have content
+    for (int i = 0; i < numTracks; ++i)
+    {
+        if (i == trackIndex) continue;
+
+        auto* targetTrack = getTrackByIndex (i);
+        if (! targetTrack->isSynced() || targetTrack->getTrackLengthSamples() == 0) continue;
+
+        targetTrack->clearLoopRegion();
+    }
+}
+
 void LooperEngine::saveTrackToFile (int trackIndex, const juce::File& audioFile)
 {
     PERFETTO_FUNCTION();

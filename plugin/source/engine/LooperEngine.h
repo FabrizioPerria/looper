@@ -169,6 +169,9 @@ private:
     void setMetronomeStrongBeat (int beatIndex, bool isStrong);
 
     void setPlayheadPosition (int trackIndex, int positionSamples);
+    void setLoopRegion (int trackIndex, int startSample, int endSample);
+    void clearLoopRegion (int trackIndex);
+
     void saveTrackToFile (int trackIndex, const juce::File& audioFile);
     void saveAllTracksToFolder (const juce::File& folder);
 
@@ -378,11 +381,7 @@ private:
               if (std::holds_alternative<std::pair<int, int>> (cmd.payload))
               {
                   auto region = std::get<std::pair<int, int>> (cmd.payload);
-                  auto* track = getTrackByIndex (cmd.trackIndex);
-                  if (track)
-                  {
-                      track->setLoopRegion (region.first, region.second);
-                  }
+                  setLoopRegion (cmd.trackIndex, region.first, region.second);
               }
           } },
         { EngineMessageBus::CommandType::ClearSubLoopRegion,
@@ -390,11 +389,7 @@ private:
           {
               if (std::holds_alternative<std::monostate> (cmd.payload))
               {
-                  auto* track = getTrackByIndex (cmd.trackIndex);
-                  if (track)
-                  {
-                      track->clearLoopRegion();
-                  }
+                  clearLoopRegion (cmd.trackIndex);
               }
           } },
 

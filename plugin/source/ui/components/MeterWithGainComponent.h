@@ -136,7 +136,7 @@ private:
                                           { -6.0f, 0.0f, juce::Colours::orange },
                                           { 0.0f, 12.0f, juce::Colours::red } };
 
-        int numDots = 30;                 // Number of LED dots
+        int numDots = 60;                 // Number of LED dots
         float dbPerDot = 72.0f / numDots; // 72dB range (-60 to +12)
         float spacing = (float) bounds.getWidth() / numDots;
         float dotRadius = juce::jmin (spacing * 0.4f, (float) bounds.getHeight() * 0.35f); // Adaptive size
