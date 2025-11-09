@@ -2,7 +2,6 @@
 
 #include "audio/EngineCommandBus.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
 class LevelComponent : public juce::Component

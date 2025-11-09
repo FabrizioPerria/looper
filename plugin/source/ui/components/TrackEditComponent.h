@@ -1,7 +1,7 @@
 #pragma once
 
 #include "audio/EngineCommandBus.h"
-#include "ui/colors/TokyoNight.h"
+#include "engine/Constants.h"
 #include <JuceHeader.h>
 
 class TrackEditComponent : public juce::Component, public EngineMessageBus::Listener
@@ -29,7 +29,7 @@ public:
 
         syncButton.setButtonText ("SYNC");
         syncButton.setComponentID ("sync");
-        syncButton.setToggleState (true, juce::dontSendNotification);
+        syncButton.setToggleState (DEFAULT_TRACK_SYNCED, juce::dontSendNotification);
         syncButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleSyncTrack, trackIndex, {} }); };
         addAndMakeVisible (syncButton);

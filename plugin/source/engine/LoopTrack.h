@@ -113,7 +113,7 @@ private:
     int blockSize = 0;
     int channels = 0;
     size_t alignedBufferSize = 0;
-    bool isSyncedToMaster = true; // Default: synced
+    bool isSyncedToMaster = DEFAULT_TRACK_SYNCED;
 
     std::unique_ptr<AudioToUIBridge> uiBridge = std::make_unique<AudioToUIBridge>();
     bool bridgeInitialized = uiBridge != nullptr;

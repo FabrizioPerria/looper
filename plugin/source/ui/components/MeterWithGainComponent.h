@@ -2,6 +2,7 @@
 
 #include "audio/EngineCommandBus.h"
 #include "audio/EngineStateToUIBridge.h"
+#include "engine/Constants.h"
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
@@ -23,7 +24,7 @@ public:
             float gainDb = static_cast<float> (gainSlider.getValue());
             float gainLinear = juce::Decibels::decibelsToGain (gainDb);
             auto commandType = isInputMeter ? EngineMessageBus::CommandType::SetInputGain : EngineMessageBus::CommandType::SetOutputGain;
-            uiToEngineBus->pushCommand (EngineMessageBus::Command ({ commandType, -1, gainLinear }));
+            uiToEngineBus->pushCommand (EngineMessageBus::Command ({ commandType, DEFAULT_ACTIVE_TRACK_INDEX, gainLinear }));
         };
         addAndMakeVisible (gainSlider);
 

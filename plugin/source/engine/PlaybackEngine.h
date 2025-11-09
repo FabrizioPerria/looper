@@ -47,8 +47,8 @@ public:
     void clear()
     {
         interpolationBuffer->clear();
-        playbackSpeed = 1.0f;
-        playheadDirection = 1;
+        playbackSpeed = DEFAULT_PLAYBACK_SPEED;
+        playheadDirection = DEFAULT_REVERSE_STATE ? -1 : 1;
 
         for (auto& st : soundTouchProcessors)
         {
@@ -138,16 +138,16 @@ private:
     std::vector<std::unique_ptr<soundtouch::SoundTouch>> soundTouchProcessors;
     std::vector<float> zeroBuffer;
 
-    bool keepPitchWhenChangingSpeed = false;
+    bool keepPitchWhenChangingSpeed = DEFAULT_PITCH_LOCK_STATE;
 
     float previousSpeedMultiplier = 1.0f;
-    float playbackSpeed = 1.0f;
-    double playbackPitchSemitones = 0.0;
+    float playbackSpeed = DEFAULT_PLAYBACK_SPEED;
+    double playbackPitchSemitones = DEFAULT_PLAYBACK_PITCH_SEMITONES;
 
     bool previousKeepPitch = false;
     bool wasUsingFastPath = true;
 
-    int playheadDirection = 1; // 1 = forward, -1 = backward
+    int playheadDirection = DEFAULT_REVERSE_STATE ? -1 : 1;
     float playbackSpeedBeforeRecording = 1.0f;
     int playheadDirectionBeforeRecording = 1;
 

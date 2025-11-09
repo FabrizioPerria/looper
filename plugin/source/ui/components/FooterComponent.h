@@ -37,7 +37,7 @@ public:
 
         playModeButton.setButtonText ("Single Track");
         playModeButton.setComponentID ("single");
-        playModeButton.setToggleState (true, juce::dontSendNotification);
+        playModeButton.setToggleState (DEFAULT_SINGLE_PLAY_MODE, juce::dontSendNotification);
         playModeButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleSinglePlayMode, -1, {} }); };
         addAndMakeVisible (playModeButton);

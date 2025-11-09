@@ -1,7 +1,7 @@
 #pragma once
 #include "audio/AudioToUIBridge.h"
 #include "audio/EngineStateToUIBridge.h"
-#include "engine/MidiCommandConfig.h"
+#include "engine/Constants.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/AccentBarComponent.h"
 #include "ui/components/LevelComponent.h"
@@ -10,7 +10,6 @@
 #include "ui/components/TrackEditComponent.h"
 #include "ui/components/VolumesComponent.h"
 #include "ui/components/WaveformComponent.h"
-#include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
 class TrackComponent : public juce::Component, public EngineMessageBus::Listener
@@ -34,24 +33,28 @@ public:
 
         muteButton.setButtonText ("MUTE");
         muteButton.setComponentID ("mute");
+        muteButton.setToggleState (DEFAULT_MUTE_STATE, juce::dontSendNotification);
         muteButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleMute, trackIndex, {} }); };
         addAndMakeVisible (muteButton);
 
         soloButton.setButtonText ("SOLO");
         soloButton.setComponentID ("solo");
+        soloButton.setToggleState (DEFAULT_SOLO_STATE, juce::dontSendNotification);
         soloButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleSolo, trackIndex, {} }); };
         addAndMakeVisible (soloButton);
 
         lockPitchButton.setButtonText ("LOCK");
         lockPitchButton.setComponentID ("lockPitch");
+        lockPitchButton.setToggleState (DEFAULT_PITCH_LOCK_STATE, juce::dontSendNotification);
         lockPitchButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::TogglePitchLock, trackIndex, {} }); };
         addAndMakeVisible (lockPitchButton);
 
         reverseButton.setButtonText ("REV");
         reverseButton.setComponentID ("reverse");
+        reverseButton.setToggleState (DEFAULT_REVERSE_STATE, juce::dontSendNotification);
         reverseButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleReverse, trackIndex, {} }); };
         addAndMakeVisible (reverseButton);

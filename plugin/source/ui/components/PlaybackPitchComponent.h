@@ -1,8 +1,6 @@
 #pragma once
 #include "audio/EngineCommandBus.h"
-#include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
 class PlaybackPitchSlider : public juce::Slider
@@ -36,8 +34,8 @@ public:
     juce::String getTextFromValue (double value) override { return juce::String (value, 2); }
 
 private:
-    double min = -2.0;
-    double max = 2.0;
+    double min = MIN_PLAYBACK_PITCH_SEMITONES;
+    double max = MAX_PLAYBACK_PITCH_SEMITONES;
     double center = 0.0;
     double step = 0.001;
     const double snapThreshold = 0.03;
@@ -56,7 +54,7 @@ public:
         titleLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (titleLabel);
 
-        pitchSlider.setValue (0.0);
+        pitchSlider.setValue (DEFAULT_PLAYBACK_PITCH_SEMITONES);
         pitchSlider.onValueChange = [this]()
         {
             uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackPitch,

@@ -12,6 +12,7 @@ constexpr int MAX_UNDO_LAYERS = 5;
 
 constexpr int DEFAULT_ACTIVE_TRACK_INDEX = -1;
 constexpr float MIN_PLAYBACK_SPEED = 0.5f;
+constexpr float DEFAULT_PLAYBACK_SPEED = 1.0f;
 constexpr float MAX_PLAYBACK_SPEED = 2.0f;
 
 constexpr float MIN_OVERDUB_GAIN = 0.0f;
@@ -20,6 +21,7 @@ constexpr float MIN_BASE_GAIN = 0.0f;
 constexpr float MAX_BASE_GAIN = 2.0f;
 constexpr float MIN_PLAYBACK_PITCH_SEMITONES = -2.0f;
 constexpr float MAX_PLAYBACK_PITCH_SEMITONES = 2.0f;
+constexpr float DEFAULT_PLAYBACK_PITCH_SEMITONES = 0.0f;
 
 constexpr int MAX_MIDI_NOTES = 128;
 constexpr int MAX_CC_NUMBERS = 128;
@@ -33,6 +35,10 @@ constexpr float BASE_DEFAULT_GAIN = 1.0f;
 constexpr float OVERDUB_DEFAULT_GAIN = 1.0f;
 constexpr bool DEFAULT_SOLO_STATE = false;
 constexpr bool DEFAULT_MUTE_STATE = false;
+constexpr bool DEFAULT_PITCH_LOCK_STATE = false;
+constexpr bool DEFAULT_TRACK_SYNCED = true;
+constexpr bool DEFAULT_REVERSE_STATE = false;
+constexpr bool DEFAULT_SINGLE_PLAY_MODE = true;
 
 constexpr char COMPANY_NAME[] = "fp";
 constexpr char PLUGIN_NAME[] = "AwesomeLooper";

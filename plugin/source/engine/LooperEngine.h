@@ -108,7 +108,7 @@ private:
     std::atomic<float> inputGain { DEFAULT_INPUT_GAIN };
     std::atomic<float> outputGain { DEFAULT_OUTPUT_GAIN };
 
-    std::atomic<bool> singlePlayMode { true };
+    std::atomic<bool> singlePlayMode { DEFAULT_SINGLE_PLAY_MODE };
 
     // Engine data
     double sampleRate = 0.0;

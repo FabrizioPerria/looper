@@ -1,4 +1,5 @@
 #include "MidiMappingComponent.h"
+#include "engine/Constants.h"
 #include "engine/MidiCommandConfig.h"
 
 MidiMappingComponent::MidiMappingComponent (MidiMappingManager* mappingManager, EngineMessageBus* messageBus)
@@ -17,7 +18,7 @@ MidiMappingComponent::MidiMappingComponent (MidiMappingManager* mappingManager, 
     saveButton.onClick = [this]()
     {
         uiToEngineBus->pushCommand ({ .type = EngineMessageBus::CommandType::SaveMidiMappings,
-                                      .trackIndex = -1,
+                                      .trackIndex = DEFAULT_ACTIVE_TRACK_INDEX,
                                       .payload = std::monostate {} });
     };
 
@@ -26,7 +27,7 @@ MidiMappingComponent::MidiMappingComponent (MidiMappingManager* mappingManager, 
     loadButton.onClick = [this]()
     {
         uiToEngineBus->pushCommand ({ .type = EngineMessageBus::CommandType::LoadMidiMappings,
-                                      .trackIndex = -1,
+                                      .trackIndex = DEFAULT_ACTIVE_TRACK_INDEX,
                                       .payload = std::monostate {} });
         refreshAllRows();
     };
@@ -36,7 +37,7 @@ MidiMappingComponent::MidiMappingComponent (MidiMappingManager* mappingManager, 
     resetButton.onClick = [this]()
     {
         uiToEngineBus->pushCommand ({ .type = EngineMessageBus::CommandType::ResetMidiMappings,
-                                      .trackIndex = -1,
+                                      .trackIndex = DEFAULT_ACTIVE_TRACK_INDEX,
                                       .payload = std::monostate {} });
         refreshAllRows();
     };
