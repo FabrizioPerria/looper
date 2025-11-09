@@ -104,8 +104,7 @@ public:
 
 private:
     constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::RecordingStateChanged,
-                                                                        EngineMessageBus::EventType::PlaybackStateChanged,
-                                                                        EngineMessageBus::EventType::SinglePlayModeChanged };
+                                                                        EngineMessageBus::EventType::PlaybackStateChanged };
 
     void handleEngineEvent (const EngineMessageBus::Event& event) override
     {

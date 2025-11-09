@@ -811,3 +811,42 @@ void LooperEngine::setMetronomeStrongBeat (int beatIndex, bool isStrong)
 }
 
 void LooperEngine::setMetronomeVolume (float volume) { metronome->setVolume (volume); }
+void LooperEngine::setPlayheadPosition (int trackIndex, int positionSamples)
+{
+    PERFETTO_FUNCTION();
+    if (singlePlayMode.load())
+    {
+        auto* track = getTrackByIndex (trackIndex);
+        if (track) track->setReadPosition (positionSamples);
+    }
+    else
+    {
+        for (int i = 0; i < numTracks; ++i)
+        {
+            auto* track = getTrackByIndex (i);
+            if (track && track->isSynced()) track->setReadPosition (positionSamples);
+        }
+    }
+}
+
+void LooperEngine::saveTrackToFile (int trackIndex, const juce::File& audioFile)
+{
+    PERFETTO_FUNCTION();
+    if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
+    auto* track = getTrackByIndex (trackIndex);
+    if (track)
+    {
+        track->saveTrackToWavFile (audioFile);
+    }
+}
+
+void LooperEngine::saveAllTracksToFolder (const juce::File& folder)
+{
+    PERFETTO_FUNCTION();
+    for (int i = 0; i < numTracks; ++i)
+    {
+        if (! trackHasContent (i)) continue;
+        juce::File trackFile = folder.getChildFile ("Track_" + juce::String (i + 1) + ".wav");
+        saveTrackToFile (i, trackFile);
+    }
+}

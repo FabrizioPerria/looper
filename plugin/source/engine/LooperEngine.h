@@ -91,28 +91,6 @@ public:
     MidiMappingManager* getMidiMappingManager() { return midiMappingManager.get(); }
     void saveMidiMappings() { midiMappingManager->saveToJson(); }
 
-    void saveTrackToFile (int trackIndex, const juce::File& audioFile)
-    {
-        PERFETTO_FUNCTION();
-        if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
-        auto* track = getTrackByIndex (trackIndex);
-        if (track)
-        {
-            track->saveTrackToWavFile (audioFile);
-        }
-    }
-
-    void saveAllTracksToFolder (const juce::File& folder)
-    {
-        PERFETTO_FUNCTION();
-        for (int i = 0; i < numTracks; ++i)
-        {
-            if (! trackHasContent (i)) continue;
-            juce::File trackFile = folder.getChildFile ("Track_" + juce::String (i + 1) + ".wav");
-            saveTrackToFile (i, trackFile);
-        }
-    }
-
 private:
     // State machine
     LooperStateMachine stateMachine;
@@ -189,6 +167,10 @@ private:
     void setMetronomeBpm (int bpm);
     void setMetronomeTimeSignature (int numerator, int denominator);
     void setMetronomeStrongBeat (int beatIndex, bool isStrong);
+
+    void setPlayheadPosition (int trackIndex, int positionSamples);
+    void saveTrackToFile (int trackIndex, const juce::File& audioFile);
+    void saveAllTracksToFolder (const juce::File& folder);
 
     void handleMidiCommand (const juce::MidiBuffer& midiMessages, int trackIndex);
     EngineMessageBus::CommandPayload convertCCToCommand (const EngineMessageBus::CommandType ccId, const int value, int& trackIndex);
@@ -498,6 +480,15 @@ private:
               {
                   auto folder = std::get<juce::File> (cmd.payload);
                   saveAllTracksToFolder (folder);
+              }
+          } },
+        { EngineMessageBus::CommandType::SetPlayheadPosition,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<int> (cmd.payload))
+              {
+                  auto position = std::get<int> (cmd.payload);
+                  setPlayheadPosition (cmd.trackIndex, position);
               }
           } },
 

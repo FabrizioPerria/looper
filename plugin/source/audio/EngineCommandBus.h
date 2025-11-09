@@ -75,6 +75,8 @@ public:
 
         SaveTrackToFile,
         SaveAllTracksToFolder,
+
+        SetPlayheadPosition,
     };
 
     // NOTE: not every command needs to be exposed in the menu
