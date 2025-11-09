@@ -211,6 +211,9 @@ public:
         MidiMenuEnabledChanged,
         MidiMappingChanged,
         MidiActivityReceived,
+
+        InputGainChanged,
+        OutputGainChanged,
     };
 
     typedef std::variant<std::monostate, float, int, bool, std::pair<int, int>, std::pair<int, bool>, juce::String, juce::MidiMessage>

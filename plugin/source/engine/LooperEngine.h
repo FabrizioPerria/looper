@@ -400,6 +400,9 @@ private:
               {
                   auto gain = std::get<float> (cmd.payload);
                   outputGain.store (gain);
+                  messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::OutputGainChanged,
+                                                                       DEFAULT_ACTIVE_TRACK_INDEX,
+                                                                       gain));
               }
           } },
         { EngineMessageBus::CommandType::SetInputGain,
@@ -409,6 +412,9 @@ private:
               {
                   auto gain = std::get<float> (cmd.payload);
                   inputGain.store (gain);
+                  messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::InputGainChanged,
+                                                                       DEFAULT_ACTIVE_TRACK_INDEX,
+                                                                       gain));
               }
           } },
         { EngineMessageBus::CommandType::SaveMidiMappings,
