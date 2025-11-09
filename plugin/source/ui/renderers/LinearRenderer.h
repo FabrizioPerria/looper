@@ -1,12 +1,10 @@
 #pragma once
 
-#include "IRenderer.h"
-#include "profiler/PerfettoProfiler.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/helpers/WaveformCache.h"
 #include <JuceHeader.h>
 
-class LinearRenderer : public IRenderer
+class LinearRenderer
 {
 public:
     LinearRenderer() {}

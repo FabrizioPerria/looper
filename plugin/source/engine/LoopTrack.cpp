@@ -1,4 +1,5 @@
 #include "LoopTrack.h"
+#include "engine/Constants.h"
 #include "juce_audio_basics/juce_audio_basics.h"
 #include "profiler/PerfettoProfiler.h"
 #include <algorithm>
@@ -57,13 +58,12 @@ void LoopTrack::processRecord (const juce::AudioBuffer<float>& input,
 {
     PERFETTO_FUNCTION();
 
-    bool fifoPreventedWrap = bufferManager
-                                 .writeToAudioBuffer ([&] (float* dest, const float* source, const int samples, const bool shouldOverdub)
-                                                      { volumeProcessor.saveBalancedLayers (dest, source, samples, shouldOverdub); },
-                                                      input,
-                                                      numSamples,
-                                                      isOverdub,
-                                                      true);
+    bufferManager.writeToAudioBuffer ([&] (float* dest, const float* source, const int samples, const bool shouldOverdub)
+                                      { volumeProcessor.saveBalancedLayers (dest, source, samples, shouldOverdub); },
+                                      input,
+                                      numSamples,
+                                      isOverdub,
+                                      true);
     updateUIBridge (numSamples, true, currentLooperState);
 }
 
@@ -176,7 +176,7 @@ void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack, 
     releaseResources();
     prepareToPlay (prevSampleRate, (int) prevBlockSize, (int) prevChannels);
 
-    int copySamples = std::min ((int) backingTrack.getNumSamples(), (int) MAX_SECONDS_HARD_LIMIT * (int) sampleRate);
+    int copySamples = std::min ((int) backingTrack.getNumSamples(), (int) LOOP_MAX_SECONDS_HARD_LIMIT * (int) sampleRate);
     if (isSyncedToMaster && masterLoopLengthSamples > 0)
     {
         copySamples = masterLoopLengthSamples;
@@ -204,7 +204,7 @@ void LoopTrack::saveTrackToWavFile (const juce::File& audioFile)
     writer.reset (wavFormat.createWriterFor (new juce::FileOutputStream (audioFile),
                                              sampleRate,
                                              (unsigned int) bufferManager.getNumChannels(),
-                                             16,
+                                             SAVE_TRACK_BITS_PER_SAMPLE,
                                              {},
                                              0));
     if (writer)

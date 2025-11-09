@@ -9,8 +9,20 @@ public:
     VolumesComponent (EngineMessageBus* engineMessageBus, int trackIdx)
         : uiToEngineBus (engineMessageBus)
         , trackIndex (trackIdx)
-        , overdubLevelKnob (engineMessageBus, trackIndex, "BASE LEVEL", EngineMessageBus::CommandType::SetNewOverdubGain)
-        , existingAudioLevelKnob (engineMessageBus, trackIndex, "NEW LEVEL", EngineMessageBus::CommandType::SetExistingAudioGain)
+        , overdubLevelKnob (engineMessageBus,
+                            trackIndex,
+                            "BASE LEVEL",
+                            EngineMessageBus::CommandType::SetNewOverdubGain,
+                            OVERDUB_DEFAULT_GAIN,
+                            MIN_OVERDUB_GAIN,
+                            MAX_OVERDUB_GAIN)
+        , existingAudioLevelKnob (engineMessageBus,
+                                  trackIndex,
+                                  "NEW LEVEL",
+                                  EngineMessageBus::CommandType::SetExistingAudioGain,
+                                  BASE_DEFAULT_GAIN,
+                                  MIN_BASE_GAIN,
+                                  MAX_BASE_GAIN)
     {
         // normalizeButton.setButtonText ("NORM");
         // normalizeButton.setComponentID ("normalize");

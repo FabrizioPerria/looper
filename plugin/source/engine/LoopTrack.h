@@ -18,7 +18,7 @@ public:
     void prepareToPlay (const double currentSampleRate,
                         const int maxBlockSize,
                         const int numChannels,
-                        const int maxSeconds = MAX_SECONDS_HARD_LIMIT,
+                        const int maxSeconds = LOOP_MAX_SECONDS_HARD_LIMIT,
                         const int maxUndoLayers = MAX_UNDO_LAYERS);
     void releaseResources();
 
@@ -58,7 +58,7 @@ public:
     void setPlaybackSpeed (float speed) { playbackEngine.setPlaybackSpeed (speed); }
     float getPlaybackSpeed() const { return playbackEngine.getPlaybackSpeed(); }
 
-    void setPlaybackPitch (double pitch) { playbackEngine.setPlaybackPitchSemitones (pitch); }
+    void setPlaybackPitch (double pitch) { playbackEngine.setPlaybackPitchSemitones ((float) pitch); }
     double getPlaybackPitch() const { return playbackEngine.getPlaybackPitchSemitones(); }
 
     bool shouldKeepPitchWhenChangingSpeed() const { return playbackEngine.shouldKeepPitchWhenChangingSpeed(); }
@@ -113,16 +113,13 @@ private:
     int blockSize = 0;
     int channels = 0;
     size_t alignedBufferSize = 0;
-    bool isSyncedToMaster = true; // Default: synced
+    bool isSyncedToMaster = DEFAULT_TRACK_SYNCED;
 
     std::unique_ptr<AudioToUIBridge> uiBridge = std::make_unique<AudioToUIBridge>();
     bool bridgeInitialized = uiBridge != nullptr;
 
     void processRecordChannel (const juce::AudioBuffer<float>& input, const int numSamples, const int ch);
     void applyPostProcessing (juce::AudioBuffer<float>& audioBuffer, int length);
-
-    static const int MAX_SECONDS_HARD_LIMIT = 10 * 60; // 10 minutes
-    static const int MAX_UNDO_LAYERS = 5;
 
     void updateUIBridge (int numSamples, bool wasRecording, LooperState currentState)
     {

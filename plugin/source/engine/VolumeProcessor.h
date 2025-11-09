@@ -1,4 +1,5 @@
 #pragma once
+#include "engine/Constants.h"
 #include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 
@@ -11,7 +12,7 @@ public:
     {
         clear();
         sampleRate = currentSampleRate;
-        setCrossFadeLength ((int) (0.01 * sampleRate)); // default 10 ms crossfade
+        setCrossFadeLength ((int) (CROSSFADE_DEFAULT_LENGTH_SECONDS * sampleRate));
     }
 
     void releaseResources() { clear(); }
@@ -23,7 +24,7 @@ public:
     }
 
     float getTrackVolume() const { return trackVolume; }
-    void setTrackVolume (const float newVolume) { trackVolume = std::clamp (newVolume, 0.0f, 1.0f); }
+    void setTrackVolume (const float newVolume) { trackVolume = std::clamp (newVolume, MIN_TRACK_VOLUME, MAX_TRACK_VOLUME); }
 
     bool isSoloed() const { return soloed; }
     void setSoloed (const bool shouldBeSoloed) { soloed = shouldBeSoloed; }
@@ -60,9 +61,9 @@ public:
         }
     }
 
-    void setOverdubNewGain (const double newGain) { overdubNewGain = std::clamp (newGain, 0.0, 2.0); }
+    void setOverdubNewGain (const float newGain) { overdubNewGain = std::clamp (newGain, MIN_OVERDUB_GAIN, MAX_OVERDUB_GAIN); }
 
-    void setOverdubOldGain (const double newGain) { overdubOldGain = std::clamp (newGain, 0.0, 2.0); }
+    void setOverdubOldGain (const float newGain) { overdubOldGain = std::clamp (newGain, MIN_BASE_GAIN, MAX_BASE_GAIN); }
 
     // void toggleOutputNormalization() { shouldNormalizeOutput = ! shouldNormalizeOutput; }
 
@@ -79,7 +80,7 @@ public:
             maxSample = std::max (maxSample, audioBuffer.getMagnitude (ch, 0, length));
 
         if (maxSample > 0.001f) // If not silent
-            audioBuffer.applyGain (0, length, 0.9f / maxSample);
+            audioBuffer.applyGain (0, length, NORMALIZE_TARGET_LEVEL / maxSample);
         // }
     }
 
@@ -106,15 +107,15 @@ public:
     // bool isNormalizingOutput() const { return shouldNormalizeOutput; }
 
 private:
-    float trackVolume = 1.0f;
-    double overdubNewGain = 1.0;
-    double overdubOldGain = 1.0;
+    float trackVolume = TRACK_DEFAULT_VOLUME;
+    double overdubNewGain = OVERDUB_DEFAULT_GAIN;
+    double overdubOldGain = BASE_DEFAULT_GAIN;
 
     // bool shouldNormalizeOutput = true;
 
     float previousTrackVolume = 1.0f;
-    bool soloed = false;
-    bool muted = false;
+    bool soloed = DEFAULT_SOLO_STATE;
+    bool muted = DEFAULT_MUTE_STATE;
 
     int crossFadeLength = 0;
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/Constants.h"
 #include <JuceHeader.h>
 #include <variant>
 #include <vector>
@@ -234,10 +235,10 @@ public:
     // PUBLIC API
     // ============================================================================
 
-    EngineMessageBus() : commandFifo (FIFO_SIZE), eventFifo (FIFO_SIZE)
+    EngineMessageBus() : commandFifo (MESSAGE_BUS_FIFO_SIZE), eventFifo (MESSAGE_BUS_FIFO_SIZE)
     {
-        commandBuffer.resize (FIFO_SIZE);
-        eventBuffer.resize (FIFO_SIZE);
+        commandBuffer.resize (MESSAGE_BUS_FIFO_SIZE);
+        eventBuffer.resize (MESSAGE_BUS_FIFO_SIZE);
         startTimerHz (120);
     }
     ~EngineMessageBus() override { stopTimer(); }
@@ -350,8 +351,6 @@ public:
 
 private:
     void timerCallback() override { dispatchPendingEvents(); }
-
-    static constexpr int FIFO_SIZE = 1024;
 
     // Command system (UI -> Engine)
     std::vector<Command> commandBuffer;

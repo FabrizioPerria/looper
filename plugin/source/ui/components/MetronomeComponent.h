@@ -1,6 +1,7 @@
 #pragma once
 
 #include "audio/EngineCommandBus.h"
+#include "engine/Constants.h"
 #include "engine/Metronome.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/BeatIndicatorComponent.h"
@@ -14,7 +15,11 @@ class MetronomeComponent : public juce::Component, public EngineMessageBus::List
 public:
     MetronomeComponent (EngineMessageBus* engineMessageBus, Metronome* m)
         : uiToEngineBus (engineMessageBus)
-        , metronomeLevel (engineMessageBus, -1, "Level", EngineMessageBus::CommandType::SetMetronomeVolume)
+        , metronomeLevel (engineMessageBus,
+                          DEFAULT_ACTIVE_TRACK_INDEX,
+                          "Level",
+                          EngineMessageBus::CommandType::SetMetronomeVolume,
+                          METRONOME_DEFAULT_VOLUME)
         , beatIndicator (engineMessageBus, m)
     {
         metronomeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
@@ -38,16 +43,17 @@ public:
         enableButton.setColour (juce::TextButton::buttonOnColourId, LooperTheme::Colors::green);
         enableButton.setColour (juce::TextButton::textColourOffId, LooperTheme::Colors::textDim);
         enableButton.setColour (juce::TextButton::textColourOnId, LooperTheme::Colors::background);
+        enableButton.setToggleState (METRONOME_DEFAULT_ENABLED, juce::dontSendNotification);
         enableButton.onClick = [this]()
         {
             uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleMetronomeEnabled,
-                                                                    -1,
+                                                                    DEFAULT_ACTIVE_TRACK_INDEX,
                                                                     std::monostate {} });
         };
         addAndMakeVisible (enableButton);
 
         // BPM Editor
-        bpmEditor.setText ("120", juce::dontSendNotification);
+        bpmEditor.setText (juce::String (METRONOME_DEFAULT_BPM), juce::dontSendNotification);
         bpmEditor.setFont (LooperTheme::Fonts::getBoldFont (13.0f));
         bpmEditor.setColour (juce::Label::textColourId, LooperTheme::Colors::text);
         bpmEditor.setEditable (true);
@@ -55,13 +61,13 @@ public:
         bpmEditor.onTextChange = [this]()
         {
             uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetMetronomeBPM,
-                                                                    -1,
+                                                                    DEFAULT_ACTIVE_TRACK_INDEX,
                                                                     bpmEditor.getText().getIntValue() });
         };
         addAndMakeVisible (bpmEditor);
 
         // Numerator (beats per measure)
-        numeratorEditor.setText ("4", juce::dontSendNotification);
+        numeratorEditor.setText (juce::String (METRONOME_DEFAULT_TIME_SIGNATURE_NUMERATOR), juce::dontSendNotification);
         numeratorEditor.setFont (LooperTheme::Fonts::getBoldFont (13.0f));
         numeratorEditor.setColour (juce::Label::textColourId, LooperTheme::Colors::text);
         numeratorEditor.setEditable (true);
@@ -70,13 +76,13 @@ public:
         {
             uiToEngineBus->pushCommand (EngineMessageBus::Command {
                 EngineMessageBus::CommandType::SetMetronomeTimeSignature,
-                -1,
+                DEFAULT_ACTIVE_TRACK_INDEX,
                 std::pair<int, int> { numeratorEditor.getText().getIntValue(), denominatorEditor.getText().getIntValue() } });
         };
         addAndMakeVisible (numeratorEditor);
 
         // Denominator (note value)
-        denominatorEditor.setText ("4", juce::dontSendNotification);
+        denominatorEditor.setText (juce::String (METRONOME_DEFAULT_TIME_SIGNATURE_DENOMINATOR), juce::dontSendNotification);
         denominatorEditor.setFont (LooperTheme::Fonts::getBoldFont (13.0f));
         denominatorEditor.setColour (juce::Label::textColourId, LooperTheme::Colors::text);
         denominatorEditor.setEditable (true);
@@ -85,7 +91,7 @@ public:
         {
             uiToEngineBus->pushCommand (EngineMessageBus::Command {
                 EngineMessageBus::CommandType::SetMetronomeTimeSignature,
-                -1,
+                DEFAULT_ACTIVE_TRACK_INDEX,
                 std::pair<int, int> { numeratorEditor.getText().getIntValue(), denominatorEditor.getText().getIntValue() } });
         };
         addAndMakeVisible (denominatorEditor);
@@ -96,7 +102,7 @@ public:
         strongBeatButton.onValueChanged = [this] (int currentValue)
         {
             uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetMetronomeStrongBeat,
-                                                                    -1,
+                                                                    DEFAULT_ACTIVE_TRACK_INDEX,
                                                                     currentValue });
         };
         addAndMakeVisible (strongBeatButton);
@@ -179,7 +185,7 @@ private:
     juce::Label metronomeLabel { "Metronome", "Metronome" };
     juce::Label bpmLabel;
     juce::Label accentLabel;
-    DraggableValueLabel bpmEditor { 30, 300, 1 };
+    DraggableValueLabel bpmEditor { (int) METRONOME_MIN_BPM, (int) METRONOME_MAX_BPM };
 
     DraggableValueLabel numeratorEditor { 1, 16, 1 };
     DraggableValueLabel denominatorEditor { 1, 16, 1 };

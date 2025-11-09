@@ -1,6 +1,7 @@
 #pragma once
 
 #include "audio/EngineCommandBus.h"
+#include "engine/Constants.h"
 #include "engine/GranularFreeze.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/ButtonIconComponent.h"
@@ -13,8 +14,11 @@ public:
     FreezeComponent (EngineMessageBus* engineMessageBus, GranularFreeze* freezer)
         : uiToEngineBus (engineMessageBus)
         , freezeSynth (freezer)
-        , levelComponent (engineMessageBus, -1, "Level", EngineMessageBus::CommandType::SetFreezeLevel)
-    // , freezeButton (engineMessageBus, BinaryData::freeze_svg, EngineMessageBus::CommandType::ToggleFreeze)
+        , levelComponent (engineMessageBus,
+                          DEFAULT_ACTIVE_TRACK_INDEX,
+                          "Level",
+                          EngineMessageBus::CommandType::SetFreezeLevel,
+                          DEFAULT_FREEZE_AMPLITUDE)
     {
         freezeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
         freezeLabel.setJustificationType (juce::Justification::centred);
@@ -83,7 +87,6 @@ private:
             {
                 bool isFrozen = std::get<bool> (event.data);
                 freezeButton.setToggleState (isFrozen, juce::dontSendNotification);
-                // freezeButton.setFreezeEnabled (isFrozen);
                 break;
             }
             default:

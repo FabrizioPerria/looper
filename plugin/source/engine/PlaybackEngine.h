@@ -2,6 +2,7 @@
 
 #include "SoundTouch.h"
 #include "engine/BufferManager.h"
+#include "engine/Constants.h"
 #include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 
@@ -46,8 +47,8 @@ public:
     void clear()
     {
         interpolationBuffer->clear();
-        playbackSpeed = 1.0f;
-        playheadDirection = 1;
+        playbackSpeed = DEFAULT_PLAYBACK_SPEED;
+        playheadDirection = DEFAULT_REVERSE_STATE ? -1 : 1;
 
         for (auto& st : soundTouchProcessors)
         {
@@ -85,7 +86,10 @@ public:
     {
         if (isPlaybackDirectionForward()) playheadDirection = -1;
     }
-    void setPlaybackPitchSemitones (const float semitones) { playbackPitchSemitones = juce::jlimit (-2.0f, 2.0f, semitones); }
+    void setPlaybackPitchSemitones (const float semitones)
+    {
+        playbackPitchSemitones = juce::jlimit (MIN_PLAYBACK_PITCH_SEMITONES, MAX_PLAYBACK_PITCH_SEMITONES, (float) semitones);
+    }
     double getPlaybackPitchSemitones() const { return playbackPitchSemitones; }
 
     void processPlayback (juce::AudioBuffer<float>& output, BufferManager& audioBufferManager, const int numSamples, const bool isOverdub)
@@ -134,16 +138,16 @@ private:
     std::vector<std::unique_ptr<soundtouch::SoundTouch>> soundTouchProcessors;
     std::vector<float> zeroBuffer;
 
-    bool keepPitchWhenChangingSpeed = false;
+    bool keepPitchWhenChangingSpeed = DEFAULT_PITCH_LOCK_STATE;
 
     float previousSpeedMultiplier = 1.0f;
-    float playbackSpeed = 1.0f;
-    double playbackPitchSemitones = 0.0;
+    float playbackSpeed = DEFAULT_PLAYBACK_SPEED;
+    double playbackPitchSemitones = DEFAULT_PLAYBACK_PITCH_SEMITONES;
 
     bool previousKeepPitch = false;
     bool wasUsingFastPath = true;
 
-    int playheadDirection = 1; // 1 = forward, -1 = backward
+    int playheadDirection = DEFAULT_REVERSE_STATE ? -1 : 1;
     float playbackSpeedBeforeRecording = 1.0f;
     int playheadDirectionBeforeRecording = 1;
 

@@ -35,8 +35,6 @@ public:
         previousReadPos = 0.0;
     }
 
-    // bool shouldOverdub() const { return length > 0; }
-
     std::unique_ptr<juce::AudioBuffer<float>>& getAudioBuffer() { return audioBuffer; }
 
     const int getNumChannels() const { return audioBuffer->getNumChannels(); }
@@ -71,8 +69,6 @@ public:
         provisionalLength = 0;
         fifo.finishedWrite (0, isOverdub, true);
     }
-
-    // void syncReadPositionToWritePosition() { fifo.finishedWrite (0, shouldOverdub(), true); }
 
     bool hasWrappedAround()
     {

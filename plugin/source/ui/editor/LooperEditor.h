@@ -5,7 +5,6 @@
 #include "ui/components/GlobalBarComponent.h"
 #include "ui/components/MidiMappingComponent.h"
 #include "ui/components/TrackComponent.h"
-#include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
 class LooperEditor : public juce::Component

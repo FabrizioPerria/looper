@@ -2,13 +2,17 @@
 
 #include "audio/EngineCommandBus.h"
 #include "audio/EngineStateToUIBridge.h"
+#include "engine/Constants.h"
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
 class MeterWithGainComponent : public juce::Component, private juce::Timer
 {
 public:
-    MeterWithGainComponent (const juce::String& labelText, EngineMessageBus* messageBus, EngineStateToUIBridge* bridge)
+    MeterWithGainComponent (const juce::String& labelText,
+                            EngineMessageBus* messageBus,
+                            EngineStateToUIBridge* bridge,
+                            float defaultGainDb = 0.0f)
         : label (labelText), uiToEngineBus (messageBus), engineToUIBridge (bridge)
     {
         isInputMeter = (labelText == "IN");
@@ -16,14 +20,14 @@ public:
         gainSlider.setSliderStyle (juce::Slider::LinearHorizontal);
         gainSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
         gainSlider.setRange (-60.0, 12.0, 0.1);     // -60dB to +12dB
-        gainSlider.setValue (0.0);                  // 0dB = unity gain
+        gainSlider.setValue (defaultGainDb);        // Default gain in dB
         gainSlider.setSkewFactorFromMidPoint (0.0); // Make 0dB centered
         gainSlider.onValueChange = [this]()
         {
             float gainDb = static_cast<float> (gainSlider.getValue());
             float gainLinear = juce::Decibels::decibelsToGain (gainDb);
             auto commandType = isInputMeter ? EngineMessageBus::CommandType::SetInputGain : EngineMessageBus::CommandType::SetOutputGain;
-            uiToEngineBus->pushCommand (EngineMessageBus::Command ({ commandType, -1, gainLinear }));
+            uiToEngineBus->pushCommand (EngineMessageBus::Command ({ commandType, DEFAULT_ACTIVE_TRACK_INDEX, gainLinear }));
         };
         addAndMakeVisible (gainSlider);
 

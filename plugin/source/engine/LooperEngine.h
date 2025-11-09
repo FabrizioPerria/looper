@@ -22,14 +22,14 @@ struct PendingAction
     };
 
     Type type = Type::None;
-    int targetTrackIndex = -1;
+    int targetTrackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
     bool waitForWrapAround = false;
     LooperState previousState;
 
     void clear()
     {
         type = Type::None;
-        targetTrackIndex = -1;
+        targetTrackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
         waitForWrapAround = false;
         previousState = LooperState::Idle;
     }
@@ -105,10 +105,10 @@ private:
     std::unique_ptr<LevelMeter> inputMeter = std::make_unique<LevelMeter>();
     std::unique_ptr<LevelMeter> outputMeter = std::make_unique<LevelMeter>();
 
-    std::atomic<float> inputGain { 1.0f };
-    std::atomic<float> outputGain { 1.0f };
+    std::atomic<float> inputGain { DEFAULT_INPUT_GAIN };
+    std::atomic<float> outputGain { DEFAULT_OUTPUT_GAIN };
 
-    std::atomic<bool> singlePlayMode { true };
+    std::atomic<bool> singlePlayMode { DEFAULT_SINGLE_PLAY_MODE };
 
     // Engine data
     double sampleRate = 0.0;
@@ -116,10 +116,10 @@ private:
     int numChannels = 0;
     int numTracks = 0;
     int activeTrackIndex = 0;
-    int nextTrackIndex = -1;
+    int nextTrackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
 
     int syncMasterLength = 0;
-    int syncMasterTrackIndex = -1;
+    int syncMasterTrackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
 
     std::array<std::unique_ptr<LoopTrack>, NUM_TRACKS> loopTracks;
     std::array<bool, NUM_TRACKS> tracksToPlay;

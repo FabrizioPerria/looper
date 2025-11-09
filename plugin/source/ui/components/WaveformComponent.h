@@ -2,9 +2,7 @@
 
 #include "audio/AudioToUIBridge.h"
 #include "audio/EngineCommandBus.h"
-#include "juce_gui_basics/juce_gui_basics.h"
 #include "ui/helpers/WaveformCache.h"
-#include "ui/renderers/IRenderer.h"
 #include "ui/renderers/LinearRenderer.h"
 #include <JuceHeader.h>
 
@@ -31,12 +29,6 @@ public:
     void resized() override
     {
         if (bridge) triggerAsyncUpdate();
-    }
-
-    void setRenderer (std::unique_ptr<IRenderer> newRenderer)
-    {
-        renderer = std::move (newRenderer);
-        repaint();
     }
 
     void clearTrack()
@@ -139,7 +131,7 @@ private:
 
     int trackIndex;
     WaveformCache cache;
-    std::unique_ptr<IRenderer> renderer;
+    std::unique_ptr<LinearRenderer> renderer;
     AudioToUIBridge* bridge = nullptr;
     EngineMessageBus* uiToEngineBus = nullptr;
     juce::ThreadPool backgroundProcessor { 1 };

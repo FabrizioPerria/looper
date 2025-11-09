@@ -12,8 +12,8 @@ class GlobalControlBar : public juce::Component
 {
 public:
     GlobalControlBar (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge, Metronome* m, GranularFreeze* freezer)
-        : transportControls (engineMessageBus, bridge)
-        , uiToEngineBus (engineMessageBus)
+        : uiToEngineBus (engineMessageBus)
+        , transportControls (engineMessageBus, bridge)
         , metronomeComponent (engineMessageBus, m)
         , droneComponent (engineMessageBus, freezer)
     {
@@ -43,32 +43,11 @@ public:
 private:
     juce::Label looperLabel;
 
-    TransportControlsComponent transportControls;
     EngineMessageBus* uiToEngineBus;
 
+    TransportControlsComponent transportControls;
     MetronomeComponent metronomeComponent;
-
     FreezeComponent droneComponent;
-
-    void setupButton (juce::TextButton& button)
-    {
-        button.setColour (juce::TextButton::buttonColourId, juce::Colour (60, 60, 60));
-        button.setColour (juce::TextButton::buttonOnColourId, juce::Colour (100, 150, 200));
-        button.setColour (juce::TextButton::textColourOffId, juce::Colour (200, 200, 200));
-        button.setColour (juce::TextButton::textColourOnId, juce::Colour (255, 255, 255));
-        addAndMakeVisible (button);
-    }
-
-    void setupSlider (juce::Slider& slider)
-    {
-        slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-        slider.setTextBoxStyle (juce::Slider::NoTextBox, false, 50, 20);
-        slider.setRange (0.0, 1.0, 0.01);
-        slider.setValue (0.5);
-        slider.setColour (juce::Slider::trackColourId, LooperTheme::Colors::primary);
-        slider.setColour (juce::Slider::thumbColourId, LooperTheme::Colors::cyan);
-        addAndMakeVisible (slider);
-    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GlobalControlBar)
 };

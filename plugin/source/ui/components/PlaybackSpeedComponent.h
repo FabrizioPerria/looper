@@ -1,8 +1,6 @@
 #pragma once
 #include "audio/EngineCommandBus.h"
-#include "engine/MidiCommandConfig.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/helpers/MidiCommandDispatcher.h"
 #include <JuceHeader.h>
 
 class PlaybackSpeedSlider : public juce::Slider
@@ -63,8 +61,8 @@ public:
     }
 
 private:
-    double min = 0.5;
-    double max = 2.0;
+    double min = MIN_PLAYBACK_SPEED;
+    double max = MAX_PLAYBACK_SPEED;
     double center = 1.0;
     double step = 0.01;
     const double snapThreshold = 0.03;
@@ -83,7 +81,7 @@ public:
         titleLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (titleLabel);
 
-        speedSlider.setValue (1.0);
+        speedSlider.setValue (DEFAULT_PLAYBACK_SPEED);
         speedSlider.onValueChange = [this]()
         {
             uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
