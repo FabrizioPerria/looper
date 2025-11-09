@@ -9,7 +9,10 @@
 class MeterWithGainComponent : public juce::Component, private juce::Timer
 {
 public:
-    MeterWithGainComponent (const juce::String& labelText, EngineMessageBus* messageBus, EngineStateToUIBridge* bridge)
+    MeterWithGainComponent (const juce::String& labelText,
+                            EngineMessageBus* messageBus,
+                            EngineStateToUIBridge* bridge,
+                            float defaultGainDb = 0.0f)
         : label (labelText), uiToEngineBus (messageBus), engineToUIBridge (bridge)
     {
         isInputMeter = (labelText == "IN");
@@ -17,7 +20,7 @@ public:
         gainSlider.setSliderStyle (juce::Slider::LinearHorizontal);
         gainSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
         gainSlider.setRange (-60.0, 12.0, 0.1);     // -60dB to +12dB
-        gainSlider.setValue (0.0);                  // 0dB = unity gain
+        gainSlider.setValue (defaultGainDb);        // Default gain in dB
         gainSlider.setSkewFactorFromMidPoint (0.0); // Make 0dB centered
         gainSlider.onValueChange = [this]()
         {

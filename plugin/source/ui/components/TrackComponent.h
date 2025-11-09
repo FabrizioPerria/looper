@@ -19,7 +19,13 @@ public:
         : trackIndex (trackIdx)
         , waveformDisplay (trackIdx, audioBridge, engineMessageBus)
         , accentBar (engineMessageBus, trackIdx, audioBridge, engineBridge)
-        , volumeFader (engineMessageBus, trackIdx, "VOLUME", EngineMessageBus::CommandType::SetVolume)
+        , volumeFader (engineMessageBus,
+                       trackIdx,
+                       "VOLUME",
+                       EngineMessageBus::CommandType::SetVolume,
+                       TRACK_DEFAULT_VOLUME,
+                       MIN_TRACK_VOLUME,
+                       MAX_TRACK_VOLUME)
         , speedFader (engineMessageBus, trackIdx)
         , pitchFader (engineMessageBus, trackIdx)
         , trackEditComponent (engineMessageBus, trackIdx)

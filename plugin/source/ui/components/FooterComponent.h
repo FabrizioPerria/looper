@@ -1,6 +1,7 @@
 #pragma once
 
 #include "audio/EngineCommandBus.h"
+#include "engine/Constants.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/MeterWithGainComponent.h"
 #include <JuceHeader.h>
@@ -9,7 +10,9 @@ class FooterComponent : public juce::Component, public EngineMessageBus::Listene
 {
 public:
     FooterComponent (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge)
-        : inputMeter ("IN", engineMessageBus, bridge), outputMeter ("OUT", engineMessageBus, bridge), uiToEngineBus (engineMessageBus)
+        : inputMeter ("IN", engineMessageBus, bridge, juce::Decibels::decibelsToGain (DEFAULT_INPUT_GAIN))
+        , outputMeter ("OUT", engineMessageBus, bridge, juce::Decibels::decibelsToGain (DEFAULT_OUTPUT_GAIN))
+        , uiToEngineBus (engineMessageBus)
     {
         addAndMakeVisible (inputMeter);
         addAndMakeVisible (outputMeter);

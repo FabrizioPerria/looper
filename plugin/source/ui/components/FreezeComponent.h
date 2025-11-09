@@ -14,7 +14,11 @@ public:
     FreezeComponent (EngineMessageBus* engineMessageBus, GranularFreeze* freezer)
         : uiToEngineBus (engineMessageBus)
         , freezeSynth (freezer)
-        , levelComponent (engineMessageBus, DEFAULT_ACTIVE_TRACK_INDEX, "Level", EngineMessageBus::CommandType::SetFreezeLevel)
+        , levelComponent (engineMessageBus,
+                          DEFAULT_ACTIVE_TRACK_INDEX,
+                          "Level",
+                          EngineMessageBus::CommandType::SetFreezeLevel,
+                          DEFAULT_FREEZE_AMPLITUDE)
     {
         freezeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
         freezeLabel.setJustificationType (juce::Justification::centred);

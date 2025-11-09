@@ -15,7 +15,11 @@ class MetronomeComponent : public juce::Component, public EngineMessageBus::List
 public:
     MetronomeComponent (EngineMessageBus* engineMessageBus, Metronome* m)
         : uiToEngineBus (engineMessageBus)
-        , metronomeLevel (engineMessageBus, DEFAULT_ACTIVE_TRACK_INDEX, "Level", EngineMessageBus::CommandType::SetMetronomeVolume)
+        , metronomeLevel (engineMessageBus,
+                          DEFAULT_ACTIVE_TRACK_INDEX,
+                          "Level",
+                          EngineMessageBus::CommandType::SetMetronomeVolume,
+                          METRONOME_DEFAULT_VOLUME)
         , beatIndicator (engineMessageBus, m)
     {
         metronomeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);

@@ -19,6 +19,7 @@ constexpr float MIN_OVERDUB_GAIN = 0.0f;
 constexpr float MAX_OVERDUB_GAIN = 2.0f;
 constexpr float MIN_BASE_GAIN = 0.0f;
 constexpr float MAX_BASE_GAIN = 2.0f;
+
 constexpr float MIN_PLAYBACK_PITCH_SEMITONES = -2.0f;
 constexpr float MAX_PLAYBACK_PITCH_SEMITONES = 2.0f;
 constexpr float DEFAULT_PLAYBACK_PITCH_SEMITONES = 0.0f;
@@ -28,7 +29,7 @@ constexpr int MAX_CC_NUMBERS = 128;
 
 constexpr float CROSSFADE_DEFAULT_LENGTH_SECONDS = 0.01f;
 constexpr float MIN_TRACK_VOLUME = 0.0f;
-constexpr float MAX_TRACK_VOLUME = 1.0f;
+constexpr float MAX_TRACK_VOLUME = 2.0f;
 constexpr float NORMALIZE_TARGET_LEVEL = 0.9f;
 constexpr float TRACK_DEFAULT_VOLUME = 1.0f;
 constexpr float BASE_DEFAULT_GAIN = 1.0f;

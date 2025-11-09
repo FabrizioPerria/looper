@@ -7,7 +7,13 @@
 class LevelComponent : public juce::Component
 {
 public:
-    LevelComponent (EngineMessageBus* engineMessageBus, int trackIdx, juce::String label, EngineMessageBus::CommandType command)
+    LevelComponent (EngineMessageBus* engineMessageBus,
+                    int trackIdx,
+                    juce::String label,
+                    EngineMessageBus::CommandType command,
+                    float defaultValue = 0.75f,
+                    float min = 0.0f,
+                    float max = 2.0f)
         : uiToEngineBus (engineMessageBus), trackIndex (trackIdx), commandType (command)
     {
         knobLabel.setText (label, juce::dontSendNotification);
@@ -18,8 +24,8 @@ public:
 
         slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         slider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-        slider.setRange (0.0, 1.0, 0.01);
-        slider.setValue (0.75);
+        slider.setRange (min, max, 0.01);
+        slider.setValue (defaultValue);
         slider.onValueChange = [this]()
         {
             if (uiToEngineBus)
