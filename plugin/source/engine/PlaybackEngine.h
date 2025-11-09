@@ -2,6 +2,7 @@
 
 #include "SoundTouch.h"
 #include "engine/BufferManager.h"
+#include "engine/Constants.h"
 #include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 
@@ -85,7 +86,10 @@ public:
     {
         if (isPlaybackDirectionForward()) playheadDirection = -1;
     }
-    void setPlaybackPitchSemitones (const float semitones) { playbackPitchSemitones = juce::jlimit (-2.0f, 2.0f, semitones); }
+    void setPlaybackPitchSemitones (const float semitones)
+    {
+        playbackPitchSemitones = juce::jlimit (MIN_PLAYBACK_PITCH_SEMITONES, MAX_PLAYBACK_PITCH_SEMITONES, (float) semitones);
+    }
     double getPlaybackPitchSemitones() const { return playbackPitchSemitones; }
 
     void processPlayback (juce::AudioBuffer<float>& output, BufferManager& audioBufferManager, const int numSamples, const bool isOverdub)

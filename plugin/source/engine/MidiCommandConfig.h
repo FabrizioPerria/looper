@@ -1,5 +1,6 @@
 #pragma once
 #include "audio/EngineCommandBus.h"
+#include "engine/Constants.h"
 #include <array>
 #include <cstdint>
 #include <fstream>
@@ -41,7 +42,6 @@ constexpr uint8_t OUTPUT_GAIN_CC = 109;
 
 namespace MidiCommandMapping
 {
-constexpr size_t MAX_MIDI_NOTES = 128;
 
 // Build lookup table at compile time
 constexpr std::array<EngineMessageBus::CommandType, MAX_MIDI_NOTES> buildNoteOnCommands()
@@ -81,7 +81,6 @@ constexpr auto NOTE_ON_COMMANDS = buildNoteOnCommands();
 
 namespace MidiControlChangeMapping
 {
-constexpr size_t MAX_CC_NUMBERS = 128;
 // Build lookup table at compile time
 constexpr std::array<EngineMessageBus::CommandType, MAX_CC_NUMBERS> buildCCMapping()
 {
@@ -113,17 +112,17 @@ public:
     MidiMappingManager() { loadFromJson(); }
     EngineMessageBus::CommandType getCommandForNoteOn (uint8_t note)
     {
-        return note < MidiCommandMapping::MAX_MIDI_NOTES ? noteOnMapping[note] : EngineMessageBus::CommandType::None;
+        return note < MAX_MIDI_NOTES ? noteOnMapping[note] : EngineMessageBus::CommandType::None;
     }
 
     EngineMessageBus::CommandType getControlChangeId (uint8_t ccNumber)
     {
-        return ccNumber < MidiControlChangeMapping::MAX_CC_NUMBERS ? ccMapping[ccNumber] : EngineMessageBus::CommandType::None;
+        return ccNumber < MAX_CC_NUMBERS ? ccMapping[ccNumber] : EngineMessageBus::CommandType::None;
     }
 
     void mapNoteOn (uint8_t note, EngineMessageBus::CommandType command)
     {
-        if (note < MidiCommandMapping::MAX_MIDI_NOTES)
+        if (note < MAX_MIDI_NOTES)
         {
             clearMappingForCommand (command);
             noteOnMapping[note] = command;
@@ -132,7 +131,7 @@ public:
 
     void mapControlChange (uint8_t ccNumber, EngineMessageBus::CommandType command)
     {
-        if (ccNumber < MidiControlChangeMapping::MAX_CC_NUMBERS)
+        if (ccNumber < MAX_CC_NUMBERS)
         {
             clearMappingForCommand (command);
             ccMapping[ccNumber] = command;
@@ -204,9 +203,8 @@ public:
             json j;
             file >> j;
             if (j.contains ("noteOnMapping"))
-                noteOnMapping = j["noteOnMapping"].get<std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES>>();
-            if (j.contains ("ccMapping"))
-                ccMapping = j["ccMapping"].get<std::array<EngineMessageBus::CommandType, MidiControlChangeMapping::MAX_CC_NUMBERS>>();
+                noteOnMapping = j["noteOnMapping"].get<std::array<EngineMessageBus::CommandType, MAX_MIDI_NOTES>>();
+            if (j.contains ("ccMapping")) ccMapping = j["ccMapping"].get<std::array<EngineMessageBus::CommandType, MAX_CC_NUMBERS>>();
             file.close();
         }
     }
@@ -277,14 +275,14 @@ private:
 
     LearnState learnState;
 
-    std::array<EngineMessageBus::CommandType, MidiCommandMapping::MAX_MIDI_NOTES> noteOnMapping = MidiCommandMapping::NOTE_ON_COMMANDS;
-    std::array<EngineMessageBus::CommandType, MidiControlChangeMapping::MAX_CC_NUMBERS> ccMapping = MidiControlChangeMapping::CC_MAPPING;
+    std::array<EngineMessageBus::CommandType, MAX_MIDI_NOTES> noteOnMapping = MidiCommandMapping::NOTE_ON_COMMANDS;
+    std::array<EngineMessageBus::CommandType, MAX_CC_NUMBERS> ccMapping = MidiControlChangeMapping::CC_MAPPING;
     juce::File appDataDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
 
     const static juce::File getMidiMappingFile()
     {
-        juce::String companyName = "YourCompany";
-        juce::String pluginName = "YourPlugin";
+        juce::String companyName = COMPANY_NAME;
+        juce::String pluginName = PLUGIN_NAME;
         juce::File appDataDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
 
 #if JUCE_WINDOWS
@@ -299,7 +297,7 @@ private:
 #endif
         if (! appDataDir.exists()) appDataDir.createDirectory();
 
-        return appDataDir.getChildFile ("midi_mappings.json");
+        return appDataDir.getChildFile (MIDI_MAPPING_FILE_NAME);
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiMappingManager)

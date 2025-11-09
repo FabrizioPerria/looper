@@ -1,5 +1,6 @@
 #include "LooperEngine.h"
 #include "audio/EngineCommandBus.h"
+#include "engine/Constants.h"
 #include "engine/LooperStateConfig.h"
 #include "engine/MidiCommandConfig.h"
 #include "profiler/PerfettoProfiler.h"
@@ -42,7 +43,7 @@ void LooperEngine::releaseResources()
     numChannels = 0;
     numTracks = 0;
     activeTrackIndex = 0;
-    nextTrackIndex = -1;
+    nextTrackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
     currentState = LooperState::Idle;
 
     metronome->releaseResources();
@@ -88,7 +89,7 @@ void LooperEngine::switchToTrackImmediately (int trackIndex)
                                                          activeTrackIndex,
                                                          activeTrackIndex));
     activeTrackIndex = trackIndex;
-    nextTrackIndex = -1;
+    nextTrackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
 
     // transitionTo (LooperState::Stopped);
     messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::ActiveTrackChanged, trackIndex, trackIndex));
@@ -241,7 +242,9 @@ void LooperEngine::toggleMute (int trackIndex)
 void LooperEngine::toggleGranularFreeze()
 {
     granularFreeze->toggleActiveState();
-    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::FreezeStateChanged, -1, granularFreeze->isEnabled()));
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::FreezeStateChanged,
+                                                         DEFAULT_ACTIVE_TRACK_INDEX,
+                                                         granularFreeze->isEnabled()));
 }
 void LooperEngine::toggleKeepPitchWhenChangingSpeed (int trackIndex)
 {
@@ -311,7 +314,7 @@ void LooperEngine::clear (int trackIndex)
     if (trackIndex == syncMasterTrackIndex)
     {
         syncMasterLength = 0;
-        syncMasterTrackIndex = -1;
+        syncMasterTrackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
         // find longest synced track to be new master
         for (int i = 0; i < numTracks; ++i)
         {
@@ -382,12 +385,12 @@ void LooperEngine::processCommandsFromMessageBus()
     }
 }
 
-void LooperEngine::setPendingAction (PendingAction::Type type, int trackIndex, bool waitForWrap, LooperState currentState)
+void LooperEngine::setPendingAction (PendingAction::Type type, int trackIndex, bool waitForWrap, LooperState currentLooperState)
 {
     pendingAction.type = type;
     pendingAction.targetTrackIndex = trackIndex;
     pendingAction.waitForWrapAround = waitForWrap;
-    pendingAction.previousState = currentState;
+    pendingAction.previousState = currentLooperState;
 
     if (type == PendingAction::Type::SwitchTrack && waitForWrap && currentState == LooperState::Playing)
     {
@@ -417,15 +420,6 @@ void LooperEngine::processPendingActions()
                 switchToTrackImmediately (pendingAction.targetTrackIndex);
 
                 transitionTo (pendingAction.previousState);
-                // auto* newTrack = getActiveTrack();
-                // if (newTrack && newTrack->getTrackLengthSamples() > 0)
-                // {
-                //     transitionTo (LooperState::Playing);
-                // }
-                // else
-                // {
-                //     transitionTo (LooperState::Stopped);
-                // }
             }
             break;
 
@@ -434,7 +428,7 @@ void LooperEngine::processPendingActions()
             if (pendingAction.targetTrackIndex >= 0 && pendingAction.targetTrackIndex < numTracks)
             {
                 activeTrackIndex = pendingAction.targetTrackIndex;
-                nextTrackIndex = -1;
+                nextTrackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
             }
             break;
 
@@ -652,17 +646,17 @@ void LooperEngine::handleMidiCommand (const juce::MidiBuffer& midiMessages, int 
         {
             if (midiMappingManager->processMidiLearn (m))
                 messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MidiMappingChanged,
-                                                                     -1,
+                                                                     DEFAULT_ACTIVE_TRACK_INDEX,
                                                                      learningSessionId++));
             continue;
         }
-        EngineMessageBus::CommandType commandId;
+        EngineMessageBus::CommandType commandId = EngineMessageBus::CommandType::None;
         EngineMessageBus::CommandPayload payload;
         int targetTrack = trackIndex < 0 ? activeTrackIndex : trackIndex;
 
         if (m.isController())
         {
-            commandId = midiMappingManager->getControlChangeId (m.getControllerNumber());
+            commandId = midiMappingManager->getControlChangeId ((uint8_t) m.getControllerNumber());
             int value = m.getControllerValue();
             payload = convertCCToCommand (commandId, value, targetTrack);
         }
@@ -701,52 +695,56 @@ EngineMessageBus::CommandPayload
         case EngineMessageBus::CommandType::SetPlaybackSpeed:
         {
             float normalizedValue = (float) value / 127.0f;
-            payload = 0.5f + (normalizedValue * 1.5f); // Maps 0-127 to 0.5-2.0
+            payload = MIN_PLAYBACK_SPEED + (normalizedValue * (MAX_PLAYBACK_SPEED - MIN_PLAYBACK_SPEED)); // Maps 0-127 to 0.5-2.0
         }
         break;
 
         case EngineMessageBus::CommandType::SetNewOverdubGain:
         {
             float normalizedValue = (float) value / 127.0f;
-            payload = juce::jmap (normalizedValue, 0.0f, 2.0f); // Maps 0-127 to 0.0-2.0
+            payload = juce::jmap (normalizedValue, MIN_OVERDUB_GAIN, MAX_OVERDUB_GAIN); // Maps 0-127 to -60dB to +6dB
         }
         break;
 
         case EngineMessageBus::CommandType::SetExistingAudioGain:
         {
             float normalizedValue = (float) value / 127.0f;
-            payload = juce::jmap (normalizedValue, 0.0f, 2.0f); // Maps 0-127 to 0.0-2.0
+            payload = juce::jmap (normalizedValue, MIN_BASE_GAIN, MAX_BASE_GAIN); // Maps 0-127 to -60dB to +6dB
         }
         break;
 
         case EngineMessageBus::CommandType::SetPlaybackPitch:
         {
-            payload = juce::jmap ((float) value, 0.0f, 127.0f, -2.0f, 2.0f); // Maps 0-127 to -2 to +2 semitones
+            payload = juce::jmap ((float) value,
+                                  0.0f,
+                                  127.0f,
+                                  MIN_PLAYBACK_PITCH_SEMITONES,
+                                  MAX_PLAYBACK_PITCH_SEMITONES); // Maps 0-127 to -12 to +12 semitones
         }
         break;
 
         case EngineMessageBus::CommandType::SetMetronomeBPM:
         {
-            payload = juce::jmap ((float) value, 40.0f, 240.0f); // Maps 0-127 to 40-240 BPM
-            trackIndex = -1;                                     // Global
+            payload = juce::jmap ((float) value, METRONOME_MIN_BPM, METRONOME_MAX_BPM); // Maps 0-127 to 40-240 BPM
+            trackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
         }
         break;
         case EngineMessageBus::CommandType::SetMetronomeVolume:
         {
             payload = (float) value / 127.0f;
-            trackIndex = -1; // Global
+            trackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
         }
         break;
         case EngineMessageBus::CommandType::SetInputGain:
         {
             payload = (float) value / 127.0f;
-            trackIndex = -1; // Global
+            trackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
         }
         break;
         case EngineMessageBus::CommandType::SetOutputGain:
         {
             payload = (float) value / 127.0f;
-            trackIndex = -1; // Global
+            trackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
         }
         break;
 
@@ -771,27 +769,33 @@ bool LooperEngine::shouldTrackPlay (int trackIndex) const
 void LooperEngine::toggleSinglePlayMode()
 {
     singlePlayMode = ! singlePlayMode.load();
-    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::SinglePlayModeChanged, -1, singlePlayMode.load()));
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::SinglePlayModeChanged,
+                                                         DEFAULT_ACTIVE_TRACK_INDEX,
+                                                         singlePlayMode.load()));
 }
 
 void LooperEngine::toggleMetronomeEnabled()
 {
     bool enable = ! metronome->isEnabled();
     metronome->setEnabled (enable);
-    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeEnabledChanged, -1, enable));
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeEnabledChanged,
+                                                         DEFAULT_ACTIVE_TRACK_INDEX,
+                                                         enable));
 }
 
 void LooperEngine::setMetronomeBpm (int bpm)
 {
     metronome->setBpm (bpm);
-    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeBPMChanged, -1, bpm));
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeBPMChanged,
+                                                         DEFAULT_ACTIVE_TRACK_INDEX,
+                                                         bpm));
 }
 
 void LooperEngine::setMetronomeTimeSignature (int numerator, int denominator)
 {
     metronome->setTimeSignature (numerator, denominator);
     messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeTimeSignatureChanged,
-                                                         -1,
+                                                         DEFAULT_ACTIVE_TRACK_INDEX,
                                                          std::make_pair (numerator, denominator)));
 }
 
@@ -807,7 +811,9 @@ void LooperEngine::setMetronomeStrongBeat (int beatIndex, bool isStrong)
         beatIndex = 0;
     }
 
-    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeStrongBeatChanged, -1, beatIndex));
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::MetronomeStrongBeatChanged,
+                                                         DEFAULT_ACTIVE_TRACK_INDEX,
+                                                         beatIndex));
 }
 
 void LooperEngine::setMetronomeVolume (float volume) { metronome->setVolume (volume); }

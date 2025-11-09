@@ -1,11 +1,12 @@
 #pragma once
 
+#include "engine/Constants.h"
 #include <JuceHeader.h>
 
 class Metronome
 {
 public:
-    Metronome() { bpm = 120; }
+    Metronome() { bpm = METRONOME_DEFAULT_BPM; }
 
     ~Metronome() = default;
 
@@ -19,7 +20,7 @@ public:
     int getBpm() const { return bpm; }
 
     bool isTapTempoActive() const { return tapTempoActive; }
-    bool wasLastTapRecent() const { return (juce::Time::getMillisecondCounter() - lastTapTime) < 500; }
+    bool wasLastTapRecent() const { return (juce::Time::getMillisecondCounter() - lastTapTime) < METRONOME_TAP_RECENT_THRESHOLD_MS; }
 
     void setTimeSignature (int numerator, int denominator)
     {
@@ -40,7 +41,7 @@ public:
 
     void disableStrongBeat() { strongBeatIndex = -1; }
 
-    void prepareToPlay (double currentSampleRate, int samplesPerBlock)
+    void prepareToPlay (double currentSampleRate, int /**/)
     {
         sampleRate = currentSampleRate;
         samplesPerBeat = calculateSamplesPerBeat();
@@ -92,7 +93,6 @@ public:
     {
         if (! shouldBeEnabled)
         {
-            // ✅ Reset click position when disabling
             currentClickPosition = 0;
             currentClickBuffer = nullptr;
         }
@@ -124,7 +124,7 @@ public:
         auto now = juce::Time::getMillisecondCounter();
 
         // Check if this tap is too close to previous (debounce)
-        if (! tapTimes.empty() && (now - lastTapTime) < MIN_TAP_INTERVAL_MS) return;
+        if (! tapTimes.empty() && (now - lastTapTime) < METRONOME_MIN_TAP_INTERVAL_MS) return;
 
         lastTapTime = now;
         tapTempoActive = true;
@@ -135,7 +135,7 @@ public:
         // Remove taps older than timeout
         tapTimes.erase (std::remove_if (tapTimes.begin(),
                                         tapTimes.end(),
-                                        [now] (juce::uint32 tapTime) { return (now - tapTime) > TAP_TIMEOUT_MS; }),
+                                        [now] (juce::uint32 tapTime) { return (now - tapTime) > METRONOME_TAP_TIMEOUT_MS; }),
                         tapTimes.end());
 
         // Need at least 2 taps to calculate BPM
@@ -161,7 +161,7 @@ public:
         // BPM = 60000 / interval_ms
         int newBPM = juce::roundToInt (60000.0 / averageInterval);
 
-        newBPM = juce::jlimit (MIN_BPM, MAX_BPM, newBPM);
+        newBPM = juce::jlimit ((int) METRONOME_MIN_BPM, (int) METRONOME_MAX_BPM, newBPM);
         setBpm (newBPM);
     }
 
@@ -169,29 +169,29 @@ private:
     void generateClickSounds()
     {
         // Generate strong click (higher pitched, longer)
-        int strongClickLength = (int) (sampleRate * 0.01); // 10ms
+        int strongClickLength = (int) (sampleRate * METRONOME_STRONG_BEAT_CLICK_LENTH_SECONDS); // 10ms
         strongClickBuffer.setSize (1, strongClickLength);
 
         for (int i = 0; i < strongClickLength; ++i)
         {
             float t = (float) i / (float) sampleRate;
-            float envelope = std::exp (-t * 200.0f); // Fast decay
-            float frequency = 1200.0f;               // Higher pitch for strong beat
+            float envelope = std::exp (-t * METRONOME_STRONG_BEAT_ENVELOPE_DECAY); // Decay
+            float frequency = METRONOME_STRONG_BEAT_FREQUENCY;                     // Higher pitch for strong beat
             float sample = std::sin (2.0f * juce::MathConstants<float>::pi * frequency * t) * envelope;
-            strongClickBuffer.setSample (0, i, sample * 2.0f); // Louder
+            strongClickBuffer.setSample (0, i, sample * METRONOME_STRONG_BEAT_GAIN); // Louder
         }
 
         // Generate weak click (lower pitched, shorter)
-        int weakClickLength = (int) (sampleRate * 0.008); // 8ms
+        int weakClickLength = (int) (sampleRate * METRONOME_WEAK_BEAT_CLICK_LENTH_SECONDS); // 8ms
         weakClickBuffer.setSize (1, weakClickLength);
 
         for (int i = 0; i < weakClickLength; ++i)
         {
             float t = (float) i / (float) sampleRate;
-            float envelope = std::exp (-t * 250.0f); // Faster decay
-            float frequency = 800.0f;                // Lower pitch for weak beat
+            float envelope = std::exp (-t * METRONOME_WEAK_BEAT_ENVELOPE_DECAY); // Decay
+            float frequency = METRONOME_WEAK_BEAT_FREQUENCY;                     // Lower pitch for weak beat
             float sample = std::sin (2.0f * juce::MathConstants<float>::pi * frequency * t) * envelope;
-            weakClickBuffer.setSample (0, i, sample * 1.5f); // Softer
+            weakClickBuffer.setSample (0, i, sample * METRONOME_WEAK_BEAT_GAIN);
         }
     }
 
@@ -207,14 +207,14 @@ private:
     int strongBeatIndex;
     int samplesSinceLastBeat;
     int currentClickPosition;
-    std::atomic<bool> enabled { false }; // ✅ Thread-safe
-    std::atomic<float> volume { 0.8f };  // ✅ Also make volume atomic
+    std::atomic<bool> enabled { METRONOME_DEFAULT_ENABLED };
+    std::atomic<float> volume { METRONOME_DEFAULT_VOLUME };
 
     struct TimeSignature
     {
         int numerator;
         int denominator;
-    } timeSignature { 4, 4 };
+    } timeSignature { METRONOME_DEFAULT_TIME_SIGNATURE_NUMERATOR, METRONOME_DEFAULT_TIME_SIGNATURE_DENOMINATOR };
 
     int bpm;
     juce::AudioBuffer<float> strongClickBuffer;
@@ -225,10 +225,6 @@ private:
     std::vector<juce::uint32> tapTimes;
     juce::uint32 lastTapTime = 0;
     bool tapTempoActive = false;
-    static constexpr int MIN_BPM = 30;
-    static constexpr int MAX_BPM = 300;
-    static constexpr int TAP_TIMEOUT_MS = 3000;     // Reset after 3 seconds of no taps
-    static constexpr int MIN_TAP_INTERVAL_MS = 100; // Debounce - ignore taps closer than 100ms
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Metronome)
 };
