@@ -349,11 +349,10 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
     processPendingActions();
 
-    granularFreeze->processBlock (buffer);
-
     auto ctx = createStateContext (buffer);
     stateMachine.processAudio (currentState, ctx);
 
+    granularFreeze->processBlock (buffer);
     if (metronome->isEnabled()) metronome->processBlock (buffer);
 
     buffer.applyGain (outputGain.load());
