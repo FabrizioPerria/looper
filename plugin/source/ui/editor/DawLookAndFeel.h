@@ -356,7 +356,7 @@ private:
             float tickHeight = isMajor ? 8.0f : 4.0f;
             float tickY = trackBounds.getBottom() + 2.0f;
 
-            g.drawLine (tickX, tickY, tickX, tickY + tickHeight, isMajor ? 1.5f : 1.5f);
+            g.fillRect (tickX - 0.75f, tickY, 1.5f, tickHeight);
 
             // Draw label for major ticks
             if (isMajor && label.isNotEmpty())

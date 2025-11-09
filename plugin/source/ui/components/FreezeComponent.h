@@ -39,11 +39,7 @@ public:
         g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
 
         auto titleBounds = freezeLabel.getBounds();
-        g.drawLine (titleBounds.getX() + 3.0f,
-                    titleBounds.getBottom() + 3.0f,
-                    titleBounds.getRight() - 3.0f,
-                    titleBounds.getBottom() + 3.0f,
-                    1.0f);
+        g.fillRect (titleBounds.getX() + 3.0f, titleBounds.getBottom() + 3.0f, titleBounds.getWidth() - 6.0f, 1.0f);
     }
 
     void resized() override
@@ -57,8 +53,8 @@ public:
         juce::FlexBox layoutBox;
         layoutBox.flexDirection = juce::FlexBox::Direction::row;
         layoutBox.alignItems = juce::FlexBox::AlignItems::stretch;
-        layoutBox.items.add (juce::FlexItem (freezeButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (5, 5, 5, 5)));
-        layoutBox.items.add (juce::FlexItem (levelComponent).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 2)));
+        layoutBox.items.add (juce::FlexItem (freezeButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (2, 1, 0, 1)));
+        layoutBox.items.add (juce::FlexItem (levelComponent).withFlex (0.5f).withMargin (juce::FlexItem::Margin (2, 1, 0, 1)));
 
         mainBox.items.add (juce::FlexItem (layoutBox).withFlex (3.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
 
