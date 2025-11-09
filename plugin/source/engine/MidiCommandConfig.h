@@ -20,7 +20,7 @@ constexpr uint8_t NEXT_TRACK = 69;
 constexpr uint8_t PREV_TRACK = 70;
 constexpr uint8_t MUTE_BUTTON = 71;
 constexpr uint8_t SOLO_BUTTON = 72;
-constexpr uint8_t NORMALIZE_BUTTON = 73;
+// constexpr uint8_t NORMALIZE_BUTTON = 73;
 constexpr uint8_t PITCH_LOCK_BUTTON = 74;
 constexpr uint8_t REVERSE_BUTTON = 75;
 constexpr uint8_t METRO_TOGGLE_BUTTON = 76;
@@ -66,7 +66,7 @@ constexpr std::array<EngineMessageBus::CommandType, MAX_MIDI_NOTES> buildNoteOnC
     table[MidiNotes::PREV_TRACK] = EngineMessageBus::CommandType::PreviousTrack;
     table[MidiNotes::MUTE_BUTTON] = EngineMessageBus::CommandType::ToggleMute;
     table[MidiNotes::SOLO_BUTTON] = EngineMessageBus::CommandType::ToggleSolo;
-    table[MidiNotes::NORMALIZE_BUTTON] = EngineMessageBus::CommandType::ToggleVolumeNormalize;
+    // table[MidiNotes::NORMALIZE_BUTTON] = EngineMessageBus::CommandType::ToggleVolumeNormalize;
     table[MidiNotes::PITCH_LOCK_BUTTON] = EngineMessageBus::CommandType::TogglePitchLock;
     table[MidiNotes::REVERSE_BUTTON] = EngineMessageBus::CommandType::ToggleReverse;
     table[MidiNotes::METRO_TOGGLE_BUTTON] = EngineMessageBus::CommandType::ToggleMetronomeEnabled;

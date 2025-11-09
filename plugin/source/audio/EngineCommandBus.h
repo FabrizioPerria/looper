@@ -1,9 +1,6 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include <atomic>
-#include <map>
-#include <queue>
 #include <variant>
 #include <vector>
 
@@ -42,7 +39,7 @@ public:
         SetVolume,
         ToggleMute,
         ToggleSolo,
-        ToggleVolumeNormalize,
+        // ToggleVolumeNormalize,
 
         SetPlaybackSpeed,
         SetPlaybackPitch,
@@ -94,7 +91,7 @@ public:
         { CommandType::SetVolume, "Set Volume" },
         { CommandType::ToggleMute, "Toggle Mute" },
         { CommandType::ToggleSolo, "Toggle Solo" },
-        { CommandType::ToggleVolumeNormalize, "Toggle Volume Normalize" },
+        // { CommandType::ToggleVolumeNormalize, "Toggle Volume Normalize" },
         { CommandType::SetPlaybackSpeed, "Set Playback Speed" },
         { CommandType::SetPlaybackPitch, "Set Playback Pitch" },
         { CommandType::TogglePitchLock, "Toggle Pitch Lock" },
@@ -127,7 +124,7 @@ public:
             case CommandType::SetVolume:
             case CommandType::ToggleMute:
             case CommandType::ToggleSolo:
-            case CommandType::ToggleVolumeNormalize:
+                // case CommandType::ToggleVolumeNormalize:
                 return "Track Controls";
 
             case CommandType::SetPlaybackSpeed:
@@ -179,7 +176,7 @@ public:
     {
         NewOverdubGainLevels,
         OldOverdubGainLevels,
-        NormalizeStateChanged,
+        // NormalizeStateChanged,
 
         RecordingStateChanged,
         PlaybackStateChanged,
@@ -249,7 +246,7 @@ public:
         auto writeIndex = commandFifo.write (1);
         if (writeIndex.blockSize1 > 0)
         {
-            commandBuffer[writeIndex.startIndex1] = std::move (cmd);
+            commandBuffer[(size_t) writeIndex.startIndex1] = std::move (cmd);
             commandFifo.finishedWrite (1);
         }
     }
@@ -260,7 +257,7 @@ public:
         auto readIndex = commandFifo.read (1);
         if (readIndex.blockSize1 > 0)
         {
-            outCmd = std::move (commandBuffer[readIndex.startIndex1]);
+            outCmd = std::move (commandBuffer[(size_t) readIndex.startIndex1]);
             commandFifo.finishedRead (1);
             return true;
         }
@@ -292,7 +289,7 @@ public:
         auto writeIndex = eventFifo.write (1);
         if (writeIndex.blockSize1 > 0)
         {
-            eventBuffer[writeIndex.startIndex1] = std::move (evt);
+            eventBuffer[(size_t) writeIndex.startIndex1] = std::move (evt);
             eventFifo.finishedWrite (1);
         }
     }
@@ -315,7 +312,7 @@ public:
         // Process first block
         for (int i = 0; i < readIndex.blockSize1; ++i)
         {
-            const auto& event = eventBuffer[readIndex.startIndex1 + i];
+            const auto& event = eventBuffer[(size_t) (readIndex.startIndex1 + i)];
             for (auto* listener : listenerSnapshot)
                 listener->handleEngineEvent (event);
         }
@@ -323,7 +320,7 @@ public:
         // Process second block if it exists
         for (int i = 0; i < readIndex.blockSize2; ++i)
         {
-            const auto& event = eventBuffer[readIndex.startIndex2 + i];
+            const auto& event = eventBuffer[(size_t) (readIndex.startIndex2 + i)];
             for (auto* listener : listenerSnapshot)
                 listener->handleEngineEvent (event);
         }

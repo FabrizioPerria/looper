@@ -115,18 +115,14 @@ public:
         g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
 
         auto titleBounds = metronomeLabel.getBounds();
-        g.drawLine (titleBounds.getX() + 3.0f,
-                    titleBounds.getBottom() + 3.0f,
-                    titleBounds.getRight() - 3.0f,
-                    titleBounds.getBottom() + 3.0f,
-                    1.0f);
+        g.fillRect (titleBounds.getX() + 3.0f, titleBounds.getBottom() + 3.0f, titleBounds.getWidth() - 6.0f, 1.0f);
 
         auto timeSigBounds = numeratorEditor.getBounds().getUnion (denominatorEditor.getBounds());
         const float lineThickness = 2.0f;
         const float lineWidth = timeSigBounds.getWidth() * 0.5f;
         const float lineY = (numeratorEditor.getBottom() + denominatorEditor.getY()) * 0.5f;
         const float lineX = timeSigBounds.getCentreX() - (lineWidth * 0.5f);
-        g.drawLine (lineX, lineY, lineX + lineWidth, lineY, lineThickness);
+        g.fillRect (lineX, lineY - (lineThickness / 2.0f), lineWidth, lineThickness);
     }
 
     void resized() override
@@ -145,8 +141,7 @@ public:
         layoutBox.alignItems = juce::FlexBox::AlignItems::stretch;
         layoutBox.justifyContent = juce::FlexBox::JustifyContent::flexStart;
 
-        // layoutBox.items.add (juce::FlexItem (enableButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
-        layoutBox.items.add (juce::FlexItem (beatIndicator).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        layoutBox.items.add (juce::FlexItem (enableButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
 
         juce::FlexBox bpmBox;
         bpmBox.flexDirection = juce::FlexBox::Direction::column;
@@ -170,7 +165,8 @@ public:
         accentBox.items.add (juce::FlexItem (strongBeatButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (1, 1, 1, 1)));
 
         layoutBox.items.add (juce::FlexItem (accentBox).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
-        layoutBox.items.add (juce::FlexItem (metronomeLevel).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
+        layoutBox.items.add (juce::FlexItem (metronomeLevel).withFlex (1.5f).withMargin (juce::FlexItem::Margin (2, 1, 0, 1)));
+        layoutBox.items.add (juce::FlexItem (beatIndicator).withFlex (1.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
 
         mainBox.items.add (juce::FlexItem (layoutBox).withFlex (3.0f).withMargin (juce::FlexItem::Margin (2, 2, 2, 2)));
         mainBox.performLayout (bounds.toFloat());

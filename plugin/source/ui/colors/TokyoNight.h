@@ -19,14 +19,18 @@ namespace Colors
     const juce::Colour primaryDark = juce::Colour (0xff3d59a1);
     const juce::Colour primaryLight = juce::Colour (0xff9ece6a);
 
-    const juce::Colour cyan = juce::Colour (0xff7dcfff);    // Bright cyan
-    const juce::Colour teal = juce::Colour (0xff73daca);    // Teal
-    const juce::Colour green = juce::Colour (0xff9ece6a);   // Green
-    const juce::Colour yellow = juce::Colour (0xffe0af68);  // Yellow
-    const juce::Colour orange = juce::Colour (0xffff9e64);  // Orange
-    const juce::Colour red = juce::Colour (0xfff7768e);     // Red/pink
-    const juce::Colour magenta = juce::Colour (0xffbb9af7); // Purple/magenta
-    const juce::Colour white = juce::Colour (0xffc0caf5);   // Light blue-white
+    const juce::Colour cyan = juce::Colour (0xff7dcfff);      // Bright cyan
+    const juce::Colour teal = juce::Colour (0xff73daca);      // Teal
+    const juce::Colour green = juce::Colour (0xff9ece6a);     // Green
+    const juce::Colour yellow = juce::Colour (0xffe0af68);    // Yellow
+    const juce::Colour orange = juce::Colour (0xffff9e64);    // Orange
+    const juce::Colour red = juce::Colour (0xfff7768e);       // Red/pink
+    const juce::Colour magenta = juce::Colour (0xffbb9af7);   // Purple/magenta
+    const juce::Colour pink = juce::Colour (0xffff75a0);      // Pink
+    const juce::Colour blue = juce::Colour (0xff7aa2f7);      // Blue
+    const juce::Colour purple = juce::Colour (0xffbb9af7);    // Purple
+    const juce::Colour orangeRed = juce::Colour (0xffff7a93); // Orange-red
+    const juce::Colour white = juce::Colour (0xffc0caf5);     // Light blue-white
 
     // Text
     const juce::Colour text = juce::Colour (0xffc0caf5);         // Light blue-white

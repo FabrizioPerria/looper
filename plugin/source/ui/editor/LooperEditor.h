@@ -1,6 +1,7 @@
 #pragma once
 #include "engine/LooperEngine.h"
 #include "ui/colors/TokyoNight.h"
+#include "ui/components/FooterComponent.h"
 #include "ui/components/GlobalBarComponent.h"
 #include "ui/components/MidiMappingComponent.h"
 #include "ui/components/TrackComponent.h"
@@ -17,6 +18,7 @@ public:
                                                         engine->getMetronome(),
                                                         engine->getGranularFreeze());
 
+        footerComponent = std::make_unique<FooterComponent> (engine->getMessageBus(), engine->getEngineStateBridge());
         midiMappingComponent = std::make_unique<MidiMappingComponent> (engine->getMidiMappingManager(), engine->getMessageBus());
 
         for (int i = 0; i < engine->getNumTracks(); ++i)
@@ -31,6 +33,7 @@ public:
 
         addAndMakeVisible (*globalBar);
         addAndMakeVisible (*midiMappingComponent);
+        addAndMakeVisible (*footerComponent);
         midiMappingComponent->setVisible (false);
     }
 
@@ -57,12 +60,15 @@ public:
             mainFlex.items.add (juce::FlexItem (*channel).withFlex (0.8f));
         }
 
+        mainFlex.items.add (juce::FlexItem (*footerComponent).withFlex (0.25f));
+
         mainFlex.performLayout (bounds.toFloat());
 
         // the idea is to preallocate an overlay area for the midiMappingComponent. When it's visible, it will cover the right half of the editor.
         // When it's hidden, it will be set to zero size internally in the midiMappingComponent's resized() method.
         auto midiMappingArea = getLocalBounds().withTrimmedLeft (getWidth() / 2 - 60);
         midiMappingArea.removeFromTop (globalBar->getHeight());
+        midiMappingArea.removeFromBottom (footerComponent->getHeight());
         midiMappingComponent->setBounds (midiMappingArea);
     }
 
@@ -71,6 +77,7 @@ private:
 
     std::unique_ptr<GlobalControlBar> globalBar;
     juce::OwnedArray<TrackComponent> channels;
+    std::unique_ptr<FooterComponent> footerComponent;
     std::unique_ptr<MidiMappingComponent> midiMappingComponent;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LooperEditor)
