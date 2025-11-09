@@ -12,24 +12,17 @@ public:
     {
         setRange (min, max, step);
         setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-        setTextBoxStyle (juce::Slider::TextBoxBelow, false, 50, 15);
+        setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
 
-        // Format the text to show semitones and cents
-        // setTextValueSuffix (" st");
         setNumDecimalPlacesToDisplay (2);
 
-        // Style the text box
         setColour (juce::Slider::textBoxTextColourId, LooperTheme::Colors::textDim);
         setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
         setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
-
-        // Use the theme font
-        // setFont (LooperTheme::Fonts::getRegularFont (11.0f));
     }
 
     double snapValue (double attemptedValue, juce::Slider::DragMode) override
     {
-        // Round to 2 decimal places first to avoid floating point imprecision
         double value = std::round (attemptedValue * 100.0) / 100.0;
         double rounded = std::round (value);
         if (std::abs (value - rounded) < snapThreshold)
@@ -46,8 +39,8 @@ private:
     double min = -2.0;
     double max = 2.0;
     double center = 0.0;
-    double step = 0.001;               // 0.01 = 1 cent
-    const double snapThreshold = 0.03; // Snap within 3 cents of a semitone
+    double step = 0.001;
+    const double snapThreshold = 0.03;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PlaybackPitchSlider)
 };

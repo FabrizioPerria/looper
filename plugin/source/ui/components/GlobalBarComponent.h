@@ -55,8 +55,8 @@ public:
 
         // Utility buttons
         mainBox.items.add (juce::FlexItem (metronomeComponent).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 0, 0, 0)));
-        mainBox.items.add (juce::FlexItem (droneComponent).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
-        mainBox.items.add (juce::FlexItem (midiButton).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        mainBox.items.add (juce::FlexItem (droneComponent).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
+        mainBox.items.add (juce::FlexItem (midiButton).withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
 
         mainBox.performLayout (bounds.toFloat());
     }

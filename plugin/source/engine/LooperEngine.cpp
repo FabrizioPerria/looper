@@ -233,11 +233,11 @@ void LooperEngine::toggleMute (int trackIndex)
     auto* track = getTrackByIndex (trackIndex);
     if (track) setTrackMuted (trackIndex, ! track->isMuted());
 }
-void LooperEngine::toggleVolumeNormalize (int trackIndex)
-{
-    auto* track = getTrackByIndex (trackIndex);
-    if (track) track->toggleNormalizingOutput();
-}
+// void LooperEngine::toggleVolumeNormalize (int trackIndex)
+// {
+//     auto* track = getTrackByIndex (trackIndex);
+//     if (track) track->toggleNormalizingOutput();
+// }
 void LooperEngine::toggleGranularFreeze()
 {
     granularFreeze->toggleActiveState();

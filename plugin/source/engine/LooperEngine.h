@@ -1,6 +1,5 @@
 #pragma once
 
-#include "audio/AudioToUIBridge.h"
 #include "audio/EngineCommandBus.h"
 #include "audio/EngineStateToUIBridge.h"
 #include "engine/Constants.h"
@@ -65,7 +64,7 @@ public:
     void toggleReverse (int trackIndex);
     void toggleSolo (int trackIndex);
     void toggleMute (int trackIndex);
-    void toggleVolumeNormalize (int trackIndex);
+    // void toggleVolumeNormalize (int trackIndex);
     void toggleKeepPitchWhenChangingSpeed (int trackIndex);
     void undo (int trackIndex);
     void redo (int trackIndex);
@@ -260,11 +259,11 @@ private:
               if (std::holds_alternative<std::monostate> (cmd.payload)) toggleSync (cmd.trackIndex);
           } },
 
-        { EngineMessageBus::CommandType::ToggleVolumeNormalize,
-          [this] (const auto& cmd)
-          {
-              if (std::holds_alternative<std::monostate> (cmd.payload)) toggleVolumeNormalize (cmd.trackIndex);
-          } },
+        // { EngineMessageBus::CommandType::ToggleVolumeNormalize,
+        //   [this] (const auto& cmd)
+        //   {
+        //       if (std::holds_alternative<std::monostate> (cmd.payload)) toggleVolumeNormalize (cmd.trackIndex);
+        //   } },
 
         { EngineMessageBus::CommandType::SetPlaybackSpeed,
           [this] (const auto& cmd)

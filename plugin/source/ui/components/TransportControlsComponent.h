@@ -37,13 +37,13 @@ public:
         addAndMakeVisible (stopButton);
 
         prevButton.setButtonText ("PREV");
-        prevButton.setComponentID ("prev");
+        prevButton.setComponentID ("prevTrack");
         prevButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::PreviousTrack, -1, {} }); };
         addAndMakeVisible (prevButton);
 
         nextButton.setButtonText ("NEXT");
-        nextButton.setComponentID ("next");
+        nextButton.setComponentID ("nextTrack");
         nextButton.onClick = [this]()
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::NextTrack, -1, {} }); };
         addAndMakeVisible (nextButton);

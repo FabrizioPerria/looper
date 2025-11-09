@@ -64,7 +64,7 @@ public:
 
     void setOverdubOldGain (const double newGain) { overdubOldGain = std::clamp (newGain, 0.0, 2.0); }
 
-    void toggleOutputNormalization() { shouldNormalizeOutput = ! shouldNormalizeOutput; }
+    // void toggleOutputNormalization() { shouldNormalizeOutput = ! shouldNormalizeOutput; }
 
     double getOverdubNewGain() const { return overdubNewGain; }
     double getOverdubOldGain() const { return overdubOldGain; }
@@ -72,15 +72,15 @@ public:
     void normalizeOutput (juce::AudioBuffer<float>& audioBuffer, const int length)
     {
         PERFETTO_FUNCTION();
-        if (shouldNormalizeOutput)
-        {
-            float maxSample = 0.0f;
-            for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
-                maxSample = std::max (maxSample, audioBuffer.getMagnitude (ch, 0, length));
+        // if (shouldNormalizeOutput)
+        // {
+        float maxSample = 0.0f;
+        for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
+            maxSample = std::max (maxSample, audioBuffer.getMagnitude (ch, 0, length));
 
-            if (maxSample > 0.001f) // If not silent
-                audioBuffer.applyGain (0, length, 0.9f / maxSample);
-        }
+        if (maxSample > 0.001f) // If not silent
+            audioBuffer.applyGain (0, length, 0.9f / maxSample);
+        // }
     }
 
     void applyCrossfade (juce::AudioBuffer<float>& audioBuffer, const int length)
@@ -103,14 +103,14 @@ public:
         juce::FloatVectorOperations::addWithMultiply (dest, source, (float) overdubNewGain, (int) numSamples);
     }
 
-    bool isNormalizingOutput() const { return shouldNormalizeOutput; }
+    // bool isNormalizingOutput() const { return shouldNormalizeOutput; }
 
 private:
     float trackVolume = 1.0f;
     double overdubNewGain = 1.0;
     double overdubOldGain = 1.0;
 
-    bool shouldNormalizeOutput = true;
+    // bool shouldNormalizeOutput = true;
 
     float previousTrackVolume = 1.0f;
     bool soloed = false;

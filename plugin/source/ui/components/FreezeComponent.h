@@ -14,11 +14,19 @@ public:
         : uiToEngineBus (engineMessageBus)
         , freezeSynth (freezer)
         , levelComponent (engineMessageBus, -1, "Level", EngineMessageBus::CommandType::SetFreezeLevel)
-        , freezeButton (engineMessageBus, BinaryData::freeze_svg, EngineMessageBus::CommandType::ToggleFreeze)
+    // , freezeButton (engineMessageBus, BinaryData::freeze_svg, EngineMessageBus::CommandType::ToggleFreeze)
     {
         freezeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
         freezeLabel.setJustificationType (juce::Justification::centred);
         addAndMakeVisible (freezeLabel);
+        freezeButton.setButtonText ("Enable");
+        freezeButton.setColour (juce::TextButton::buttonColourId, LooperTheme::Colors::surface);
+        freezeButton.setColour (juce::TextButton::buttonOnColourId, LooperTheme::Colors::green);
+        freezeButton.setColour (juce::TextButton::textColourOffId, LooperTheme::Colors::textDim);
+        freezeButton.setColour (juce::TextButton::textColourOnId, LooperTheme::Colors::background);
+        freezeButton.onClick = [this]()
+        { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleFreeze, -1, std::monostate {} }); };
+
         addAndMakeVisible (freezeButton);
         addAndMakeVisible (levelComponent);
         uiToEngineBus->addListener (this);
@@ -62,7 +70,8 @@ private:
     GranularFreeze* freezeSynth;
     juce::Label freezeLabel { "Freeze", "Freeze" };
     LevelComponent levelComponent;
-    ButtonIconComponent freezeButton;
+    // ButtonIconComponent freezeButton;
+    juce::TextButton freezeButton;
 
     constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::FreezeStateChanged };
 
@@ -77,7 +86,8 @@ private:
             case EngineMessageBus::EventType::FreezeStateChanged:
             {
                 bool isFrozen = std::get<bool> (event.data);
-                freezeButton.setFreezeEnabled (isFrozen);
+                freezeButton.setToggleState (isFrozen, juce::dontSendNotification);
+                // freezeButton.setFreezeEnabled (isFrozen);
                 break;
             }
             default:

@@ -189,18 +189,8 @@ public:
         auto componentId = button.getComponentID();
 
         juce::Colour glowColour;
-        bool isMute = (componentId == "mute");
-        bool isSolo = (componentId == "solo");
-        bool isClear = (componentId == "clear");
 
-        if (isMute)
-            glowColour = LooperTheme::Colors::red;
-        else if (isSolo)
-            glowColour = LooperTheme::Colors::yellow;
-        else if (isClear)
-            glowColour = LooperTheme::Colors::magenta;
-        else
-            glowColour = LooperTheme::Colors::cyan;
+        getColorByComponentID (componentId, glowColour);
 
         // All icon buttons get circular backgrounds
         bool isIconButton = ! componentId.isEmpty();
@@ -229,6 +219,36 @@ public:
         }
     }
 
+    void getColorByComponentID (const juce::String& componentId, juce::Colour& outColour)
+    {
+        if (componentId == "mute")
+            outColour = LooperTheme::Colors::red;
+        else if (componentId == "solo")
+            outColour = LooperTheme::Colors::yellow;
+        else if (componentId == "clear")
+            outColour = LooperTheme::Colors::magenta;
+        else if (componentId == "freeze")
+            outColour = LooperTheme::Colors::green;
+        else if (componentId == "undo" || componentId == "redo")
+            outColour = LooperTheme::Colors::orangeRed;
+        else if (componentId == "rec")
+            outColour = LooperTheme::Colors::blue;
+        else if (componentId == "play")
+            outColour = LooperTheme::Colors::green;
+        else if (componentId == "stop")
+            outColour = LooperTheme::Colors::red;
+        else if (componentId == "prevTrack")
+            outColour = LooperTheme::Colors::teal;
+        else if (componentId == "nextTrack")
+            outColour = LooperTheme::Colors::teal;
+        else if (componentId == "lockPitch")
+            outColour = LooperTheme::Colors::pink;
+        else if (componentId == "reverse")
+            outColour = LooperTheme::Colors::purple;
+        else
+            outColour = LooperTheme::Colors::cyan;
+    }
+
     void drawButtonText (juce::Graphics& g, juce::TextButton& button, bool shouldDrawButtonAsHighlighted, bool /**/) override
     {
         auto componentId = button.getComponentID();
@@ -238,38 +258,25 @@ public:
 
         if (button.getToggleState())
         {
-            if (componentId == "mute")
-                colour = LooperTheme::Colors::red;
-            else if (componentId == "solo")
-                colour = LooperTheme::Colors::yellow;
-            else if (componentId == "clear")
-                colour = LooperTheme::Colors::magenta;
-            else
-                colour = LooperTheme::Colors::cyan;
+            getColorByComponentID (componentId, colour);
         }
         else if (shouldDrawButtonAsHighlighted)
         {
-            if (componentId == "mute")
-                colour = LooperTheme::Colors::red.brighter (0.4f);
-            else if (componentId == "solo")
-                colour = LooperTheme::Colors::yellow.brighter (0.4f);
-            else if (componentId == "clear")
-                colour = LooperTheme::Colors::magenta.brighter (0.4f);
-            else
-                colour = LooperTheme::Colors::cyan.brighter (0.4f);
+            getColorByComponentID (componentId, colour);
+            colour = colour.brighter (0.4f);
         }
 
         // Try to load SVG
-        auto svg = loadSvg (componentId);
-
-        if (svg != nullptr && /* DISABLES CODE */ (false)) //svg are nice, but don't care now
-        {
-            // Draw SVG
-            auto bounds = button.getLocalBounds().toFloat().reduced (12);
-            svg->replaceColour (juce::Colours::black, colour);
-            svg->drawWithin (g, bounds, juce::RectanglePlacement::centred, 1.0f);
-        }
-        else
+        // auto svg = loadSvg (componentId);
+        //
+        // if (svg != nullptr && /* DISABLES CODE */ (false)) //svg are nice, but don't care now
+        // {
+        //     // Draw SVG
+        //     auto bounds = button.getLocalBounds().toFloat().reduced (12);
+        //     svg->replaceColour (juce::Colours::black, colour);
+        //     svg->drawWithin (g, bounds, juce::RectanglePlacement::centred, 1.0f);
+        // }
+        // else
         {
             // Fallback to text if no SVG
             g.setColour (colour);
