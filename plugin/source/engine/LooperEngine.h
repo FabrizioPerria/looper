@@ -94,6 +94,7 @@ public:
     void saveTrackToFile (int trackIndex, const juce::File& audioFile)
     {
         PERFETTO_FUNCTION();
+        if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
         auto* track = getTrackByIndex (trackIndex);
         if (track)
         {
@@ -106,6 +107,7 @@ public:
         PERFETTO_FUNCTION();
         for (int i = 0; i < numTracks; ++i)
         {
+            if (! trackHasContent (i)) continue;
             juce::File trackFile = folder.getChildFile ("Track_" + juce::String (i + 1) + ".wav");
             saveTrackToFile (i, trackFile);
         }
