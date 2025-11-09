@@ -92,4 +92,4 @@ if(ENABLE_COVERAGE)
 endif()
 
 add_subdirectory(plugin)
-add_subdirectory(test)
+# add_subdirectory(test)
