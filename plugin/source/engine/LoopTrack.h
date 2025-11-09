@@ -69,9 +69,6 @@ public:
     float getTrackVolume() const { return volumeProcessor.getTrackVolume(); }
     void setTrackVolume (const float newVolume) { volumeProcessor.setTrackVolume (newVolume); }
 
-    // void toggleNormalizingOutput() { volumeProcessor.toggleOutputNormalization(); }
-    // bool isOutputNormalized() const { return volumeProcessor.isNormalizingOutput(); }
-
     void setOverdubGainNew (const double newGain) { volumeProcessor.setOverdubNewGain (newGain); }
     void setOverdubGainOld (const double oldGain) { volumeProcessor.setOverdubOldGain (oldGain); }
     double getOverdubGainNew() const { return volumeProcessor.getOverdubNewGain(); }
@@ -103,6 +100,8 @@ public:
     void setWritePosition (int pos) { bufferManager.setWritePosition (pos); }
 
     void setReadPosition (int pos) { bufferManager.setReadPosition (pos); }
+
+    void saveTrackToWavFile (const juce::File& fileToSave);
 
 private:
     VolumeProcessor volumeProcessor;

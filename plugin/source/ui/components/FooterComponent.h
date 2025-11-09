@@ -42,6 +42,50 @@ public:
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleSinglePlayMode, -1, {} }); };
         addAndMakeVisible (playModeButton);
 
+        saveLabel.setText ("Save", juce::dontSendNotification);
+        saveLabel.setJustificationType (juce::Justification::centred);
+        saveLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
+        addAndMakeVisible (saveLabel);
+        activeTrack.setButtonText ("Active Track");
+        activeTrack.setComponentID ("saveActive");
+        activeTrack.onClick = [this]()
+        {
+            fileChooser = std::make_unique<juce::FileChooser> ("Save track as...",
+                                                               juce::File::getSpecialLocation (juce::File::userHomeDirectory),
+                                                               "*.wav");
+
+            fileChooser->launchAsync (juce::FileBrowserComponent::saveMode,
+                                      [this] (const juce::FileChooser& fc)
+                                      {
+                                          auto result = fc.getResult();
+                                          uiToEngineBus->pushCommand (EngineMessageBus::Command {
+                                              EngineMessageBus::CommandType::SaveTrackToFile,
+                                              -1,
+                                              result });
+                                      });
+        };
+        addAndMakeVisible (activeTrack);
+
+        allTracks.setButtonText ("All Tracks");
+        allTracks.setComponentID ("saveAll");
+        allTracks.onClick = [this]()
+        {
+            fileChooser = std::make_unique<juce::FileChooser> ("Select folder...",
+                                                               juce::File::getSpecialLocation (juce::File::userHomeDirectory));
+
+            fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+                                      [this] (const juce::FileChooser& fc)
+                                      {
+                                          auto result = fc.getResult();
+                                          uiToEngineBus->pushCommand (EngineMessageBus::Command {
+                                              EngineMessageBus::CommandType::SaveAllTracksToFolder,
+                                              -1,
+                                              result });
+                                      });
+        };
+
+        addAndMakeVisible (allTracks);
+
         uiToEngineBus->addListener (this);
     }
 
@@ -54,26 +98,39 @@ public:
         mainBox.flexDirection = juce::FlexBox::Direction::row;
         mainBox.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        mainBox.items.add (juce::FlexItem (inputMeter).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
-        mainBox.items.add (juce::FlexItem().withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
+        mainBox.items.add (juce::FlexItem (inputMeter).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 50, 0, 1)));
+
         juce::FlexBox midiBox;
         midiBox.flexDirection = juce::FlexBox::Direction::column;
         midiBox.alignItems = juce::FlexBox::AlignItems::stretch;
         midiBox.items.add (juce::FlexItem (midiLabel).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         midiBox.items.add (juce::FlexItem (midiButton).withFlex (0.9f).withMargin (juce::FlexItem::Margin (6, 1, 0, 1)));
-        mainBox.items.add (juce::FlexItem (midiBox).withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
 
-        mainBox.items.add (juce::FlexItem().withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
+        mainBox.items.add (juce::FlexItem (midiBox).withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
 
         juce::FlexBox playModeBox;
         playModeBox.flexDirection = juce::FlexBox::Direction::column;
         playModeBox.alignItems = juce::FlexBox::AlignItems::stretch;
         playModeBox.items.add (juce::FlexItem (playModeLabel).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         playModeBox.items.add (juce::FlexItem (playModeButton).withFlex (0.9f).withMargin (juce::FlexItem::Margin (6, 1, 0, 1)));
+
         mainBox.items.add (juce::FlexItem (playModeBox).withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
 
-        mainBox.items.add (juce::FlexItem().withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 0, 0, 1)));
-        mainBox.items.add (juce::FlexItem (outputMeter).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
+        juce::FlexBox saveButtonsBox;
+        saveButtonsBox.flexDirection = juce::FlexBox::Direction::row;
+        saveButtonsBox.alignItems = juce::FlexBox::AlignItems::stretch;
+        saveButtonsBox.items.add (juce::FlexItem (activeTrack).withFlex (0.9f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        saveButtonsBox.items.add (juce::FlexItem (allTracks).withFlex (0.9f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+
+        juce::FlexBox saveBox;
+        saveBox.flexDirection = juce::FlexBox::Direction::column;
+        saveBox.alignItems = juce::FlexBox::AlignItems::stretch;
+        saveBox.items.add (juce::FlexItem (saveLabel).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        saveBox.items.add (juce::FlexItem (saveButtonsBox).withFlex (0.9f).withMargin (juce::FlexItem::Margin (6, 1, 0, 1)));
+
+        mainBox.items.add (juce::FlexItem (saveBox).withFlex (0.4f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+
+        mainBox.items.add (juce::FlexItem (outputMeter).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 50)));
 
         mainBox.performLayout (bounds.toFloat());
     }
@@ -89,6 +146,9 @@ public:
 
         auto playModeTitleBounds = playModeLabel.getBounds();
         g.fillRect (playModeTitleBounds.getX() + 3.0f, playModeTitleBounds.getBottom() + 3.0f, playModeTitleBounds.getWidth() - 6.0f, 1.0f);
+
+        auto saveTitleBounds = saveLabel.getBounds();
+        g.fillRect (saveTitleBounds.getX() + 3.0f, saveTitleBounds.getBottom() + 3.0f, saveTitleBounds.getWidth() - 6.0f, 1.0f);
     }
 
 private:
@@ -117,10 +177,16 @@ private:
     juce::TextButton midiButton { "MIDI Settings" };
     juce::TextButton playModeButton { "Single Track" };
 
+    juce::TextButton activeTrack { "Active Track" };
+    juce::TextButton allTracks { "All Tracks" };
+
     EngineMessageBus* uiToEngineBus;
 
     juce::Label midiLabel;
     juce::Label playModeLabel;
+    juce::Label saveLabel;
+
+    std::unique_ptr<juce::FileChooser> fileChooser;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FooterComponent)
 };

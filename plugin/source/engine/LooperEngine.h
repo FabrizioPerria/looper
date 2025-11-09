@@ -91,6 +91,28 @@ public:
     MidiMappingManager* getMidiMappingManager() { return midiMappingManager.get(); }
     void saveMidiMappings() { midiMappingManager->saveToJson(); }
 
+    void saveTrackToFile (int trackIndex, const juce::File& audioFile)
+    {
+        PERFETTO_FUNCTION();
+        if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
+        auto* track = getTrackByIndex (trackIndex);
+        if (track)
+        {
+            track->saveTrackToWavFile (audioFile);
+        }
+    }
+
+    void saveAllTracksToFolder (const juce::File& folder)
+    {
+        PERFETTO_FUNCTION();
+        for (int i = 0; i < numTracks; ++i)
+        {
+            if (! trackHasContent (i)) continue;
+            juce::File trackFile = folder.getChildFile ("Track_" + juce::String (i + 1) + ".wav");
+            saveTrackToFile (i, trackFile);
+        }
+    }
+
 private:
     // State machine
     LooperStateMachine stateMachine;
@@ -458,6 +480,24 @@ private:
               {
                   auto level = std::get<float> (cmd.payload);
                   granularFreeze->setLevel (level);
+              }
+          } },
+        { EngineMessageBus::CommandType::SaveTrackToFile,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<juce::File> (cmd.payload))
+              {
+                  auto file = std::get<juce::File> (cmd.payload);
+                  saveTrackToFile (cmd.trackIndex, file);
+              }
+          } },
+        { EngineMessageBus::CommandType::SaveAllTracksToFolder,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<juce::File> (cmd.payload))
+              {
+                  auto folder = std::get<juce::File> (cmd.payload);
+                  saveAllTracksToFolder (folder);
               }
           } },
 

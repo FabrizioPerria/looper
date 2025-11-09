@@ -192,3 +192,25 @@ void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack, 
     finalizeLayer (false, copySamples);
     updateUIBridge (copySamples, false, LooperState::Stopped);
 }
+
+void LoopTrack::saveTrackToWavFile (const juce::File& audioFile)
+{
+    PERFETTO_FUNCTION();
+    juce::AudioFormatManager formatManager;
+    formatManager.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatWriter> writer;
+
+    juce::WavAudioFormat wavFormat;
+    writer.reset (wavFormat.createWriterFor (new juce::FileOutputStream (audioFile),
+                                             sampleRate,
+                                             (unsigned int) bufferManager.getNumChannels(),
+                                             16,
+                                             {},
+                                             0));
+    if (writer)
+    {
+        auto& audioBuffer = *bufferManager.getAudioBuffer();
+        auto length = bufferManager.getLength();
+        writer->writeFromAudioSampleBuffer (audioBuffer, 0, length);
+    }
+}
