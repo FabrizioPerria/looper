@@ -6,16 +6,18 @@
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
-class MeterWithGainComponent : public juce::Component, private juce::Timer
+class MeterWithGainComponent : public juce::Component, private juce::Timer, public EngineMessageBus::Listener
 {
 public:
     MeterWithGainComponent (const juce::String& labelText,
                             EngineMessageBus* messageBus,
                             EngineStateToUIBridge* bridge,
+                            EngineMessageBus::CommandType commandId,
+                            EngineMessageBus::EventType eventId,
                             float defaultGainDb = 0.0f)
-        : label (labelText), uiToEngineBus (messageBus), engineToUIBridge (bridge)
+        : label (labelText), uiToEngineBus (messageBus), engineToUIBridge (bridge), commandType (commandId), eventType (eventId)
     {
-        isInputMeter = (labelText == "IN");
+        // isInputMeter = (commandType == EngineMessageBus::CommandType::SetInputGain);
         // Setup gain slider
         gainSlider.setSliderStyle (juce::Slider::LinearHorizontal);
         gainSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
@@ -26,15 +28,20 @@ public:
         {
             float gainDb = static_cast<float> (gainSlider.getValue());
             float gainLinear = juce::Decibels::decibelsToGain (gainDb);
-            auto commandType = isInputMeter ? EngineMessageBus::CommandType::SetInputGain : EngineMessageBus::CommandType::SetOutputGain;
             uiToEngineBus->pushCommand (EngineMessageBus::Command ({ commandType, DEFAULT_ACTIVE_TRACK_INDEX, gainLinear }));
         };
         addAndMakeVisible (gainSlider);
 
+        uiToEngineBus->addListener (this);
+
         startTimerHz (30);
     }
 
-    ~MeterWithGainComponent() override { stopTimer(); }
+    ~MeterWithGainComponent() override
+    {
+        stopTimer();
+        uiToEngineBus->removeListener (this);
+    }
 
     void resized() override
     {
@@ -91,6 +98,8 @@ private:
     juce::Slider gainSlider;
     EngineMessageBus* uiToEngineBus;
     EngineStateToUIBridge* engineToUIBridge;
+    EngineMessageBus::CommandType commandType;
+    EngineMessageBus::EventType eventType;
 
     // Meter levels (0.0 to 1.0+)
     float leftPeak = 0.0f;
@@ -98,7 +107,7 @@ private:
     float rightPeak = 0.0f;
     float rightRms = 0.0f;
 
-    bool isInputMeter = false;
+    // bool isInputMeter = false;
 
     // Layout bounds
     juce::Rectangle<int> labelBounds;
@@ -109,7 +118,7 @@ private:
 
     void timerCallback() override
     {
-        if (isInputMeter)
+        if (commandType == EngineMessageBus::CommandType::SetInputGain)
             engineToUIBridge->getMeterInputLevels (leftPeak, leftRms, rightPeak, rightRms);
         else
             engineToUIBridge->getMeterOutputLevels (leftPeak, leftRms, rightPeak, rightRms);
@@ -221,6 +230,15 @@ private:
         g.setFont (juce::Font (juce::Font::getDefaultMonospacedFontName(), 9.0f, juce::Font::plain));
         g.setColour (LooperTheme::Colors::text.withAlpha (0.6f));
         g.drawText (gainText, textBounds, juce::Justification::centred);
+    }
+
+    void handleEngineEvent (const EngineMessageBus::Event& event) override
+    {
+        if (event.type != eventType) return;
+
+        auto gain = std::get<float> (event.data);
+        float gainDb = juce::Decibels::gainToDecibels (gain);
+        gainSlider.setValue (gainDb, juce::dontSendNotification);
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MeterWithGainComponent)

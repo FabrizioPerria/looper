@@ -10,8 +10,18 @@ class FooterComponent : public juce::Component, public EngineMessageBus::Listene
 {
 public:
     FooterComponent (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge)
-        : inputMeter ("IN", engineMessageBus, bridge, juce::Decibels::decibelsToGain (DEFAULT_INPUT_GAIN))
-        , outputMeter ("OUT", engineMessageBus, bridge, juce::Decibels::decibelsToGain (DEFAULT_OUTPUT_GAIN))
+        : inputMeter ("IN",
+                      engineMessageBus,
+                      bridge,
+                      EngineMessageBus::CommandType::SetInputGain,
+                      EngineMessageBus::EventType::InputGainChanged,
+                      juce::Decibels::decibelsToGain (DEFAULT_INPUT_GAIN))
+        , outputMeter ("OUT",
+                       engineMessageBus,
+                       bridge,
+                       EngineMessageBus::CommandType::SetOutputGain,
+                       EngineMessageBus::EventType::OutputGainChanged,
+                       juce::Decibels::decibelsToGain (DEFAULT_OUTPUT_GAIN))
         , uiToEngineBus (engineMessageBus)
     {
         addAndMakeVisible (inputMeter);
