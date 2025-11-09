@@ -97,33 +97,50 @@ void MidiMappingComponent::resized()
     contentComponent.setSize (viewport.getMaximumVisibleWidth(), yPos);
 }
 
+constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::MidiMappingChanged,
+                                                                    EngineMessageBus::EventType::MidiActivityReceived,
+                                                                    EngineMessageBus::EventType::MidiMenuEnabledChanged };
+
 void MidiMappingComponent::handleEngineEvent (const EngineMessageBus::Event& event)
 {
-    if (event.type == EngineMessageBus::EventType::MidiMappingChanged)
+    bool isSubscribed = std::find (std::begin (subscribedEvents), std::end (subscribedEvents), event.type) != std::end (subscribedEvents);
+    if (! isSubscribed) return;
+
+    switch (event.type)
     {
-        if (currentLearningRow && std::holds_alternative<int> (event.data))
+        case EngineMessageBus::EventType::MidiMappingChanged:
         {
-            int learningSessionId = std::get<int> (event.data);
-            if (learningSessionId <= lastLearningSessionId) return; // Ignore duplicate events
-            currentLearningRow->setLearning (false);
-            currentLearningRow = nullptr;
-            lastLearningSessionId = learningSessionId;
+            if (currentLearningRow && std::holds_alternative<int> (event.data))
+            {
+                int learningSessionId = std::get<int> (event.data);
+                if (learningSessionId <= lastLearningSessionId) return; // Ignore duplicate events
+                currentLearningRow->setLearning (false);
+                currentLearningRow = nullptr;
+                lastLearningSessionId = learningSessionId;
+            }
+            refreshAllRows();
         }
-        refreshAllRows();
-    }
-    else if (event.type == EngineMessageBus::EventType::MidiActivityReceived)
-    {
-        if (std::holds_alternative<juce::MidiMessage> (event.data))
+        break;
+        case EngineMessageBus::EventType::MidiActivityReceived:
         {
-            activityIndicator.setMidiMessage (std::get<juce::MidiMessage> (event.data));
+            if (std::holds_alternative<juce::MidiMessage> (event.data))
+            {
+                {
+                    activityIndicator.setMidiMessage (std::get<juce::MidiMessage> (event.data));
+                }
+            }
         }
-    }
-    else if (event.type == EngineMessageBus::EventType::MidiMenuEnabledChanged)
-    {
-        if (std::holds_alternative<bool> (event.data))
+        break;
+        case EngineMessageBus::EventType::MidiMenuEnabledChanged:
         {
-            enableMidiMenu (std::get<bool> (event.data));
+            if (std::holds_alternative<bool> (event.data))
+            {
+                enableMidiMenu (std::get<bool> (event.data));
+            }
         }
+        break;
+        default:
+            throw juce::String ("Unhandled event type in MidiMappingComponent: ") + juce::String ((int) event.type);
     }
 }
 

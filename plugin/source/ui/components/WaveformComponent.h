@@ -75,10 +75,8 @@ public:
         }
         else
         {
-            isDraggingRegion = false;
-            regionStartSample = 0;
-            regionEndSample = 0;
-            uiToEngineBus->pushCommand ({ EngineMessageBus::CommandType::ClearSubLoopRegion, trackIndex, {} });
+            int samplePos = xToSample (event.x);
+            uiToEngineBus->pushCommand ({ EngineMessageBus::CommandType::SetPlayheadPosition, trackIndex, samplePos });
         }
     }
 
@@ -98,6 +96,16 @@ public:
         if (isDraggingRegion)
         {
             dragEndX = event.x;
+            if (dragEndX - dragStartX < 5)
+            {
+                // Click without drag - clear region
+                regionStartSample = 0;
+                regionEndSample = 0;
+                isDraggingRegion = false;
+                repaint();
+                uiToEngineBus->pushCommand ({ EngineMessageBus::CommandType::ClearSubLoopRegion, trackIndex, {} });
+                return;
+            }
             regionEndSample = xToSample (event.x);
             if (regionEndSample < regionStartSample) std::swap (regionStartSample, regionEndSample);
             isDraggingRegion = false;
