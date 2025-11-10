@@ -228,7 +228,9 @@ public:
                 if (--nextGrainTime <= 0)
                 {
                     startNewGrain();
-                    nextGrainTime = static_cast<int> (cloudParams.grainParams.density);
+                    float jitter = (1.0f - GRAIN_SPAWN_TIMING_JITTER) + (random.nextFloat() * 2.0f * GRAIN_SPAWN_TIMING_JITTER);
+
+                    nextGrainTime = static_cast<int> (cloudParams.grainParams.density * jitter);
                 }
             }
 
@@ -286,6 +288,11 @@ public:
                 {
                     float startPosition = random.nextFloat() * (bufferSizeFloat_ * cloudParams.positionSpread);
                     grain.trigger (startPosition, cloudParams.grainParams);
+
+                    auto params = cloudParams.grainParams;
+                    params.duration *= (1.0f - GRAIN_DURATION_RANDOM_FACTOR) + random.nextFloat() * 2.0f * GRAIN_DURATION_RANDOM_FACTOR;
+
+                    grain.trigger (startPosition, params);
                     return;
                 }
             }
