@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 3.22)
 
+if(APPLE AND NOT DEFINED CMAKE_C_COMPILER)
+  if(EXISTS /opt/homebrew/opt/llvm/bin/clang)
+    set(CMAKE_C_COMPILER /opt/homebrew/opt/llvm/bin/clang)
+    set(CMAKE_CXX_COMPILER /opt/homebrew/opt/llvm/bin/clang++)
+    message(STATUS "Using Homebrew LLVM")
+  endif()
+endif()
 project(LooperRoot)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -107,17 +114,21 @@ endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
-# option(ENABLE_COVERAGE "Enable test coverage reporting" OFF)
-#
-# if(ENABLE_COVERAGE) if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-# message(FATAL_ERROR "Coverage requires Debug build type") endif()
-#
-# message(STATUS "Building with coverage instrumentation")
-# if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
-# add_compile_options(-O0 -g -fprofile-instr-generate -fcoverage-mapping
-# -fno-inline -fno-omit-frame-pointer)
-# add_link_options(-fprofile-instr-generate) else() message(FATAL_ERROR
-# "Coverage only supported on Clang/GCC") endif() endif()
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  option(ENABLE_COVERAGE "Enable test coverage reporting" ON)
+
+  if(ENABLE_COVERAGE)
+    message(STATUS "Building with coverage instrumentation")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
+      add_compile_options(-O0 -g -fprofile-instr-generate -fcoverage-mapping
+                          -fno-inline -fno-omit-frame-pointer)
+      add_link_options(-fprofile-instr-generate)
+    else()
+      message(FATAL_ERROR "Coverage only supported on Clang/GCC")
+    endif()
+  endif()
+
+endif()
 
 add_subdirectory(plugin)
 add_subdirectory(test)
