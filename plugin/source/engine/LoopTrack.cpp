@@ -115,7 +115,7 @@ void LoopTrack::clear()
 
     uiBridge->clear();
     bridgeInitialized = false;
-    uiBridge->signalWaveformChanged();
+    updateUIBridge (0, false, LooperState::Stopped);
 }
 
 void LoopTrack::resetPlaybackPosition (LooperState currentState)

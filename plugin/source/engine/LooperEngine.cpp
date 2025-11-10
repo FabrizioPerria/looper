@@ -85,9 +85,6 @@ bool LooperEngine::trackHasContent (int index) const
 void LooperEngine::switchToTrackImmediately (int trackIndex)
 {
     PERFETTO_FUNCTION();
-    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::ActiveTrackCleared,
-                                                         activeTrackIndex,
-                                                         activeTrackIndex));
     activeTrackIndex = trackIndex;
     nextTrackIndex = DEFAULT_ACTIVE_TRACK_INDEX;
 
@@ -326,11 +323,7 @@ void LooperEngine::clear (int trackIndex)
             }
         }
     }
-
-    // if (trackIndex == activeTrackIndex)
-    // {
-    //     transitionTo (LooperState::Stopped);
-    // }
+    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::ActiveTrackCleared, trackIndex, trackIndex));
 }
 
 void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
