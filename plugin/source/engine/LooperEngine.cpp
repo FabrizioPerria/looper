@@ -415,10 +415,7 @@ void LooperEngine::processPendingActions()
             if (pendingAction.targetTrackIndex >= 0 && pendingAction.targetTrackIndex < numTracks
                 && pendingAction.targetTrackIndex != activeTrackIndex)
             {
-                transitionTo (LooperState::Transitioning);
                 switchToTrackImmediately (pendingAction.targetTrackIndex);
-
-                transitionTo (pendingAction.previousState);
             }
             break;
 
