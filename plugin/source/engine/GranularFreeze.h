@@ -221,27 +221,43 @@ public:
         {
             const int numSamples = output.getNumSamples();
 
-            for (int i = 0; i < numSamples; ++i)
+            // ===== GRAIN TRIGGERING (only during FREEZING) =====
+            if (cloudState == CloudState::FREEZING)
             {
-                modulator.updatePhase();
-
-                if (--nextGrainTime <= 0)
+                for (int i = 0; i < numSamples; ++i)
                 {
-                    startNewGrain();
-                    float jitter = (1.0f - GRAIN_SPAWN_TIMING_JITTER) + (random.nextFloat() * 2.0f * GRAIN_SPAWN_TIMING_JITTER);
+                    modulator.updatePhase();
+                    if (--nextGrainTime <= 0)
+                    {
+                        startNewGrain();
+                        nextGrainTime = static_cast<int> (cloudParams.grainParams.density);
+                    }
+                }
+            }
+            else if (cloudState == CloudState::TAILING)
+            {
+                // Update modulator but don't spawn grains
+                for (int i = 0; i < numSamples; ++i)
+                {
+                    modulator.updatePhase();
+                }
+                tailElapsedSamples += numSamples;
 
-                    nextGrainTime = static_cast<int> (cloudParams.grainParams.density * jitter);
+                // Check if tail is done
+                if (tailElapsedSamples >= tailDurationSamples)
+                {
+                    cloudState = CloudState::IDLE;
+                    clearAllGrains();
                 }
             }
 
-            // Process all grains for the entire block
+            // ===== GRAIN PROCESSING =====
             std::vector<float> blockLeftAccum (numSamples, 0.0f);
             std::vector<float> blockRightAccum (numSamples, 0.0f);
             int activeCount = 0;
 
             const int numGrains = cloudParams.maxGrains;
 
-            // Process all grains
             for (int g = 0; g < numGrains; ++g)
             {
                 if (grains[g].isPlaying())
@@ -249,35 +265,53 @@ public:
                     auto [pitchMod, ampMod] = modulator.getModulation (g, numGrains);
                     grains[g].processBlock (frozenBuf, window, pitchMod, ampMod, numSamples);
 
-                    // Use JUCE's vectorized add (maps to SIMD on all platforms)
                     juce::FloatVectorOperations::add (blockLeftAccum.data(), grains[g].getLeftOut().data(), numSamples);
                     juce::FloatVectorOperations::add (blockRightAccum.data(), grains[g].getRightOut().data(), numSamples);
                     activeCount++;
                 }
             }
 
-            // Apply normalization and add to output
+            // ===== TAIL FADE-OUT =====
+            float tailGain = 1.0f;
+            if (cloudState == CloudState::TAILING)
+            {
+                tailGain = 1.0f - (static_cast<float> (tailElapsedSamples) / static_cast<float> (tailDurationSamples));
+                tailGain = juce::jlimit (0.0f, 1.0f, tailGain);
+            }
+
+            // ===== OUTPUT MIXING & NORMALIZATION =====
             if (activeCount > 0)
             {
-                const float scale = cloudParams.amplitude * (activeCount <= 1 ? 1.0f : fastInverseSqrt (static_cast<float> (activeCount)));
+                const float scale = cloudParams.amplitude * (activeCount <= 1 ? 1.0f : fastInverseSqrt (static_cast<float> (activeCount)))
+                                    * tailGain;
 
-                // Use JUCE's vectorized multiply (SIMD)
                 juce::FloatVectorOperations::multiply (blockLeftAccum.data(), scale, numSamples);
                 juce::FloatVectorOperations::multiply (blockRightAccum.data(), scale, numSamples);
 
-                // Add to output buffers using vectorized operation
                 juce::FloatVectorOperations::add (output.getWritePointer (LEFT_CHANNEL), blockLeftAccum.data(), numSamples);
                 juce::FloatVectorOperations::add (output.getWritePointer (RIGHT_CHANNEL), blockRightAccum.data(), numSamples);
             }
         }
 
-        void triggerFreeze() { nextGrainTime = 0; }
+        void triggerFreeze()
+        {
+            cloudState = CloudState::FREEZING;
+            nextGrainTime = 0;
+        }
 
         void stopFreeze()
         {
-            clearAllGrains();
-            modulator.reset();
+            if (cloudState == CloudState::FREEZING)
+            {
+                cloudState = CloudState::TAILING;
+                tailElapsedSamples = 0;
+                tailDurationSamples = (int) (sampleRate_ * 5.0); // 1 second tail
+            }
         }
+
+        bool isIdle() const { return cloudState == CloudState::IDLE; }
+        bool isFreezing() const { return cloudState == CloudState::FREEZING; }
+        bool isTailing() const { return cloudState == CloudState::TAILING; }
 
     private:
         void startNewGrain()
@@ -321,6 +355,16 @@ public:
         float bufferSizeFloat_ = 0.0f;
         juce::Random random;
         Parameters cloudParams;
+
+        enum class CloudState
+        {
+            IDLE,
+            FREEZING,
+            TAILING
+        };
+        CloudState cloudState = CloudState::IDLE;
+        int tailElapsedSamples = 0;
+        int tailDurationSamples = 0;
     };
 
     GranularFreeze() {}
@@ -343,14 +387,13 @@ public:
 
         sampleRate_ = sampleRate;
         bufferSize_ = bufferSize;
-        isFrozen.store (false);
 
         cloudController.prepare (sampleRate, FREEZE_BUFFER_DURATION_SECONDS);
     }
 
     void toggleActiveState()
     {
-        if (! isFrozen.load())
+        if (cloudController.isIdle() || cloudController.isTailing())
         {
             for (int ch = 0; ch < circularBuffer.getNumChannels(); ++ch)
             {
@@ -358,14 +401,10 @@ public:
                                                    circularBuffer.getReadPointer (ch),
                                                    circularBuffer.getNumSamples());
             }
-
-            isFrozen.store (true);
-            cloudController.setParameters (getDefaultParameters());
             cloudController.triggerFreeze();
         }
-        else
+        else if (cloudController.isFreezing())
         {
-            isFrozen.store (false);
             cloudController.stopFreeze();
         }
     }
@@ -374,7 +413,6 @@ public:
     {
         circularBuffer.releaseResources();
         frozenBuffer.setSize (0, 0);
-        isFrozen.store (false);
     }
 
     void processBlock (juce::AudioBuffer<float>& buffer)
@@ -388,12 +426,13 @@ public:
                                            true,
                                            false);
 
-        if (! isFrozen.load()) return;
-
-        cloudController.processBlock (buffer, frozenBuffer);
+        if (! cloudController.isIdle())
+        {
+            cloudController.processBlock (buffer, frozenBuffer);
+        }
     }
 
-    bool isEnabled() const { return isFrozen.load(); }
+    bool isEnabled() const { return cloudController.isFreezing(); } //|| cloudController.isTailing(); }
 
     void setLevel (float amplitude) { cloudController.setLevelParameters (amplitude); }
     float getLevel() const { return cloudController.getLevelParameters(); }
@@ -412,8 +451,6 @@ private:
 
     double sampleRate_ = 0.0;
     int bufferSize_ = 0;
-
-    std::atomic<bool> isFrozen { false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GranularFreeze)
 };
