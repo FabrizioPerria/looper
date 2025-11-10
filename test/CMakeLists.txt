@@ -16,17 +16,8 @@ add_executable(${PROJECT_NAME})
 
 get_target_property(JUCE_HEADER looper JUCE_LIBRARY_CODE)
 get_target_property(JUCE_BINARY_DATA_FOLDER looper JUCE_BINARY_DATA_FOLDER)
-target_sources(
-  ${PROJECT_NAME}
-  PRIVATE source/LoopFifo_test.cpp
-          source/LoopLifo_test.cpp
-          source/LoopTrack_Backing_test.cpp
-          source/LoopTrack_Playback_test.cpp
-          source/LoopTrack_Recording_test.cpp
-          source/LoopTrack_Setup_test.cpp
-          source/LoopTrack_StateManagement_test.cpp
-          source/LoopTrack_test.cpp
-          source/LoopTrack_TimeManagement_test.cpp)
+target_sources(${PROJECT_NAME} PRIVATE source/unit_test.cpp
+                                       source/integration_test.cpp)
 
 add_prefix_to_list(LIBS_TO_TEST "${CMAKE_CURRENT_SOURCE_DIR}/include"
                    INCLUDE_LIB_DIRS)
@@ -34,8 +25,9 @@ target_include_directories(
   ${PROJECT_NAME} PUBLIC ${INCLUDE_LIB_DIRS} ${JUCE_SOURCE_DIR}/modules
                          ${JUCE_HEADER} ${JUCE_BINARY_DATA_FOLDER})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBS_TO_TEST} GTest::gtest_main
-                                             gmock)
+target_link_libraries(
+  ${PROJECT_NAME} PUBLIC ${LIBS_TO_TEST} GTest::gtest_main SoundTouch
+                         nlohmann_json::nlohmann_json gmock)
 
 target_compile_definitions(
   ${PROJECT_NAME}
