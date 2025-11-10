@@ -8,7 +8,7 @@ PROFILE_FILE="${PWD}/${BUILD_DIR}/coverage-%p.profraw"
 MERGED_FILE="${BUILD_DIR}/coverage.profdata"
 HTML_DIR="${BUILD_DIR}/coverage_html"
 
-cmake -S . -B "$BUILD_DIR" -DENABLE_COVERAGE=ON -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B "$BUILD_DIR" -DENABLE_COVERAGE=ON -DCMAKE_BUILD_TYPE=Debug
 cmake --build "$BUILD_DIR" -j8
 
 export LLVM_PROFILE_FILE="$PROFILE_FILE"

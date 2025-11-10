@@ -120,3 +120,4 @@ message(STATUS "Processor: ${CMAKE_SYSTEM_PROCESSOR}")
 # "Coverage only supported on Clang/GCC") endif() endif()
 
 add_subdirectory(plugin)
+add_subdirectory(test)

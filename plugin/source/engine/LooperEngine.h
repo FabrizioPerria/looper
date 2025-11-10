@@ -91,6 +91,9 @@ public:
     MidiMappingManager* getMidiMappingManager() { return midiMappingManager.get(); }
     void saveMidiMappings() { midiMappingManager->saveToJson(); }
 
+    bool trackHasContent (int index) const;
+    int getActiveTrackIndex() const { return activeTrackIndex; }
+
 private:
     // State machine
     LooperStateMachine stateMachine;
@@ -125,7 +128,6 @@ private:
     std::array<bool, NUM_TRACKS> tracksToPlay;
 
     // Helper methods
-    bool trackHasContent (int index) const;
     LooperState determineStateAfterRecording() const;
     LooperState determineStateAfterStop() const;
     void switchToTrackImmediately (int trackIndex);
