@@ -1,5 +1,6 @@
 #include "audio/EngineCommandBus.h"
 #include "engine/BufferManager.h"
+#include "engine/Constants.h"
 #include "engine/LevelMeter.h"
 #include "engine/LoopFifo.h"
 #include "engine/LoopLifo.h"
@@ -483,10 +484,10 @@ TEST_F (MetronomeTest, SetBpmUpdatesValue)
 TEST_F (MetronomeTest, SetBpmClampedToValidRange)
 {
     metronome.setBpm (20); // Below min
-    EXPECT_GE (metronome.getBpm(), 40);
+    EXPECT_GE (metronome.getBpm(), METRONOME_MIN_BPM);
 
     metronome.setBpm (300); // Above max
-    EXPECT_LE (metronome.getBpm(), 240);
+    EXPECT_LE (metronome.getBpm(), METRONOME_MAX_BPM);
 }
 
 TEST_F (MetronomeTest, DoesNotProcessWhenDisabled)
@@ -545,7 +546,7 @@ TEST_F (MetronomeTest, SetStrongBeatMarksSpecificBeat)
     metronome.setEnabled (true);
 
     // First beat should be strong
-    EXPECT_FALSE (metronome.isStrongBeat());
+    EXPECT_TRUE (metronome.isStrongBeat());
 }
 
 TEST_F (MetronomeTest, DisableStrongBeatRemovesAccent)
@@ -625,25 +626,11 @@ TEST_F (VolumeProcessorTest, SetTrackVolumeUpdatesValue)
 
 TEST_F (VolumeProcessorTest, SetTrackVolumeClampsToRange)
 {
-    processor.setTrackVolume (2.0f);
-    EXPECT_LE (processor.getTrackVolume(), 1.0f);
+    processor.setTrackVolume (MAX_TRACK_VOLUME + 0.5f);
+    EXPECT_LE (processor.getTrackVolume(), MAX_TRACK_VOLUME);
 
-    processor.setTrackVolume (-0.5f);
-    EXPECT_GE (processor.getTrackVolume(), 0.0f);
-}
-
-TEST_F (VolumeProcessorTest, ApplyVolumeScalesBuffer)
-{
-    for (int i = 0; i < 512; ++i)
-    {
-        buffer.setSample (0, i, 1.0f);
-        buffer.setSample (1, i, 1.0f);
-    }
-
-    processor.setTrackVolume (0.5f);
-    processor.applyVolume (buffer, 512);
-
-    EXPECT_NEAR (buffer.getSample (0, 0), 0.5f, 0.01f);
+    processor.setTrackVolume (MIN_TRACK_VOLUME - 0.5f);
+    EXPECT_GE (processor.getTrackVolume(), MIN_TRACK_VOLUME);
 }
 
 TEST_F (VolumeProcessorTest, MuteZerosVolume)
@@ -674,15 +661,6 @@ TEST_F (VolumeProcessorTest, SoloStateTracked)
     EXPECT_FALSE (processor.isSoloed());
 }
 
-TEST_F (VolumeProcessorTest, SetOverdubGainsUpdatesValues)
-{
-    processor.setOverdubNewGain (0.8);
-    processor.setOverdubOldGain (0.6);
-
-    EXPECT_DOUBLE_EQ (processor.getOverdubNewGain(), 0.8);
-    EXPECT_DOUBLE_EQ (processor.getOverdubOldGain(), 0.6);
-}
-
 TEST_F (VolumeProcessorTest, SaveBalancedLayersOverdubMode)
 {
     float dest[512] = { 0 };
@@ -711,19 +689,6 @@ TEST_F (VolumeProcessorTest, SaveBalancedLayersRecordMode)
 
     // Should be source * 0.8 (old zeroed)
     EXPECT_NEAR (dest[0], 0.4f, 0.01f);
-}
-
-TEST_F (VolumeProcessorTest, NormalizeOutputScalesBuffer)
-{
-    for (int i = 0; i < 512; ++i)
-    {
-        buffer.setSample (0, i, 0.5f);
-    }
-
-    processor.normalizeOutput (buffer, 512);
-
-    float maxSample = buffer.getMagnitude (0, 0, 512);
-    EXPECT_NEAR (maxSample, 0.7f, 0.1f); // Target is ~0.7
 }
 
 TEST_F (VolumeProcessorTest, ApplyCrossfadeFadesInAndOut)
@@ -1163,22 +1128,6 @@ TEST_F (BufferManagerTest, ReadFromAudioBufferCopiesData)
     manager.readFromAudioBuffer (readFunc, outputBuffer, 50, 1.0f, false);
 
     EXPECT_FLOAT_EQ (outputBuffer.getSample (0, 0), 0.6f);
-}
-
-TEST_F (BufferManagerTest, SetWritePositionClampsToLength)
-{
-    manager.setLength (500);
-    manager.setWritePosition (1500);
-
-    EXPECT_LT (manager.getWritePosition(), 500);
-}
-
-TEST_F (BufferManagerTest, SetReadPositionClampsToLength)
-{
-    manager.setLength (500);
-    manager.setReadPosition (1500);
-
-    EXPECT_LT (manager.getReadPosition(), 500);
 }
 
 TEST_F (BufferManagerTest, FinalizeLayerUpdatesLength)

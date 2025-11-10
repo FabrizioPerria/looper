@@ -14,7 +14,7 @@ public:
 
     void setBpm (int newBpm)
     {
-        bpm = newBpm;
+        bpm = std::clamp (newBpm, (int) METRONOME_MIN_BPM, (int) METRONOME_MAX_BPM);
         samplesPerBeat = calculateSamplesPerBeat();
     }
     int getBpm() const { return bpm; }

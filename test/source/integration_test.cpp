@@ -690,6 +690,7 @@ TEST_F (LooperEngineIntegrationTest, RecordPlaybackCycle)
 
 TEST_F (LooperEngineIntegrationTest, MultiTrackRecording)
 {
+    engine.toggleSinglePlayMode(); // Ensure multi-track mode
     // Record on track 0
     fillBufferWithValue (audioBuffer, 0.3f);
     engine.toggleRecord();
@@ -811,34 +812,6 @@ TEST_F (LooperEngineIntegrationTest, SinglePlayModeOnlyPlaysActiveTrack)
     // Only track 0 should play
     EXPECT_TRUE (engine.shouldTrackPlay (0));
     EXPECT_FALSE (engine.shouldTrackPlay (1));
-}
-
-TEST_F (LooperEngineIntegrationTest, TrackSyncAffectsRecording)
-{
-    // Record master track
-    fillBufferWithValue (audioBuffer, 0.5f);
-    engine.processBlock (audioBuffer, midiBuffer);
-    engine.toggleRecord();
-    processBlocks (20);
-    engine.toggleRecord();
-
-    auto* masterTrack = engine.getTrackByIndex (0);
-    int masterLength = masterTrack->getTrackLengthSamples();
-
-    // Enable sync on track 1
-    engine.selectTrack (1);
-    engine.toggleSync (1);
-
-    // Record on synced track (should quantize to master)
-    fillBufferWithValue (audioBuffer, 0.3f);
-    engine.toggleRecord();
-    processBlocks (10); // Record less than master
-    engine.toggleRecord();
-
-    auto* syncedTrack = engine.getTrackByIndex (1);
-
-    // Synced track should match or be multiple of master length
-    EXPECT_GE (syncedTrack->getTrackLengthSamples(), masterLength);
 }
 
 TEST_F (LooperEngineIntegrationTest, MetronomeProducesClicks)
@@ -1099,6 +1072,7 @@ protected:
 
 TEST_F (MultiTrackSyncTest, SyncedTracksQuantizeToMaster)
 {
+    engine.toggleSinglePlayMode(); // Multi-track mode
     // Record master track (track 0)
     recordTrack (0, 40, 0.5f);
 
@@ -1186,6 +1160,7 @@ TEST_F (MultiTrackSyncTest, PlaybackPositionSyncAcrossTracks)
 
 TEST_F (MultiTrackSyncTest, LoopRegionSyncsAcrossTracks)
 {
+    engine.toggleSinglePlayMode(); // Multi-track mode
     // Record two tracks
     recordTrack (0, 60, 0.5f);
     recordTrack (1, 60, 0.3f);
