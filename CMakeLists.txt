@@ -4,7 +4,11 @@ project(LooperRoot)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_BUILD_TYPE Debug)
+
+# Only set Debug if not already specified
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug)
+endif()
 
 set(LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libs)
 set(CPM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -68,28 +72,51 @@ cpmaddpackage("gh:nlohmann/json@3.12.0")
 
 enable_testing()
 
+# Compiler flags based on platform and build type
 if(MSVC)
   add_compile_options(/Wall /WX)
-else()
+  # SIMD for MSVC
+  if(CMAKE_BUILD_TYPE MATCHES "Release|RelWithDebInfo")
+    add_compile_options(/arch:AVX2)
+    add_compile_definitions(__AVX2__)
+    message(STATUS "SIMD: Enabled AVX2 (MSVC)")
+  endif()
+elseif(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+  # M1/M2/M3 Macs - don't use -march=native, let it use NEON naturally
   add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
-
-option(ENABLE_COVERAGE "Enable test coverage reporting" OFF)
-
-if(ENABLE_COVERAGE)
-  if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-    message(FATAL_ERROR "Coverage requires Debug build type")
-  endif()
-
-  message(STATUS "Building with coverage instrumentation")
-  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
-    add_compile_options(-O0 -g -fprofile-instr-generate -fcoverage-mapping
-                        -fno-inline -fno-omit-frame-pointer)
-    add_link_options(-fprofile-instr-generate)
+  if(CMAKE_BUILD_TYPE MATCHES "Release|RelWithDebInfo")
+    add_compile_options(-O3)
+    message(STATUS "SIMD: ARM64 (M-series Mac) - NEON enabled by default")
   else()
-    message(FATAL_ERROR "Coverage only supported on Clang/GCC")
+    add_compile_options(-O1)
+    message(STATUS "SIMD: ARM64 Debug build with -O1")
+  endif()
+else()
+  # Linux/Intel
+  add_compile_options(-Wall -Wextra -Wpedantic)
+  if(CMAKE_BUILD_TYPE MATCHES "Release|RelWithDebInfo")
+    add_compile_options(-march=native -O3)
+    add_compile_definitions(__AVX2__)
+    message(STATUS "SIMD: Enabled native arch with -march=native (GCC/Clang)")
+  else()
+    add_compile_options(-march=native -O1)
+    message(STATUS "SIMD: Debug build with -march=native -O1")
   endif()
 endif()
+
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Processor: ${CMAKE_SYSTEM_PROCESSOR}")
+
+# option(ENABLE_COVERAGE "Enable test coverage reporting" OFF)
+#
+# if(ENABLE_COVERAGE) if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+# message(FATAL_ERROR "Coverage requires Debug build type") endif()
+#
+# message(STATUS "Building with coverage instrumentation")
+# if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
+# add_compile_options(-O0 -g -fprofile-instr-generate -fcoverage-mapping
+# -fno-inline -fno-omit-frame-pointer)
+# add_link_options(-fprofile-instr-generate) else() message(FATAL_ERROR
+# "Coverage only supported on Clang/GCC") endif() endif()
 
 add_subdirectory(plugin)
-# add_subdirectory(test)
