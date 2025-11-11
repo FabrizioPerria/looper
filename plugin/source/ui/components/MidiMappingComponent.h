@@ -58,7 +58,6 @@ private:
             clearButton.onClick = [this]() { onClearClicked(); };
         }
 
-        // MidiMappingComponent.h - updated MappingRow paint() method
         void paint (juce::Graphics& g) override
         {
             auto bounds = getLocalBounds();
@@ -111,11 +110,18 @@ private:
             isLearning = learning;
             learnButton.setButtonText (learning ? "Cancel" : "Learn");
             rowColor = learning ? LooperTheme::Colors::orange.darker() : LooperTheme::Colors::backgroundDark;
-            repaint();
             clearButton.setVisible (! learning);
+            refresh();
         }
 
-        void refresh() { repaint(); }
+        void refresh()
+        {
+            repaint();
+            if (auto* viewport = findParentComponentOfClass<juce::Viewport>())
+            {
+                viewport->repaint (getLocalBounds());
+            }
+        }
 
         EngineMessageBus::CommandType getCommandType() const { return rowData.command; }
 

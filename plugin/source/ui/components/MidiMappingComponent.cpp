@@ -182,12 +182,13 @@ void MidiMappingComponent::buildMappingList()
 
 void MidiMappingComponent::startLearning (MappingRow* row)
 {
-    if (currentLearningRow && currentLearningRow != row)
-    {
-        currentLearningRow->setLearning (false);
-        currentLearningRow = nullptr;
-    }
+    // if (currentLearningRow && currentLearningRow != row)
+    // {
+    //     currentLearningRow->setLearning (false);
+    //     currentLearningRow = nullptr;
+    // }
 
+    cancelLearning();
     currentLearningRow = row;
     currentLearningRow->setLearning (true);
 
