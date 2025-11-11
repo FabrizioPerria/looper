@@ -215,35 +215,24 @@ public:
 
         std::array<Grain, MAX_GRAINS> getActiveGrains() const { return grains; }
 
-        // Replace the grain processing loop in CloudController::processBlock with this:
-
-        void processBlock (juce::AudioBuffer<float>& output, const juce::AudioBuffer<float>& frozenBuf)
+        void processBlock (juce::AudioBuffer<float>& output,
+                           const juce::AudioBuffer<float>& frozenBuf,
+                           const juce::AudioBuffer<float>& tailBuf)
         {
             const int numSamples = output.getNumSamples();
 
-            // ===== GRAIN TRIGGERING (only during FREEZING) =====
-            if (cloudState == CloudState::FREEZING)
+            for (int i = 0; i < numSamples; ++i)
             {
-                for (int i = 0; i < numSamples; ++i)
+                modulator.updatePhase();
+                if (--nextGrainTime <= 0)
                 {
-                    modulator.updatePhase();
-                    if (--nextGrainTime <= 0)
-                    {
-                        startNewGrain();
-                        nextGrainTime = static_cast<int> (cloudParams.grainParams.density);
-                    }
+                    startNewGrain();
+                    nextGrainTime = static_cast<int> (cloudParams.grainParams.density);
                 }
             }
-            else if (cloudState == CloudState::TAILING)
+            if (isTailing())
             {
-                // Update modulator but don't spawn grains
-                for (int i = 0; i < numSamples; ++i)
-                {
-                    modulator.updatePhase();
-                }
                 tailElapsedSamples += numSamples;
-
-                // Check if tail is done
                 if (tailElapsedSamples >= tailDurationSamples)
                 {
                     cloudState = CloudState::IDLE;
@@ -258,12 +247,23 @@ public:
 
             const int numGrains = cloudParams.maxGrains;
 
+            float tailBufferBlend = 0.0f;
+            if (isTailing())
+            {
+                tailBufferBlend = 1.0f - (static_cast<float> (tailElapsedSamples) / static_cast<float> (tailDurationSamples));
+                tailBufferBlend = juce::jlimit (0.0f, 1.0f, tailBufferBlend);
+            }
+
             for (int g = 0; g < numGrains; ++g)
             {
                 if (grains[g].isPlaying())
                 {
                     auto [pitchMod, ampMod] = modulator.getModulation (g, numGrains);
-                    grains[g].processBlock (frozenBuf, window, pitchMod, ampMod, numSamples);
+
+                    // Pick buffer based on blend probability
+                    const juce::AudioBuffer<float>& bufferToUse = (random.nextFloat() < tailBufferBlend) ? tailBuf : frozenBuf;
+
+                    grains[g].processBlock (bufferToUse, window, pitchMod, ampMod, numSamples);
 
                     juce::FloatVectorOperations::add (blockLeftAccum.data(), grains[g].getLeftOut().data(), numSamples);
                     juce::FloatVectorOperations::add (blockRightAccum.data(), grains[g].getRightOut().data(), numSamples);
@@ -305,7 +305,7 @@ public:
             {
                 cloudState = CloudState::TAILING;
                 tailElapsedSamples = 0;
-                tailDurationSamples = (int) (sampleRate_ * 5.0); // 1 second tail
+                tailDurationSamples = (int) (sampleRate_ * 5.0); // 5 second tail
             }
         }
 
@@ -383,6 +383,9 @@ public:
 
         frozenBuffer.setSize (numChannels, bufferSize);
         frozenBuffer.clear();
+        tailBuffer.setSize (numChannels, bufferSize);
+        tailBuffer.clear();
+
         circularBuffer.prepareToPlay (numChannels, bufferSize);
 
         sampleRate_ = sampleRate;
@@ -406,6 +409,13 @@ public:
         else if (cloudController.isFreezing())
         {
             cloudController.stopFreeze();
+
+            for (int ch = 0; ch < circularBuffer.getNumChannels(); ++ch)
+            {
+                juce::FloatVectorOperations::copy (tailBuffer.getWritePointer (ch),
+                                                   frozenBuffer.getReadPointer (ch),
+                                                   tailBuffer.getNumSamples());
+            }
         }
     }
 
@@ -428,7 +438,7 @@ public:
 
         if (! cloudController.isIdle())
         {
-            cloudController.processBlock (buffer, frozenBuffer);
+            cloudController.processBlock (buffer, frozenBuffer, tailBuffer);
         }
     }
 
@@ -446,6 +456,7 @@ private:
 
     BufferManager circularBuffer;
     juce::AudioBuffer<float> frozenBuffer;
+    juce::AudioBuffer<float> tailBuffer;
 
     CloudController cloudController;
 
