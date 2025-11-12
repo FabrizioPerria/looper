@@ -9,16 +9,12 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [macos-latest]
         include:
           - os: macos-latest
             artifact-prefix: macos
             cc: /opt/homebrew/opt/llvm/bin/clang
             cxx: /opt/homebrew/opt/llvm/bin/clang++
-          - os: ubuntu-latest
-            artifact-prefix: linux
-            cc: clang
-            cxx: clang++
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -33,22 +29,6 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install cmake llvm ninja
-
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build clang lld \
-            libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev \
-            libfreetype6-dev libfreetype-dev \
-            libasound2-dev libgl1-mesa-dev libxcb-util0-dev \
-            pkg-config
-
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          choco install cmake ninja -y
-          choco install llvm -y
 
       - name: Configure CMake (macOS/Linux)
         if: runner.os != 'Windows'
@@ -96,51 +76,6 @@ jobs:
             cd ..
           fi
 
-      - name: Package Linux artifacts
-        if: runner.os == 'Linux'
-        run: |
-          # Package VST3
-          VST3_PATH=$(find build -name "looper.vst3" -type d | head -1)
-          if [ -n "$VST3_PATH" ]; then
-            cd artifacts
-            cp -r "$VST3_PATH" .
-            zip -r looper-vst3-linux.zip looper.vst3
-            rm -rf looper.vst3
-            cd ..
-          fi
-
-          # Package Standalone
-          STANDALONE=$(find build -name "looper" -type f -executable | grep -i standalone | head -1)
-          if [ -z "$STANDALONE" ]; then
-            STANDALONE=$(find build -name "looper" -type f -executable | head -1)
-          fi
-          if [ -n "$STANDALONE" ]; then
-            cp "$STANDALONE" artifacts/looper-standalone-linux
-            cd artifacts
-            zip looper-standalone-linux.zip looper-standalone-linux
-            rm looper-standalone-linux
-            cd ..
-          fi
-
-      - name: Package Windows artifacts
-        if: runner.os == 'Windows'
-        run: |
-          # Package VST3
-          $VST3_PATH = Get-ChildItem -Path build -Filter "looper.vst3" -Recurse -Directory | Select-Object -First 1
-          if ($VST3_PATH) {
-            Copy-Item -Path $VST3_PATH.FullName -Destination artifacts -Recurse
-            Compress-Archive -Path "artifacts/looper.vst3" -DestinationPath "artifacts/looper-vst3-windows.zip"
-            Remove-Item -Path "artifacts/looper.vst3" -Recurse
-          }
-
-          # Package Standalone
-          $STANDALONE = Get-ChildItem -Path build -Filter "looper.exe" -Recurse -File | Select-Object -First 1
-          if ($STANDALONE) {
-            Copy-Item -Path $STANDALONE.FullName -Destination "artifacts/looper-standalone-windows.exe"
-            Compress-Archive -Path "artifacts/looper-standalone-windows.exe" -DestinationPath "artifacts/looper-standalone-windows.zip"
-            Remove-Item -Path "artifacts/looper-standalone-windows.exe"
-          }
-
       - name: List artifacts
         run: ls -lah artifacts/
 
@@ -155,6 +90,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: always()
+    permissions:
+      contents: write
 
     steps:
       - name: Download all artifacts
