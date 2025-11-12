@@ -8,9 +8,6 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-    strategy:
-      matrix:
-        format: [VST3, Standalone]
 
     steps:
       - name: Checkout code
@@ -42,7 +39,6 @@ jobs:
         run: mkdir -p artifacts
 
       - name: Package VST3
-        if: matrix.format == 'VST3'
         run: |
           VST3_PATH=$(find build -name "*.vst3" -type d | head -1)
           if [ -n "$VST3_PATH" ]; then
@@ -53,7 +49,6 @@ jobs:
           fi
 
       - name: Package Standalone
-        if: matrix.format == 'Standalone'
         run: |
           APP_PATH=$(find build -name "looper.app" -type d | head -1)
           if [ -n "$APP_PATH" ]; then
@@ -66,7 +61,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: looper-${{ matrix.format }}-macos
+          name: looper-macos
           path: artifacts/*.zip
           retention-days: 1
 
