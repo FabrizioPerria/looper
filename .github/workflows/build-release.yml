@@ -7,21 +7,7 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest]
-        include:
-          - os: macos-latest
-            artifact-prefix: macos
-            cc: /opt/homebrew/opt/llvm/bin/clang
-            cxx: /opt/homebrew/opt/llvm/bin/clang++
-          - os: ubuntu-latest
-            artifact-prefix: linux
-            cc: clang
-            cxx: clang++
-      fail-fast: false
-
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
 
     steps:
       - name: Checkout code
@@ -74,7 +60,6 @@ jobs:
         run: mkdir -p artifacts
 
       - name: Package macOS artifacts
-        if: runner.os == 'macOS'
         run: |
           # Package VST3
           VST3_PATH=$(find build -name "*.vst3" -type d | head -1)
@@ -96,58 +81,13 @@ jobs:
             cd ..
           fi
 
-      - name: Package Linux artifacts
-        if: runner.os == 'Linux'
-        run: |
-          # Package VST3
-          VST3_PATH=$(find build -name "looper.vst3" -type d | head -1)
-          if [ -n "$VST3_PATH" ]; then
-            cd artifacts
-            cp -r "$VST3_PATH" .
-            zip -r looper-vst3-linux.zip looper.vst3
-            rm -rf looper.vst3
-            cd ..
-          fi
-
-          # Package Standalone
-          STANDALONE=$(find build -name "looper" -type f -executable | grep -i standalone | head -1)
-          if [ -z "$STANDALONE" ]; then
-            STANDALONE=$(find build -name "looper" -type f -executable | head -1)
-          fi
-          if [ -n "$STANDALONE" ]; then
-            cp "$STANDALONE" artifacts/looper-standalone-linux
-            cd artifacts
-            zip looper-standalone-linux.zip looper-standalone-linux
-            rm looper-standalone-linux
-            cd ..
-          fi
-
-      - name: Package Windows artifacts
-        if: runner.os == 'Windows'
-        run: |
-          # Package VST3
-          $VST3_PATH = Get-ChildItem -Path build -Filter "looper.vst3" -Recurse -Directory | Select-Object -First 1
-          if ($VST3_PATH) {
-            Copy-Item -Path $VST3_PATH.FullName -Destination artifacts -Recurse
-            Compress-Archive -Path "artifacts/looper.vst3" -DestinationPath "artifacts/looper-vst3-windows.zip"
-            Remove-Item -Path "artifacts/looper.vst3" -Recurse
-          }
-
-          # Package Standalone
-          $STANDALONE = Get-ChildItem -Path build -Filter "looper.exe" -Recurse -File | Select-Object -First 1
-          if ($STANDALONE) {
-            Copy-Item -Path $STANDALONE.FullName -Destination "artifacts/looper-standalone-windows.exe"
-            Compress-Archive -Path "artifacts/looper-standalone-windows.exe" -DestinationPath "artifacts/looper-standalone-windows.zip"
-            Remove-Item -Path "artifacts/looper-standalone-windows.exe"
-          }
-
       - name: List artifacts
         run: ls -lah artifacts/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: looper-${{ matrix.artifact-prefix }}
+          name: looper-macos
           path: artifacts/
           retention-days: 1
 
