@@ -23,6 +23,7 @@ jobs:
             artifact-prefix: windows
             cc: cl
             cxx: cl
+      fail-fast: false
 
     runs-on: ${{ matrix.os }}
 
@@ -41,7 +42,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build clang lld libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev mesa-common-dev
+          sudo apt-get install -y cmake ninja-build clang lld libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev mesa-common-dev libfreetype6-dev
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
@@ -159,6 +160,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    if: always()
 
     steps:
       - name: Download all artifacts
