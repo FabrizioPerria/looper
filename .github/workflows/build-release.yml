@@ -42,8 +42,7 @@ jobs:
 
       - name: Build plugin
         run:
-          cmake --build build --config Release -j8 --target looper looper_VST3 looper_Standalone
-          --target looper looper_VST3 looper_Standalone
+          cmake --build build --config Release -j8 --target looper looper_VST3 looper_Standalone looper_AU --target looper looper_VST3 looper_Standalone
 
       - name: Locate built artifacts
         run: |
