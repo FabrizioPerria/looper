@@ -1,6 +1,5 @@
 #pragma once
 #include "audio/AudioToUIBridge.h"
-#include "audio/EngineStateToUIBridge.h"
 #include "engine/Constants.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/AccentBarComponent.h"
@@ -15,10 +14,10 @@
 class TrackComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    TrackComponent (EngineMessageBus* engineMessageBus, int trackIdx, AudioToUIBridge* audioBridge, EngineStateToUIBridge* engineBridge)
+    TrackComponent (EngineMessageBus* engineMessageBus, int trackIdx, AudioToUIBridge* audioBridge)
         : trackIndex (trackIdx)
         , waveformDisplay (trackIdx, audioBridge, engineMessageBus)
-        , accentBar (engineMessageBus, trackIdx, audioBridge, engineBridge)
+        , accentBar (engineMessageBus, trackIdx)
         , volumeFader (engineMessageBus,
                        trackIdx,
                        "VOLUME",
@@ -31,7 +30,6 @@ public:
         , trackEditComponent (engineMessageBus, trackIdx)
         , volumesComponent (engineMessageBus, trackIdx)
         , uiToEngineBus (engineMessageBus)
-        , bridge (audioBridge)
     {
         addAndMakeVisible (waveformDisplay);
 
@@ -150,7 +148,6 @@ private:
     VolumesComponent volumesComponent;
 
     EngineMessageBus* uiToEngineBus;
-    AudioToUIBridge* bridge;
 
     void setActive (bool shouldBeActive)
     {

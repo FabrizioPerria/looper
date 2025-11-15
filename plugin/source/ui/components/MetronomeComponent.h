@@ -120,13 +120,13 @@ public:
     {
         g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
 
-        auto titleBounds = metronomeLabel.getBounds();
+        auto titleBounds = metronomeLabel.getBounds().toFloat();
         g.fillRect (titleBounds.getX() + 3.0f, titleBounds.getBottom() + 3.0f, titleBounds.getWidth() - 6.0f, 1.0f);
 
-        auto timeSigBounds = numeratorEditor.getBounds().getUnion (denominatorEditor.getBounds());
+        auto timeSigBounds = numeratorEditor.getBounds().getUnion (denominatorEditor.getBounds()).toFloat();
         const float lineThickness = 2.0f;
         const float lineWidth = timeSigBounds.getWidth() * 0.5f;
-        const float lineY = (numeratorEditor.getBottom() + denominatorEditor.getY()) * 0.5f;
+        const float lineY = (float) (numeratorEditor.getBottom() + denominatorEditor.getY()) * 0.5f;
         const float lineX = timeSigBounds.getCentreX() - (lineWidth * 0.5f);
         g.fillRect (lineX, lineY - (lineThickness / 2.0f), lineWidth, lineThickness);
     }

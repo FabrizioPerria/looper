@@ -148,8 +148,6 @@ private:
     bool wasUsingFastPath = true;
 
     int playheadDirection = DEFAULT_REVERSE_STATE ? -1 : 1;
-    float playbackSpeedBeforeRecording = 1.0f;
-    int playheadDirectionBeforeRecording = 1;
 
     bool shouldNotPlayback (const int trackLength, const int numSamples) const { return trackLength <= 0 || numSamples <= 0; }
 

@@ -79,17 +79,17 @@ void MidiMappingComponent::resized()
         if (data.category != currentCategory)
         {
             currentCategory = data.category;
-            if (headerIndex < categoryHeaders.size())
+            if (headerIndex < (size_t) categoryHeaders.size())
             {
-                categoryHeaders[headerIndex]->setBounds (0, yPos, viewport.getMaximumVisibleWidth(), headerHeight);
+                categoryHeaders[(int) headerIndex]->setBounds (0, yPos, viewport.getMaximumVisibleWidth(), headerHeight);
                 yPos += headerHeight;
                 headerIndex++;
             }
         }
 
-        if (rowIndex < mappingRows.size())
+        if (rowIndex < (size_t) mappingRows.size())
         {
-            mappingRows[rowIndex]->setBounds (0, yPos, viewport.getMaximumVisibleWidth(), rowHeight);
+            mappingRows[(int) rowIndex]->setBounds (0, yPos, viewport.getMaximumVisibleWidth(), rowHeight);
             yPos += rowHeight;
             rowIndex++;
         }
@@ -151,7 +151,7 @@ void MidiMappingComponent::buildMappingList()
     constexpr size_t numCommands = std::size (EngineMessageBus::commandTypeNamesForMenu);
     auto commandNamesMapping = EngineMessageBus::commandTypeNamesForMenu;
 
-    for (int i = 0; i < numCommands; ++i)
+    for (int i = 0; i < (int) numCommands; ++i)
     {
         auto commandType = commandNamesMapping[i].first;
         auto name = commandNamesMapping[i].second;

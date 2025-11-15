@@ -1,15 +1,13 @@
 #pragma once
 
 #include "audio/EngineCommandBus.h"
-#include "audio/EngineStateToUIBridge.h"
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
 class TransportControlsComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    TransportControlsComponent (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge)
-        : uiToEngineBus (engineMessageBus), engineState (bridge)
+    TransportControlsComponent (EngineMessageBus* engineMessageBus) : uiToEngineBus (engineMessageBus)
     {
         transportLabel.setText ("Transport", juce::dontSendNotification);
         transportLabel.setJustificationType (juce::Justification::centred);
@@ -60,10 +58,10 @@ public:
     {
         g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
 
-        auto titleBounds = transportLabel.getBounds();
+        auto titleBounds = transportLabel.getBounds().toFloat();
         g.fillRect (titleBounds.getX() + 3.0f, titleBounds.getBottom() + 3.0f, titleBounds.getWidth() - 6.0f, 1.0f);
 
-        titleBounds = trackLabel.getBounds();
+        titleBounds = trackLabel.getBounds().toFloat();
         g.fillRect (titleBounds.getX() + 3.0f, titleBounds.getBottom() + 3.0f, titleBounds.getWidth() - 6.0f, 1.0f);
     }
 
@@ -141,7 +139,6 @@ private:
     juce::Label trackLabel { "Track", "Track" };
 
     EngineMessageBus* uiToEngineBus;
-    EngineStateToUIBridge* engineState;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TransportControlsComponent)
 };

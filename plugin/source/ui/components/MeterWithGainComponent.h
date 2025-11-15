@@ -45,11 +45,11 @@ public:
 
     void resized() override
     {
-        auto bounds = getLocalBounds();
+        auto bounds = getLocalBounds().toFloat();
 
-        int channelLabelWidth = 12;
-        int meterHeight = 14;
-        int spacing = 2;
+        float channelLabelWidth = 12;
+        float meterHeight = 14.0f;
+        float spacing = 2;
 
         labelBounds = bounds.removeFromTop (16);
 
@@ -68,7 +68,7 @@ public:
         rightLabelBounds = rightChannelBounds.removeFromLeft (channelLabelWidth);
 
         // Gain slider overlays the meter area (invisible but functional)
-        gainSlider.setBounds (leftChannelBounds.getUnion (rightChannelBounds));
+        gainSlider.setBounds (leftChannelBounds.getUnion (rightChannelBounds).toNearestInt());
         gainSlider.setAlpha (0.3f); // Semi-transparent so meters show through
     }
 
@@ -76,11 +76,11 @@ public:
     {
         // Draw main label (IN/OUT)
         g.setColour (LooperTheme::Colors::cyan);
-        g.setFont (juce::Font (juce::Font::getDefaultMonospacedFontName(), 11.0f, juce::Font::bold));
+        g.setFont (LooperTheme::Fonts::getBoldFont (12.0f));
         g.drawText (label, labelBounds, juce::Justification::centred);
 
         // Draw channel labels (L/R)
-        g.setFont (juce::Font (juce::Font::getDefaultMonospacedFontName(), 10.0f, juce::Font::plain));
+        g.setFont (LooperTheme::Fonts::getRegularFont (10.0f));
         g.setColour (LooperTheme::Colors::text);
         g.drawText ("L", leftLabelBounds, juce::Justification::centred);
         g.drawText ("R", rightLabelBounds, juce::Justification::centred);
@@ -110,11 +110,11 @@ private:
     // bool isInputMeter = false;
 
     // Layout bounds
-    juce::Rectangle<int> labelBounds;
-    juce::Rectangle<int> leftChannelBounds;
-    juce::Rectangle<int> leftLabelBounds;
-    juce::Rectangle<int> rightChannelBounds;
-    juce::Rectangle<int> rightLabelBounds;
+    juce::Rectangle<float> labelBounds;
+    juce::Rectangle<float> leftChannelBounds;
+    juce::Rectangle<float> leftLabelBounds;
+    juce::Rectangle<float> rightChannelBounds;
+    juce::Rectangle<float> rightLabelBounds;
 
     void timerCallback() override
     {
@@ -126,7 +126,7 @@ private:
         repaint();
     }
 
-    void drawMeter (juce::Graphics& g, juce::Rectangle<int> bounds, float peak, float rms)
+    void drawMeter (juce::Graphics& g, juce::Rectangle<float> bounds, float peak, float rms)
     {
         // Background
         g.setColour (LooperTheme::Colors::background);
@@ -149,15 +149,15 @@ private:
                                           { -6.0f, 0.0f, juce::Colours::orange },
                                           { 0.0f, 12.0f, juce::Colours::red } };
 
-        int numDots = 60;                 // Number of LED dots
-        float dbPerDot = 72.0f / numDots; // 72dB range (-60 to +12)
-        float spacing = (float) bounds.getWidth() / numDots;
+        int numDots = 60;                         // Number of LED dots
+        float dbPerDot = 72.0f / (float) numDots; // 72dB range (-60 to +12)
+        float spacing = (float) bounds.getWidth() / (float) numDots;
         float dotRadius = juce::jmin (spacing * 0.4f, (float) bounds.getHeight() * 0.35f); // Adaptive size
 
         // Draw each dot
         for (int i = 0; i < numDots; ++i)
         {
-            float dotDb = -60.0f + (i * dbPerDot);
+            float dotDb = -60.0f + ((float) i * dbPerDot);
             float dotCenterDb = dotDb + (dbPerDot / 2.0f);
 
             // Determine dot color
@@ -175,7 +175,7 @@ private:
             bool peakLit = peakDb >= dotCenterDb;
             bool rmsLit = rmsDb >= dotCenterDb;
 
-            float dotX = bounds.getX() + (i * spacing) + (spacing / 2.0f);
+            float dotX = bounds.getX() + ((float) i * spacing) + (spacing / 2.0f);
             float dotY = bounds.getCentreY();
 
             // Draw RMS indicator (smaller, dimmer circle behind)
@@ -227,7 +227,7 @@ private:
         juce::String gainText = juce::String (gainDb, 1) + "dB";
 
         auto textBounds = getLocalBounds().removeFromBottom (12);
-        g.setFont (juce::Font (juce::Font::getDefaultMonospacedFontName(), 9.0f, juce::Font::plain));
+        g.setFont (LooperTheme::Fonts::getRegularFont (9.0f));
         g.setColour (LooperTheme::Colors::text.withAlpha (0.6f));
         g.drawText (gainText, textBounds, juce::Justification::centred);
     }

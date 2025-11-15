@@ -69,8 +69,8 @@ public:
     float getTrackVolume() const { return volumeProcessor.getTrackVolume(); }
     void setTrackVolume (const float newVolume) { volumeProcessor.setTrackVolume (newVolume); }
 
-    void setOverdubGainNew (const double newGain) { volumeProcessor.setOverdubNewGain (newGain); }
-    void setOverdubGainOld (const double oldGain) { volumeProcessor.setOverdubOldGain (oldGain); }
+    void setOverdubGainNew (const double newGain) { volumeProcessor.setOverdubNewGain ((float) newGain); }
+    void setOverdubGainOld (const double oldGain) { volumeProcessor.setOverdubOldGain ((float) oldGain); }
     double getOverdubGainNew() const { return volumeProcessor.getOverdubNewGain(); }
     double getOverdubGainOld() const { return volumeProcessor.getOverdubOldGain(); }
 

@@ -154,13 +154,13 @@ public:
 
         g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
 
-        auto midiTitleBounds = midiLabel.getBounds();
+        auto midiTitleBounds = midiLabel.getBounds().toFloat();
         g.fillRect (midiTitleBounds.getX() + 3.0f, midiTitleBounds.getBottom() + 3.0f, midiTitleBounds.getWidth() - 6.0f, 1.0f);
 
-        auto playModeTitleBounds = playModeLabel.getBounds();
+        auto playModeTitleBounds = playModeLabel.getBounds().toFloat();
         g.fillRect (playModeTitleBounds.getX() + 3.0f, playModeTitleBounds.getBottom() + 3.0f, playModeTitleBounds.getWidth() - 6.0f, 1.0f);
 
-        auto saveTitleBounds = saveLabel.getBounds();
+        auto saveTitleBounds = saveLabel.getBounds().toFloat();
         g.fillRect (saveTitleBounds.getX() + 3.0f, saveTitleBounds.getBottom() + 3.0f, saveTitleBounds.getWidth() - 6.0f, 1.0f);
     }
 

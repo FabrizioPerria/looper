@@ -42,7 +42,8 @@ jobs:
 
       - name: Build plugin
         run:
-          cmake --build build --config Release -j8 --target looper looper_VST3 looper_Standalone looper_AU --target looper looper_VST3 looper_Standalone
+          cmake --build build --config Release -j8 --target looper looper_VST3 looper_Standalone
+          looper_AU --target looper looper_VST3 looper_Standalone
 
       - name: Locate built artifacts
         run: |
@@ -72,6 +73,15 @@ jobs:
             cd artifacts
             zip -r looper-standalone-macos.zip looper.app
             rm -rf looper.app
+            cd ..
+          fi
+
+          AU_PATH=$(find build -name "looper.component" -type d | head -1)
+          if [ -n "$AU_PATH" ]; then
+            cp -r "$AU_PATH" artifacts/
+            cd artifacts
+            zip -r looper-au-macos.zip looper.component
+            rm -rf looper.component
             cd ..
           fi
 

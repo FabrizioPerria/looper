@@ -1,7 +1,5 @@
 #pragma once
 
-#include "audio/EngineStateToUIBridge.h"
-#include "engine/GranularFreeze.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/FreezeComponent.h"
 #include "ui/components/MetronomeComponent.h"
@@ -11,11 +9,8 @@
 class GlobalControlBar : public juce::Component
 {
 public:
-    GlobalControlBar (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge, Metronome* m, GranularFreeze* freezer)
-        : uiToEngineBus (engineMessageBus)
-        , transportControls (engineMessageBus, bridge)
-        , metronomeComponent (engineMessageBus, m)
-        , droneComponent (engineMessageBus, freezer)
+    GlobalControlBar (EngineMessageBus* engineMessageBus, Metronome* m)
+        : transportControls (engineMessageBus), metronomeComponent (engineMessageBus, m), droneComponent (engineMessageBus)
     {
         addAndMakeVisible (transportControls);
         addAndMakeVisible (metronomeComponent);
@@ -42,8 +37,6 @@ public:
 
 private:
     juce::Label looperLabel;
-
-    EngineMessageBus* uiToEngineBus;
 
     TransportControlsComponent transportControls;
     MetronomeComponent metronomeComponent;

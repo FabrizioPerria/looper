@@ -2,18 +2,15 @@
 
 #include "audio/EngineCommandBus.h"
 #include "engine/Constants.h"
-#include "engine/GranularFreeze.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/components/ButtonIconComponent.h"
 #include "ui/components/LevelComponent.h"
 #include <JuceHeader.h>
 
 class FreezeComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    FreezeComponent (EngineMessageBus* engineMessageBus, GranularFreeze* freezer)
+    FreezeComponent (EngineMessageBus* engineMessageBus)
         : uiToEngineBus (engineMessageBus)
-        , freezeSynth (freezer)
         , levelComponent (engineMessageBus,
                           DEFAULT_ACTIVE_TRACK_INDEX,
                           "Level",
@@ -42,7 +39,7 @@ public:
     {
         g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
 
-        auto titleBounds = freezeLabel.getBounds();
+        auto titleBounds = freezeLabel.getBounds().toFloat();
         g.fillRect (titleBounds.getX() + 3.0f, titleBounds.getBottom() + 3.0f, titleBounds.getWidth() - 6.0f, 1.0f);
     }
 
@@ -67,7 +64,6 @@ public:
 
 private:
     EngineMessageBus* uiToEngineBus;
-    GranularFreeze* freezeSynth;
     juce::Label freezeLabel { "Freeze", "Freeze" };
     LevelComponent levelComponent;
     // ButtonIconComponent freezeButton;
@@ -93,5 +89,5 @@ private:
                 throw juce::String ("Unhandled event type in FreezeComponent" + juce::String (static_cast<int> (event.type)));
         }
     }
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FreezeComponent);
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FreezeComponent)
 };

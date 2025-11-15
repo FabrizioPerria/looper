@@ -5,7 +5,7 @@
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
-class ButtonIconComponent : public juce::Component, public juce::MouseListener
+class ButtonIconComponent : public juce::Component
 {
 public:
     ButtonIconComponent (EngineMessageBus* engineMessageBus, const juce::String& svgData, EngineMessageBus::CommandType command)
@@ -32,7 +32,7 @@ public:
         enabledColour = newColour;
     }
 
-    void mouseDown (const juce::MouseEvent& event) override
+    void mouseDown (const juce::MouseEvent& /*event*/) override
     {
         uiToEngineBus->pushCommand (EngineMessageBus::Command { commandType, -1, {} });
     }

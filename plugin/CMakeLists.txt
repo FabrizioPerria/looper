@@ -74,5 +74,6 @@ target_compile_definitions(
          JUCE_SILENCE_XCODE_15_LINKER_WARNING=1)
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
-target_link_options(${PROJECT_NAME} PUBLIC
-                    "-Wall -Werror -Wl,-weak_reference_mismatches,weak")
+target_link_options(
+  ${PROJECT_NAME} PUBLIC
+  "-Wall -Werror -Wl,-weak_reference_mismatches,weak,-Wno-switch-enum")

@@ -110,7 +110,7 @@ public:
 
 private:
     void onVBlankCallback();
-    void handleAsyncUpdate();
+    void handleAsyncUpdate() override;
 
     bool isDraggingRegion = false;
     int dragStartX = 0;
@@ -119,14 +119,14 @@ private:
     int regionEndSample = 0;
     int xToSample (int x)
     {
-        float normalized = (float) x / getWidth();
-        return (int) (normalized * cache.getTrackLength());
+        float normalized = (float) x / (float) getWidth();
+        return (int) (normalized * (float) cache.getTrackLength());
     }
 
     int sampleToX (int sample)
     {
-        float normalized = (float) sample / cache.getTrackLength();
-        return (int) (normalized * getWidth());
+        float normalized = (float) sample / (float) cache.getTrackLength();
+        return (int) (normalized * (float) getWidth());
     }
 
     int trackIndex;

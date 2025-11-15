@@ -3,7 +3,6 @@
 #include "Constants.h"
 #include <JuceHeader.h>
 #include <array>
-#include <atomic>
 
 class WindowTable
 {
@@ -154,14 +153,14 @@ public:
     void
         processBlock (const juce::AudioBuffer<float>& frozenBuffer, const WindowTable& window, float pitchMod, float ampMod, int numSamples)
     {
-        leftOut.resize (numSamples);
-        rightOut.resize (numSamples);
+        leftOut.resize ((size_t) numSamples);
+        rightOut.resize ((size_t) numSamples);
 
         for (int s = 0; s < numSamples; ++s)
         {
             auto [left, right] = processSingle (frozenBuffer, window, pitchMod, ampMod);
-            leftOut[s] = left;
-            rightOut[s] = right;
+            leftOut[(size_t) s] = left;
+            rightOut[(size_t) s] = right;
         }
     }
 
@@ -241,8 +240,8 @@ public:
             }
 
             // ===== GRAIN PROCESSING =====
-            std::vector<float> blockLeftAccum (numSamples, 0.0f);
-            std::vector<float> blockRightAccum (numSamples, 0.0f);
+            std::vector<float> blockLeftAccum ((size_t) numSamples, 0.0f);
+            std::vector<float> blockRightAccum ((size_t) numSamples, 0.0f);
             int activeCount = 0;
 
             const int numGrains = cloudParams.maxGrains;
@@ -256,17 +255,17 @@ public:
 
             for (int g = 0; g < numGrains; ++g)
             {
-                if (grains[g].isPlaying())
+                if (grains[(size_t) g].isPlaying())
                 {
                     auto [pitchMod, ampMod] = modulator.getModulation (g, numGrains);
 
                     // Pick buffer based on blend probability
                     const juce::AudioBuffer<float>& bufferToUse = (random.nextFloat() < tailBufferBlend) ? tailBuf : frozenBuf;
 
-                    grains[g].processBlock (bufferToUse, window, pitchMod, ampMod, numSamples);
+                    grains[(size_t) g].processBlock (bufferToUse, window, pitchMod, ampMod, numSamples);
 
-                    juce::FloatVectorOperations::add (blockLeftAccum.data(), grains[g].getLeftOut().data(), numSamples);
-                    juce::FloatVectorOperations::add (blockRightAccum.data(), grains[g].getRightOut().data(), numSamples);
+                    juce::FloatVectorOperations::add (blockLeftAccum.data(), grains[(size_t) g].getLeftOut().data(), numSamples);
+                    juce::FloatVectorOperations::add (blockRightAccum.data(), grains[(size_t) g].getRightOut().data(), numSamples);
                     activeCount++;
                 }
             }
@@ -332,7 +331,7 @@ public:
             }
         }
 
-        void clearAllGrains() { std::memset (grains.data(), 0, sizeof (Grain) * MAX_GRAINS); }
+        void clearAllGrains() { std::memset ((void*) grains.data(), 0, sizeof (Grain) * MAX_GRAINS); }
 
         static float fastInverseSqrt (float x)
         {

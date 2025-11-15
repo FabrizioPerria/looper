@@ -36,7 +36,6 @@ public:
 private:
     double min = MIN_PLAYBACK_PITCH_SEMITONES;
     double max = MAX_PLAYBACK_PITCH_SEMITONES;
-    double center = 0.0;
     double step = 0.001;
     const double snapThreshold = 0.03;
 

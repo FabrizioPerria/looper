@@ -68,12 +68,17 @@ private:
             g.setFont (LooperTheme::Fonts::getRegularFont (13.0f));
 
             // Command name column (200px)
-            auto commandRect = bounds.removeFromLeft (200);
+            auto commandRect = bounds.removeFromLeft (200).toFloat();
             juce::String commandText = rowData.displayName;
-            if (g.getCurrentFont().getStringWidth (commandText) > commandRect.getWidth() - 10)
+            auto stringWidth = TextLayout::getStringWidth (g.getCurrentFont(), commandText);
+            if (stringWidth > commandRect.getWidth() - 10)
             {
-                while (g.getCurrentFont().getStringWidth (commandText + "...") > commandRect.getWidth() - 10 && commandText.length() > 0)
+                stringWidth += TextLayout::getStringWidth (g.getCurrentFont(), "...");
+                while (stringWidth > commandRect.getWidth() - 10 && commandText.length() > 0)
+                {
                     commandText = commandText.dropLastCharacters (1);
+                    stringWidth = TextLayout::getStringWidth (g.getCurrentFont(), commandText + "...");
+                }
                 commandText += "...";
             }
             g.drawText (commandText, commandRect.withTrimmedLeft (10), juce::Justification::centredLeft);
@@ -117,9 +122,9 @@ private:
         void refresh()
         {
             repaint();
-            if (auto* viewport = findParentComponentOfClass<juce::Viewport>())
+            if (auto* midiViewport = findParentComponentOfClass<juce::Viewport>())
             {
-                viewport->repaint (getLocalBounds());
+                midiViewport->repaint (getLocalBounds());
             }
         }
 

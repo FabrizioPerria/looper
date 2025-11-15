@@ -16,7 +16,7 @@ public:
     void clear() { slotToPush = activeLayers = 0; }
 
     // Prepare to push 1 layer
-    void prepareToWrite (int numToWrite, int& start1, int& size1, int& start2, int& size2)
+    void prepareToWrite (int /*numToWrite*/, int& start1, int& size1, int& start2, int& size2)
     {
         PERFETTO_FUNCTION();
         jassert (numToWrite == 1); // undo stack only pushes one layer at a time
@@ -26,7 +26,7 @@ public:
         size2 = 0;
     }
 
-    void finishedWrite (int numWritten, bool /*overdub*/)
+    void finishedWrite (int /*numWritten*/, bool /*overdub*/)
     {
         PERFETTO_FUNCTION();
         jassert (numWritten == 1);
@@ -35,7 +35,7 @@ public:
     }
 
     // Prepare to pop 1 layer
-    void prepareToRead (int numToRead, int& start1, int& size1, int& start2, int& size2)
+    void prepareToRead (int /*numToRead*/, int& start1, int& size1, int& start2, int& size2)
     {
         PERFETTO_FUNCTION();
         jassert (numToRead == 1); // only pop one layer at a time
@@ -51,7 +51,7 @@ public:
         size2 = 0;
     }
 
-    void finishedRead (int numRead, bool /*overdub*/)
+    void finishedRead (int /*numRead*/, bool /*overdub*/)
     {
         PERFETTO_FUNCTION();
         jassert (numRead == 1);

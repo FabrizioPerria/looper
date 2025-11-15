@@ -73,7 +73,6 @@ public:
 private:
     EngineMessageBus* uiToEngineBus = nullptr;
     int trackIndex;
-    bool isUpdatingFromEngine = false;
 
     // juce::TextButton normalizeButton;
     LevelComponent overdubLevelKnob;

@@ -1,5 +1,4 @@
 #pragma once
-#include "engine/LevelMeter.h"
 #include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 #include <atomic>

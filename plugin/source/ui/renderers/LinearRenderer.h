@@ -49,15 +49,15 @@ public:
 
             if (cache.getMinMax (cacheIndex, min, max, 0))
             {
-                float y1 = centerY - (max * centerY * 0.85f);
-                float y2 = centerY - (min * centerY * 0.85f);
+                float y1 = (float) centerY - (max * (float) centerY * 0.85f);
+                float y2 = (float) centerY - (min * (float) centerY * 0.85f);
 
                 g.drawLine ((float) x, y1, (float) x, y2, 1.5f);
             }
         }
 
         // Playhead - color changes based on state
-        float playheadX = (float) readPos / (float) length * width;
+        float playheadX = (float) readPos / (float) length * (float) width;
         juce::Colour playheadColor;
 
         if (isRecording)
@@ -70,7 +70,7 @@ public:
         // Glow effect
         for (int i = 5; i > 0; --i)
         {
-            g.setColour (playheadColor.withAlpha (0.05f * i));
+            g.setColour (playheadColor.withAlpha (0.05f * (float) i));
             g.drawLine (playheadX, 0, playheadX, (float) height, (float) (i * 2));
         }
 

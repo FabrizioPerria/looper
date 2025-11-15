@@ -1,15 +1,12 @@
 #pragma once
-#include "audio/AudioToUIBridge.h"
 #include "audio/EngineCommandBus.h"
-#include "audio/EngineStateToUIBridge.h"
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
 class AccentBar : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    AccentBar (EngineMessageBus* engineMessageBus, int trackIdx, AudioToUIBridge* audioUIBridge, EngineStateToUIBridge* engineBridge)
-        : engineStateBridge (engineBridge), audioBridge (audioUIBridge), uiToEngineBus (engineMessageBus), trackIndex (trackIdx)
+    AccentBar (EngineMessageBus* engineMessageBus, int trackIdx) : uiToEngineBus (engineMessageBus), trackIndex (trackIdx)
     {
         setInterceptsMouseClicks (true, false);
         isTrackActive = false;
@@ -88,8 +85,6 @@ public:
     }
 
 private:
-    EngineStateToUIBridge* engineStateBridge;
-    AudioToUIBridge* audioBridge;
     EngineMessageBus* uiToEngineBus;
     int trackIndex;
     std::atomic<bool> isTrackActive { false };

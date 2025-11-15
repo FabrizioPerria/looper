@@ -1,4 +1,5 @@
 #pragma once
+#include "engine/Constants.h"
 #include "engine/LooperEngine.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/FooterComponent.h"
@@ -10,24 +11,18 @@
 class LooperEditor : public juce::Component
 {
 public:
-    LooperEditor (LooperEngine* engine) : looperEngine (engine)
+    LooperEditor (LooperEngine* engine)
     {
-        globalBar = std::make_unique<GlobalControlBar> (engine->getMessageBus(),
-                                                        engine->getEngineStateBridge(),
-                                                        engine->getMetronome(),
-                                                        engine->getGranularFreeze());
+        globalBar = std::make_unique<GlobalControlBar> (engine->getMessageBus(), engine->getMetronome());
 
         footerComponent = std::make_unique<FooterComponent> (engine->getMessageBus(), engine->getEngineStateBridge());
         midiMappingComponent = std::make_unique<MidiMappingComponent> (engine->getMidiMappingManager(), engine->getMessageBus());
 
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {
-            auto* channel = new TrackComponent (engine->getMessageBus(),
-                                                i,
-                                                engine->getTrackByIndex (i)->getUIBridge(),
-                                                engine->getEngineStateBridge());
-            channels.add (channel);
-            addAndMakeVisible (channel);
+            auto channel = std::make_unique<TrackComponent> (engine->getMessageBus(), i, engine->getTrackByIndex (i)->getUIBridge());
+            channels[(size_t) i] = std::move (channel);
+            addAndMakeVisible (*channels[(size_t) i]);
         }
 
         addAndMakeVisible (*globalBar);
@@ -53,8 +48,10 @@ public:
 
         mainFlex.items.add (juce::FlexItem (*globalBar).withFlex (0.25f));
 
-        for (auto* channel : channels)
+        for (int i = 0; i < NUM_TRACKS; ++i)
         {
+            auto* channel = channels[(size_t) i].get();
+
             mainFlex.items.add (juce::FlexItem().withFlex (0.05f)); // spacer between tracks
             mainFlex.items.add (juce::FlexItem (*channel).withFlex (0.8f));
         }
@@ -72,10 +69,8 @@ public:
     }
 
 private:
-    LooperEngine* looperEngine;
-
     std::unique_ptr<GlobalControlBar> globalBar;
-    juce::OwnedArray<TrackComponent> channels;
+    std::array<std::unique_ptr<TrackComponent>, NUM_TRACKS> channels;
     std::unique_ptr<FooterComponent> footerComponent;
     std::unique_ptr<MidiMappingComponent> midiMappingComponent;
 

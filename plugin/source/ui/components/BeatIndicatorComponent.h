@@ -67,7 +67,7 @@ public:
         }
 
         g.setColour (LooperTheme::Colors::surface);
-        g.setFont (juce::Font (juce::Font::getDefaultMonospacedFontName(), 10.0f, juce::Font::bold));
+        g.setFont (LooperTheme::Fonts::getBoldFont (10.0f));
         g.drawText (juce::String (lastBeat + 1), ledBounds.toNearestInt(), juce::Justification::centred);
     }
 
