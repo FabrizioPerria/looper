@@ -37,30 +37,36 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChannelContext)
 };
 
-class StereoMeterContext
+class MeterContext
 {
 public:
-    StereoMeterContext() {}
+    MeterContext (int numChannels)
+    {
+        for (int i = 0; i < numChannels; ++i)
+            this->channels.push_back (std::make_unique<ChannelContext>());
+    }
     void clear()
     {
-        leftChannel->clear();
-        rightChannel->clear();
+        for (auto& channel : channels)
+            channel->clear();
     }
 
-    void update (const StereoMeterContext& other)
+    void update (const MeterContext& other)
     {
-        leftChannel->update (other.getLeftChannel());
-        rightChannel->update (other.getRightChannel());
+        for (int channel = 0; channel < channels.size(); ++channel)
+        {
+            auto* channelCtx = other.getChannel (channel);
+            auto* currentChannelCtx = channels[(size_t) channel].get();
+            currentChannelCtx->update (channelCtx);
+        }
     }
 
-    ChannelContext* getLeftChannel() const { return leftChannel.get(); }
-    ChannelContext* getRightChannel() const { return rightChannel.get(); }
+    ChannelContext* getChannel (int channel) const { return channels[(size_t) channel].get(); }
 
 private:
-    std::unique_ptr<ChannelContext> leftChannel = std::make_unique<ChannelContext>();
-    std::unique_ptr<ChannelContext> rightChannel = std::make_unique<ChannelContext>();
+    std::vector<std::unique_ptr<ChannelContext>> channels;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StereoMeterContext)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MeterContext)
 };
 
 class LevelMeter
@@ -70,46 +76,33 @@ public:
 
     void clear() { meterContext->clear(); }
 
-    void prepare (int /**/) { clear(); }
+    void prepare (int numChannels) { meterContext = std::make_unique<MeterContext> (numChannels); }
 
     void processBuffer (const juce::AudioBuffer<float>& buffer)
     {
-        auto leftChannel = meterContext->getLeftChannel();
-        float leftDecayCurrentRMS = leftChannel->getRMSLevel() * DECAY_FACTOR;
-        float leftDecayNextRMS = buffer.getRMSLevel (LEFT_CHANNEL, 0, buffer.getNumSamples());
+        for (auto i = 0; i < buffer.getNumChannels(); ++i)
+        {
+            auto* leftChannel = meterContext->getChannel (i);
+            float leftDecayCurrentRMS = leftChannel->getRMSLevel() * DECAY_FACTOR;
+            float leftDecayNextRMS = buffer.getRMSLevel (i, 0, buffer.getNumSamples());
 
-        float leftDecayCurrentPeak = leftChannel->getPeakLevel() * DECAY_FACTOR;
-        float leftDecayNextPeak = buffer.getMagnitude (LEFT_CHANNEL, 0, buffer.getNumSamples());
-        leftChannel->setRMSLevel (juce::jmax (leftDecayCurrentRMS, leftDecayNextRMS));
-        leftChannel->setPeakLevel (juce::jmax (leftDecayCurrentPeak, leftDecayNextPeak));
-
-        auto rightChannel = meterContext->getRightChannel();
-        float rightDecayCurrentRMS = rightChannel->getRMSLevel() * DECAY_FACTOR;
-        float rightDecayNextRMS = buffer.getRMSLevel (RIGHT_CHANNEL, 0, buffer.getNumSamples());
-        float rightDecayCurrentPeak = rightChannel->getPeakLevel() * DECAY_FACTOR;
-        float rightDecayNextPeak = buffer.getMagnitude (RIGHT_CHANNEL, 0, buffer.getNumSamples());
-        rightChannel->setRMSLevel (juce::jmax (rightDecayCurrentRMS, rightDecayNextRMS));
-        rightChannel->setPeakLevel (juce::jmax (rightDecayCurrentPeak, rightDecayNextPeak));
+            // float leftDecayCurrentPeak = leftChannel->getPeakLevel() * DECAY_FACTOR;
+            // float leftDecayNextPeak = buffer.getMagnitude (i, 0, buffer.getNumSamples());
+            // leftChannel->setRMSLevel (juce::jmax (leftDecayCurrentRMS, leftDecayNextRMS));
+            // leftChannel->setPeakLevel (juce::jmax (leftDecayCurrentPeak, leftDecayNextPeak));
+        }
     }
 
     // Call this from the UI thread to get current peak level for a channel
-    float getPeakLevel (int channel) const
-    {
-        return (channel == LEFT_CHANNEL) ? meterContext->getLeftChannel()->getPeakLevel() //
-                                         : meterContext->getRightChannel()->getPeakLevel();
-    }
+    float getPeakLevel (int channel) const { return meterContext->getChannel (channel)->getPeakLevel(); }
 
     // Call this from the UI thread to get current RMS level for a channel
-    float getRMSLevel (int channel) const
-    {
-        return (channel == LEFT_CHANNEL) ? meterContext->getLeftChannel()->getRMSLevel() //
-                                         : meterContext->getRightChannel()->getRMSLevel();
-    }
+    float getRMSLevel (int channel) const { return meterContext->getChannel (channel)->getRMSLevel(); }
 
-    StereoMeterContext& getMeterContext() const { return *meterContext; }
+    MeterContext& getMeterContext() const { return *meterContext; }
 
 private:
-    std::unique_ptr<StereoMeterContext> meterContext = std::make_unique<StereoMeterContext>();
+    std::unique_ptr<MeterContext> meterContext;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LevelMeter)
 };

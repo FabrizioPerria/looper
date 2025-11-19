@@ -19,7 +19,7 @@ public:
     void prepareToWrite (int /*numToWrite*/, int& start1, int& size1, int& start2, int& size2)
     {
         PERFETTO_FUNCTION();
-        jassert (numToWrite == 1); // undo stack only pushes one layer at a time
+        // jassert (numToWrite == 1); // undo stack only pushes one layer at a time
         start1 = slotToPush;
         size1 = 1;
         start2 = 0;
@@ -29,7 +29,7 @@ public:
     void finishedWrite (int /*numWritten*/, bool /*overdub*/)
     {
         PERFETTO_FUNCTION();
-        jassert (numWritten == 1);
+        // jassert (numWritten == 1);
         slotToPush = (slotToPush + 1) % capacity;
         activeLayers = std::min (activeLayers + 1, capacity);
     }
@@ -38,7 +38,7 @@ public:
     void prepareToRead (int /*numToRead*/, int& start1, int& size1, int& start2, int& size2)
     {
         PERFETTO_FUNCTION();
-        jassert (numToRead == 1); // only pop one layer at a time
+        // jassert (numToRead == 1); // only pop one layer at a time
         if (activeLayers == 0)
         {
             start1 = size1 = start2 = size2 = 0;
@@ -54,7 +54,7 @@ public:
     void finishedRead (int /*numRead*/, bool /*overdub*/)
     {
         PERFETTO_FUNCTION();
-        jassert (numRead == 1);
+        // jassert (numRead == 1);
         if (activeLayers > 0)
         {
             slotToPush = (slotToPush - 1 + capacity) % capacity;

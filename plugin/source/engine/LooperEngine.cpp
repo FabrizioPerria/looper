@@ -26,6 +26,7 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
     metronome->prepareToPlay (sampleRate, maxBlockSize);
     granularFreeze->prepareToPlay (sampleRate, numChannels);
 
+    engineStateBridge->setNumChannels (numChannels);
     inputMeter->prepare (numChannels);
     outputMeter->prepare (numChannels);
 

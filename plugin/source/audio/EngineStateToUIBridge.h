@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/Constants.h"
 #include "engine/LevelMeter.h"
 #include <JuceHeader.h>
 #include <atomic>
@@ -14,14 +15,22 @@ public:
         std::atomic<int> activeTrackIndex { 0 };
         std::atomic<int> pendingTrackIndex { -1 };
         std::atomic<int> numTracks { 0 };
+        std::atomic<int> numChannels { 0 };
 
-        std::unique_ptr<StereoMeterContext> inputMeter = std::make_unique<StereoMeterContext>();
-        std::unique_ptr<StereoMeterContext> outputMeter = std::make_unique<StereoMeterContext>();
+        std::unique_ptr<MeterContext> inputMeter;
+        std::unique_ptr<MeterContext> outputMeter;
 
         std::atomic<int> stateVersion { 0 };
     };
 
-    EngineStateToUIBridge() = default;
+    EngineStateToUIBridge() {}
+
+    void setNumChannels (int newNumChannels)
+    {
+        numChannels = newNumChannels;
+        state.inputMeter = std::make_unique<MeterContext> (newNumChannels);
+        state.outputMeter = std::make_unique<MeterContext> (newNumChannels);
+    }
 
     // Called from AUDIO THREAD
     void updateFromAudioThread (bool recording,
@@ -29,8 +38,8 @@ public:
                                 int activeTrack,
                                 int pendingTrack,
                                 int numTracks,
-                                StereoMeterContext& inputMeter,
-                                StereoMeterContext& outputMeter)
+                                MeterContext& inputMeter,
+                                MeterContext& outputMeter)
     {
         state.inputMeter->update (inputMeter);
         state.outputMeter->update (outputMeter);
@@ -45,18 +54,54 @@ public:
 
     void getMeterInputLevels (float& peakInLeft, float& rmsInLeft, float& peakInRight, float& rmsInRight)
     {
-        peakInLeft = state.inputMeter->getLeftChannel()->getPeakLevel();
-        rmsInLeft = state.inputMeter->getLeftChannel()->getRMSLevel();
-        peakInRight = state.inputMeter->getRightChannel()->getPeakLevel();
-        rmsInRight = state.inputMeter->getRightChannel()->getRMSLevel();
+        if (state.inputMeter == nullptr)
+        {
+            peakInLeft = 0.0f;
+            rmsInLeft = 0.0f;
+            peakInRight = 0.0f;
+            rmsInRight = 0.0f;
+            return;
+        }
+        peakInLeft = state.inputMeter->getChannel (LEFT_CHANNEL)->getPeakLevel();
+        rmsInLeft = state.inputMeter->getChannel (LEFT_CHANNEL)->getRMSLevel();
+        if (state.numChannels.load (std::memory_order_relaxed) < 2)
+        {
+            peakInRight = peakInLeft;
+            rmsInRight = rmsInLeft;
+            return;
+        }
+        else
+        {
+            peakInRight = state.inputMeter->getChannel (RIGHT_CHANNEL)->getPeakLevel();
+            rmsInRight = state.inputMeter->getChannel (RIGHT_CHANNEL)->getRMSLevel();
+            return;
+        }
     }
 
     void getMeterOutputLevels (float& peakOutLeft, float& rmsOutLeft, float& peakOutRight, float& rmsOutRight)
     {
-        peakOutLeft = state.outputMeter->getLeftChannel()->getPeakLevel();
-        rmsOutLeft = state.outputMeter->getLeftChannel()->getRMSLevel();
-        peakOutRight = state.outputMeter->getRightChannel()->getPeakLevel();
-        rmsOutRight = state.outputMeter->getRightChannel()->getRMSLevel();
+        if (state.inputMeter == nullptr)
+        {
+            peakOutLeft = 0.0f;
+            rmsOutLeft = 0.0f;
+            peakOutRight = 0.0f;
+            rmsOutRight = 0.0f;
+            return;
+        }
+        peakOutLeft = state.inputMeter->getChannel (LEFT_CHANNEL)->getPeakLevel();
+        rmsOutLeft = state.inputMeter->getChannel (LEFT_CHANNEL)->getRMSLevel();
+        if (state.numChannels.load (std::memory_order_relaxed) < 2)
+        {
+            peakOutRight = peakOutLeft;
+            rmsOutRight = rmsOutLeft;
+            return;
+        }
+        else
+        {
+            peakOutRight = state.inputMeter->getChannel (RIGHT_CHANNEL)->getPeakLevel();
+            rmsOutRight = state.inputMeter->getChannel (RIGHT_CHANNEL)->getRMSLevel();
+            return;
+        }
     }
 
     // Called from UI THREAD
@@ -73,6 +118,7 @@ public:
 
 private:
     EngineState state;
+    int numChannels;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EngineStateToUIBridge)
 };
