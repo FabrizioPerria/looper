@@ -27,6 +27,23 @@ juce_add_plugin(
   COMPANY_NAME
   "fp")
 
+set(STANDALONE_TARGET "${PROJECT_NAME}_Standalone")
+
+# Set the plist properties for macOS
+set_target_properties(
+  ${STANDALONE_TARGET}
+  PROPERTIES
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.fp.looper"
+    MACOSX_BUNDLE_BUNDLE_NAME "looper"
+    MACOSX_BUNDLE_BUNDLE_VERSION "1.0.0"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0.0"
+    MACOSX_BUNDLE_MICROPHONE_USAGE_DESCRIPTION
+    "This app requires audio input. If you do not have an audio interface connected it will use the built-in microphone."
+    XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS
+    "${CMAKE_CURRENT_SOURCE_DIR}/Entitlements.plist"
+    MACOSX_BUNDLE TRUE
+    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
+
 juce_add_binary_data(
   BinaryData
   SOURCES

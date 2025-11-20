@@ -39,11 +39,34 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DENABLE_COVERAGE=OFF \
             -GNinja
-
       - name: Build plugin
         run:
           cmake --build build --config Release -j8 --target looper looper_VST3 looper_Standalone
           looper_AU --target looper looper_VST3 looper_Standalone
+
+      - name: Ad-hoc sign macOS artifacts
+        if: runner.os == 'macOS'
+        run: |
+          # Sign the standalone app
+          APP_PATH=$(find build -name "looper.app" -type d | head -1)
+          if [ -n "$APP_PATH" ]; then
+            codesign -s - --deep --force --entitlements ./plugin/Entitlements.plist "$APP_PATH"
+            echo "Signed standalone app: $APP_PATH"
+          fi
+
+          # Sign VST3
+          VST3_PATH=$(find build -name "*.vst3" -type d | head -1)
+          if [ -n "$VST3_PATH" ]; then
+            codesign -s - --deep --force --entitlements ./plugin/Entitlements.plist "$VST3_PATH"
+            echo "Signed VST3: $VST3_PATH"
+          fi
+
+          # Sign AU
+          AU_PATH=$(find build -name "looper.component" -type d | head -1)
+          if [ -n "$AU_PATH" ]; then
+            codesign -s - --deep --force --entitlements ./plugin/Entitlements.plist "$AU_PATH"
+            echo "Signed AU: $AU_PATH"
+          fi
 
       - name: Locate built artifacts
         run: |
