@@ -58,6 +58,8 @@ private:
     juce::int64 lastWarningTime = 0;
     std::unique_ptr<LooperEngine> looperEngine = std::make_unique<LooperEngine>();
     AudioToUIBridge uiBridge;
+
+    std::atomic<int> processingBlockCount { 0 };
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessor)
 };

@@ -10,7 +10,6 @@ public:
 
     void prepareToPlay (const double currentSampleRate, const int /*blockSize*/)
     {
-        clear();
         sampleRate = currentSampleRate;
         setCrossFadeLength ((int) (CROSSFADE_DEFAULT_LENGTH_SECONDS * sampleRate));
     }

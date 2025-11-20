@@ -55,7 +55,7 @@ public:
     {
         for (int channel = 0; channel < channels.size(); ++channel)
         {
-            auto* channelCtx = other.getChannel (channel);
+            auto channelCtx = other.getChannel (channel);
             auto* currentChannelCtx = channels[(size_t) channel].get();
             currentChannelCtx->update (channelCtx);
         }
@@ -86,10 +86,10 @@ public:
             float leftDecayCurrentRMS = leftChannel->getRMSLevel() * DECAY_FACTOR;
             float leftDecayNextRMS = buffer.getRMSLevel (i, 0, buffer.getNumSamples());
 
-            // float leftDecayCurrentPeak = leftChannel->getPeakLevel() * DECAY_FACTOR;
-            // float leftDecayNextPeak = buffer.getMagnitude (i, 0, buffer.getNumSamples());
-            // leftChannel->setRMSLevel (juce::jmax (leftDecayCurrentRMS, leftDecayNextRMS));
-            // leftChannel->setPeakLevel (juce::jmax (leftDecayCurrentPeak, leftDecayNextPeak));
+            float leftDecayCurrentPeak = leftChannel->getPeakLevel() * DECAY_FACTOR;
+            float leftDecayNextPeak = buffer.getMagnitude (i, 0, buffer.getNumSamples());
+            leftChannel->setRMSLevel (juce::jmax (leftDecayCurrentRMS, leftDecayNextRMS));
+            leftChannel->setPeakLevel (juce::jmax (leftDecayCurrentPeak, leftDecayNextPeak));
         }
     }
 

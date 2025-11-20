@@ -16,7 +16,6 @@ public:
     void resized() override;
 
 private:
-    juce::TextButton cpuMonitorButton;
     AudioPluginAudioProcessor& processorRef;
     std::unique_ptr<LooperEditor> looperEditor;
     std::unique_ptr<LooperLookAndFeel> lookAndFeel;

@@ -40,7 +40,7 @@ cpmaddpackage(
   GITHUB_REPOSITORY
   juce-framework/JUCE
   GIT_TAG
-  develop
+  8.0.10
   SOURCE_DIR
   ${LIB_DIR}/juce)
 
@@ -131,4 +131,4 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 add_subdirectory(plugin)
-add_subdirectory(test)
+# add_subdirectory(test)

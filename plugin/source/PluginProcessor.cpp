@@ -18,7 +18,7 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
 
 AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 {
-    PerfettoProfiler::getInstance().writeTraceFile (juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("trace.json"));
+    // PerfettoProfiler::getInstance().writeTraceFile (juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("trace.json"));
 }
 
 //==============================================================================
@@ -74,11 +74,17 @@ void AudioPluginAudioProcessor::changeProgramName (int index, const juce::String
 //==============================================================================
 void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    looperEngine->prepareToPlay (sampleRate, samplesPerBlock, std::min (getTotalNumInputChannels(), 2));
-    // looperEngine->prepareToPlay (sampleRate, samplesPerBlock, getTotalNumInputChannels());
+    looperEngine->prepareToPlay (sampleRate, samplesPerBlock, getTotalNumInputChannels());
 }
 
-void AudioPluginAudioProcessor::releaseResources() { looperEngine->releaseResources(); }
+void AudioPluginAudioProcessor::releaseResources()
+{
+    while (processingBlockCount.load() > 0)
+    {
+        std::this_thread::yield();
+    }
+    looperEngine->releaseResources();
+}
 
 bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
@@ -106,6 +112,7 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     PERFETTO_FUNCTION();
+    processingBlockCount++;
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
@@ -116,12 +123,13 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     // This is here to avoid people getting screaming feedback
     // when they first compile a plugin, but obviously you don't need to keep
     // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+    // for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+    //     buffer.clear (i, 0, buffer.getNumSamples());
 
     looperEngine->processBlock (buffer, midiMessages);
 
     midiMessages.clear();
+    processingBlockCount--;
 }
 
 //==============================================================================

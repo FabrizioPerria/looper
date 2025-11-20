@@ -54,14 +54,14 @@ public:
 
     void getMeterInputLevels (float& peakInLeft, float& rmsInLeft, float& peakInRight, float& rmsInRight)
     {
-        if (state.inputMeter == nullptr)
-        {
-            peakInLeft = 0.0f;
-            rmsInLeft = 0.0f;
-            peakInRight = 0.0f;
-            rmsInRight = 0.0f;
-            return;
-        }
+        // if (state.inputMeter == nullptr)
+        // {
+        //     peakInLeft = 0.0f;
+        //     rmsInLeft = 0.0f;
+        //     peakInRight = 0.0f;
+        //     rmsInRight = 0.0f;
+        //     return;
+        // }
         peakInLeft = state.inputMeter->getChannel (LEFT_CHANNEL)->getPeakLevel();
         rmsInLeft = state.inputMeter->getChannel (LEFT_CHANNEL)->getRMSLevel();
         if (state.numChannels.load (std::memory_order_relaxed) < 2)
@@ -80,16 +80,16 @@ public:
 
     void getMeterOutputLevels (float& peakOutLeft, float& rmsOutLeft, float& peakOutRight, float& rmsOutRight)
     {
-        if (state.inputMeter == nullptr)
-        {
-            peakOutLeft = 0.0f;
-            rmsOutLeft = 0.0f;
-            peakOutRight = 0.0f;
-            rmsOutRight = 0.0f;
-            return;
-        }
-        peakOutLeft = state.inputMeter->getChannel (LEFT_CHANNEL)->getPeakLevel();
-        rmsOutLeft = state.inputMeter->getChannel (LEFT_CHANNEL)->getRMSLevel();
+        // if (state.outputMeter == nullptr)
+        // {
+        //     peakOutLeft = 0.0f;
+        //     rmsOutLeft = 0.0f;
+        //     peakOutRight = 0.0f;
+        //     rmsOutRight = 0.0f;
+        //     return;
+        // }
+        peakOutLeft = state.outputMeter->getChannel (LEFT_CHANNEL)->getPeakLevel();
+        rmsOutLeft = state.outputMeter->getChannel (LEFT_CHANNEL)->getRMSLevel();
         if (state.numChannels.load (std::memory_order_relaxed) < 2)
         {
             peakOutRight = peakOutLeft;
@@ -98,8 +98,8 @@ public:
         }
         else
         {
-            peakOutRight = state.inputMeter->getChannel (RIGHT_CHANNEL)->getPeakLevel();
-            rmsOutRight = state.inputMeter->getChannel (RIGHT_CHANNEL)->getRMSLevel();
+            peakOutRight = state.outputMeter->getChannel (RIGHT_CHANNEL)->getPeakLevel();
+            rmsOutRight = state.outputMeter->getChannel (RIGHT_CHANNEL)->getRMSLevel();
             return;
         }
     }

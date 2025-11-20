@@ -15,7 +15,6 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
     PERFETTO_FUNCTION();
     if (newSampleRate <= 0.0 || newMaxBlockSize <= 0 || newNumChannels <= 0) return;
 
-    releaseResources();
     sampleRate = newSampleRate;
     maxBlockSize = newMaxBlockSize;
     numChannels = newNumChannels;
@@ -55,7 +54,7 @@ void LooperEngine::addTrack (int index)
 {
     PERFETTO_FUNCTION();
 
-    loopTracks[(size_t) index] = std::make_unique<LoopTrack>();
+    if (loopTracks[(size_t) index] == nullptr) loopTracks[(size_t) index] = std::make_unique<LoopTrack>();
     loopTracks[(size_t) index]->prepareToPlay (sampleRate, maxBlockSize, numChannels);
 
     numTracks = static_cast<int> (loopTracks.size());

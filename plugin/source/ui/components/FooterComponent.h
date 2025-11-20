@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CustomStandaloneFilterWindow.h"
 #include "audio/EngineCommandBus.h"
 #include "engine/Constants.h"
 #include "ui/colors/TokyoNight.h"
@@ -38,6 +39,11 @@ public:
         midiLabel.setJustificationType (juce::Justification::centred);
         midiLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
         addAndMakeVisible (midiLabel);
+
+        audioSettingsButton.setButtonText ("Audio Settings");
+        audioSettingsButton.setComponentID ("audioSettings");
+        audioSettingsButton.onClick = [this]() { juce::StandalonePluginHolder::getInstance()->showAudioSettingsDialog(); };
+        addAndMakeVisible (audioSettingsButton);
 
         midiButton.setButtonText ("Settings");
         midiButton.setComponentID ("midi");
@@ -121,6 +127,12 @@ public:
 
         mainBox.items.add (juce::FlexItem (midiBox).withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
 
+        juce::FlexBox audioBox;
+        audioBox.flexDirection = juce::FlexBox::Direction::column;
+        audioBox.alignItems = juce::FlexBox::AlignItems::stretch;
+        audioBox.items.add (juce::FlexItem (audioSettingsButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (6, 1, 0, 1)));
+        mainBox.items.add (juce::FlexItem (audioBox).withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+
         juce::FlexBox playModeBox;
         playModeBox.flexDirection = juce::FlexBox::Direction::column;
         playModeBox.alignItems = juce::FlexBox::AlignItems::stretch;
@@ -189,6 +201,7 @@ private:
     MeterWithGainComponent outputMeter;
     juce::TextButton midiButton { "MIDI Settings" };
     juce::TextButton playModeButton { "Single Track" };
+    juce::TextButton audioSettingsButton { "Audio Settings" };
 
     juce::TextButton activeTrack { "Active Track" };
     juce::TextButton allTracks { "All Tracks" };

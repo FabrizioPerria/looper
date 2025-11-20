@@ -18,8 +18,6 @@ void LoopTrack::prepareToPlay (const double currentSampleRate,
     PERFETTO_FUNCTION();
     if (currentSampleRate <= 0.0 || maxBlockSize <= 0 || numChannels <= 0 || maxSeconds <= 0) return;
 
-    if (sampleRate > 0.0) releaseResources();
-
     sampleRate = currentSampleRate;
     blockSize = std::max (blockSize, maxBlockSize);
     channels = (int) numChannels;
