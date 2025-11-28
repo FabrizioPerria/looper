@@ -35,17 +35,17 @@ public:
                                                                     -1,
                                                                     midiButton.getToggleState()));
         };
-        midiLabel.setText ("Midi", juce::dontSendNotification);
-        midiLabel.setJustificationType (juce::Justification::centred);
-        midiLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
-        addAndMakeVisible (midiLabel);
+        settingsLabel.setText ("Settings", juce::dontSendNotification);
+        settingsLabel.setJustificationType (juce::Justification::centred);
+        settingsLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
+        addAndMakeVisible (settingsLabel);
 
-        audioSettingsButton.setButtonText ("Audio Settings");
+        audioSettingsButton.setButtonText ("Audio");
         audioSettingsButton.setComponentID ("audioSettings");
         audioSettingsButton.onClick = [this]() { juce::StandalonePluginHolder::getInstance()->showAudioSettingsDialog(); };
         addAndMakeVisible (audioSettingsButton);
 
-        midiButton.setButtonText ("Settings");
+        midiButton.setButtonText ("Midi");
         midiButton.setComponentID ("midi");
         addAndMakeVisible (midiButton);
 
@@ -119,19 +119,20 @@ public:
 
         mainBox.items.add (juce::FlexItem (inputMeter).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 50, 0, 1)));
 
-        juce::FlexBox midiBox;
-        midiBox.flexDirection = juce::FlexBox::Direction::column;
-        midiBox.alignItems = juce::FlexBox::AlignItems::stretch;
-        midiBox.items.add (juce::FlexItem (midiLabel).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        midiBox.items.add (juce::FlexItem (midiButton).withFlex (0.9f).withMargin (juce::FlexItem::Margin (6, 1, 0, 1)));
+        juce::FlexBox audioMidisettingsBox;
+        audioMidisettingsBox.flexDirection = juce::FlexBox::Direction::row;
+        audioMidisettingsBox.alignItems = juce::FlexBox::AlignItems::stretch;
+        audioMidisettingsBox.items
+            .add (juce::FlexItem (audioSettingsButton).withFlex (0.9f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        audioMidisettingsBox.items.add (juce::FlexItem (midiButton).withFlex (0.9f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
 
-        mainBox.items.add (juce::FlexItem (midiBox).withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        juce::FlexBox settingsBox;
+        settingsBox.flexDirection = juce::FlexBox::Direction::column;
+        settingsBox.alignItems = juce::FlexBox::AlignItems::stretch;
+        settingsBox.items.add (juce::FlexItem (settingsLabel).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        settingsBox.items.add (juce::FlexItem (audioMidisettingsBox).withFlex (0.9f).withMargin (juce::FlexItem::Margin (6, 1, 0, 1)));
 
-        juce::FlexBox audioBox;
-        audioBox.flexDirection = juce::FlexBox::Direction::column;
-        audioBox.alignItems = juce::FlexBox::AlignItems::stretch;
-        audioBox.items.add (juce::FlexItem (audioSettingsButton).withFlex (1.0f).withMargin (juce::FlexItem::Margin (6, 1, 0, 1)));
-        mainBox.items.add (juce::FlexItem (audioBox).withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        mainBox.items.add (juce::FlexItem (settingsBox).withFlex (0.4f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
 
         juce::FlexBox playModeBox;
         playModeBox.flexDirection = juce::FlexBox::Direction::column;
@@ -166,7 +167,7 @@ public:
 
         g.setColour (LooperTheme::Colors::surface.brighter (0.2f));
 
-        auto midiTitleBounds = midiLabel.getBounds().toFloat();
+        auto midiTitleBounds = settingsLabel.getBounds().toFloat();
         g.fillRect (midiTitleBounds.getX() + 3.0f, midiTitleBounds.getBottom() + 3.0f, midiTitleBounds.getWidth() - 6.0f, 1.0f);
 
         auto playModeTitleBounds = playModeLabel.getBounds().toFloat();
@@ -208,7 +209,7 @@ private:
 
     EngineMessageBus* uiToEngineBus;
 
-    juce::Label midiLabel;
+    juce::Label settingsLabel;
     juce::Label playModeLabel;
     juce::Label saveLabel;
 
