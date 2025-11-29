@@ -8,6 +8,8 @@
 #include "ui/components/TrackComponent.h"
 #include <JuceHeader.h>
 
+class ProgressiveSpeedPopup;
+
 class LooperEditor : public juce::Component
 {
 public:
