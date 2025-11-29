@@ -126,6 +126,7 @@ private:
 
     std::array<std::unique_ptr<LoopTrack>, NUM_TRACKS> loopTracks;
     std::array<bool, NUM_TRACKS> tracksToPlay;
+    std::array<bool, NUM_TRACKS> hasWrappedAround;
 
     // Helper methods
     LooperState determineStateAfterRecording() const;

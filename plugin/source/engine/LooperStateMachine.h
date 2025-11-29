@@ -21,6 +21,7 @@ struct StateContext
     int syncMasterTrackIndex;
     std::array<std::unique_ptr<LoopTrack>, NUM_TRACKS>* allTracks;
     std::array<bool, NUM_TRACKS>* tracksToPlay;
+    std::array<bool, NUM_TRACKS> hasWrappedAround;
 };
 
 // Function pointer types for state actions
@@ -57,7 +58,9 @@ inline void playingProcessAudio (StateContext& ctx, const LooperState& currentSt
         for (int i = 0; i < NUM_TRACKS; ++i)
         {
             if (! ctx.tracksToPlay->at ((size_t) i)) continue;
-            ctx.allTracks->at ((size_t) i)->processPlayback (*ctx.outputBuffer, ctx.numSamples, false, currentState);
+            bool hasWrappedAround = ctx.allTracks->at ((size_t) i)
+                                        ->processPlayback (*ctx.outputBuffer, ctx.numSamples, false, currentState);
+            ctx.hasWrappedAround.at ((size_t) i) = hasWrappedAround;
         }
     }
 }

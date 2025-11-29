@@ -105,7 +105,6 @@ public:
     {
         PERFETTO_FUNCTION();
         lastPlaybackRate = playbackRate;
-        double prevReadPos = readPos;
         readPos += playbackRate * (float) numRead;
 
         bool wrapped = false;

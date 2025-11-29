@@ -179,8 +179,7 @@ public:
             }
         }
 
-        fifo.finishedRead (numSamples, speedMultiplier, isOverdub);
-        return true;
+        return fifo.finishedRead (numSamples, speedMultiplier, isOverdub);
     }
 
     bool linearizeAndReadFromAudioBuffer (juce::AudioBuffer<float>& destBuffer,
@@ -193,17 +192,15 @@ public:
 
         if (length == 0) return false;
 
-        int readResult = readFromAudioBuffer ([=] (float* destination, const float* source, const int numSamples)
-                                              { juce::FloatVectorOperations::copy (destination, source, numSamples); },
-                                              destBuffer,
-                                              sourceSamples,
-                                              speedMultiplier,
-                                              isOverdub);
+        readFromAudioBuffer ([=] (float* destination, const float* source, const int numSamples)
+                             { juce::FloatVectorOperations::copy (destination, source, numSamples); },
+                             destBuffer,
+                             sourceSamples,
+                             speedMultiplier,
+                             isOverdub);
 
         // Advance the fifo accounting for the difference between sourceSamples and outputSamples
-        fifo.finishedRead (outputSamples - sourceSamples, speedMultiplier, isOverdub);
-
-        return readResult;
+        return fifo.finishedRead (outputSamples - sourceSamples, speedMultiplier, isOverdub);
     }
 
     void setWritePosition (int pos) { fifo.setWritePosition (pos); }
