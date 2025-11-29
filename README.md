@@ -20,3 +20,6 @@ A simple audio looper plugin built with JUCE framework.
 1. Clone the repository:
 2. Run ./build.sh
 3. Open your Daw of choice and load the plugin.
+
+## Run standalone
+App is not signed so, to run mac standalone you need to open a terminal and run xattr -d com.apple.quarantine /Applications/Looper.app
