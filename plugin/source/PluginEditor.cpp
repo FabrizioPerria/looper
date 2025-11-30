@@ -12,7 +12,7 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
 
     addAndMakeVisible (looperEditor.get());
 
-    setSize (1200, 850);
+    setSize (1200, 900);
 }
 
 AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor() { setLookAndFeel (nullptr); }

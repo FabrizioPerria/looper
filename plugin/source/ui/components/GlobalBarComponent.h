@@ -24,11 +24,11 @@ public:
         mainBox.flexDirection = juce::FlexBox::Direction::row;
         mainBox.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        mainBox.items.add (juce::FlexItem (droneComponent).withFlex (0.25f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
+        mainBox.items.add (juce::FlexItem (droneComponent).withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 1, 0, 0)));
         mainBox.items.add (juce::FlexItem().withFlex (0.1f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         mainBox.items.add (juce::FlexItem (transportControls).withFlex (1.0f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         mainBox.items.add (juce::FlexItem().withFlex (0.1f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
-        mainBox.items.add (juce::FlexItem (metronomeComponent).withFlex (0.6f).withMargin (juce::FlexItem::Margin (0, 0, 1, 0)));
+        mainBox.items.add (juce::FlexItem (metronomeComponent).withFlex (0.65f).withMargin (juce::FlexItem::Margin (0, 0, 1, 0)));
 
         mainBox.performLayout (bounds.toFloat());
     }

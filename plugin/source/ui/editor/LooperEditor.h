@@ -57,6 +57,7 @@ public:
             mainFlex.items.add (juce::FlexItem().withFlex (0.05f)); // spacer between tracks
             mainFlex.items.add (juce::FlexItem (*channel).withFlex (0.8f));
         }
+        mainFlex.items.add (juce::FlexItem().withFlex (0.05f)); // spacer between tracks
 
         mainFlex.items.add (juce::FlexItem (*footerComponent).withFlex (0.25f));
 
