@@ -100,6 +100,16 @@ public:
         mainBox.performLayout (getLocalBounds().toFloat());
     }
 
+    // bool keyPressed (const juce::KeyPress& key) override
+    // {
+    //     if (key == juce::KeyPress::spaceKey)
+    //     {
+    //         uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::TogglePlay, -1, {} });
+    //         return true;
+    //     }
+    //     return false;
+    // }
+
 private:
     constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::RecordingStateChanged,
                                                                         EngineMessageBus::EventType::PlaybackStateChanged };

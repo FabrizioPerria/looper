@@ -11,6 +11,7 @@ void PlaybackSpeedComponent::openProgressiveSpeedPopup()
         progressiveSpeedPopup->onStart = [this] (const ProgressiveSpeedCurve& curve)
         {
             speedMode = SpeedMode::Automation;
+
             applyProgressiveSpeed (curve, 0);
             closeProgressiveSpeedPopup();
         };
@@ -34,6 +35,5 @@ void PlaybackSpeedComponent::closeProgressiveSpeedPopup()
             editor->removeChildComponent (progressiveSpeedPopup.get());
         }
         progressiveSpeedPopup.reset();
-        currentSpeedCurve.reset();
     }
 }

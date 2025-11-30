@@ -38,6 +38,7 @@ public:
         accentLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (accentLabel);
 
+        enableButton.setComponentID ("metronomeEnable");
         enableButton.setButtonText ("Enable");
         enableButton.setColour (juce::TextButton::buttonColourId, LooperTheme::Colors::surface);
         enableButton.setColour (juce::TextButton::buttonOnColourId, LooperTheme::Colors::green);

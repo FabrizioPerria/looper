@@ -7,6 +7,15 @@ if(APPLE AND NOT DEFINED CMAKE_C_COMPILER)
     message(STATUS "Using Homebrew LLVM")
   endif()
 endif()
+
+if(APPLE)
+  execute_process(
+    COMMAND xcrun --show-sdk-path
+    OUTPUT_VARIABLE CMAKE_OSX_SYSROOT
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  message(STATUS "Using macOS SDK: ${CMAKE_OSX_SYSROOT}")
+endif()
+
 project(LooperRoot)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -131,4 +140,4 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 add_subdirectory(plugin)
-# add_subdirectory(test)
+add_subdirectory(test)

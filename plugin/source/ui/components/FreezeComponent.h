@@ -20,6 +20,7 @@ public:
         freezeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
         freezeLabel.setJustificationType (juce::Justification::centred);
         addAndMakeVisible (freezeLabel);
+        freezeButton.setComponentID ("freezeEnable");
         freezeButton.setButtonText ("Enable");
         freezeButton.setColour (juce::TextButton::buttonColourId, LooperTheme::Colors::surface);
         freezeButton.setColour (juce::TextButton::buttonOnColourId, LooperTheme::Colors::green);

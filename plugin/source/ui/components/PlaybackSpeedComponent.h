@@ -97,15 +97,14 @@ public:
         speedSlider.setValue (DEFAULT_PLAYBACK_SPEED);
         speedSlider.onValueChange = [this]()
         {
+            if (! speedSlider.isMouseButtonDown()) return; // Only respond to user drag
             if (speedMode == SpeedMode::Automation)
             {
                 // User touched knob - exit automation
                 speedMode = SpeedMode::Manual;
-                currentSpeedCurve.reset();
+                currentSpeedCurve.preset = ProgressiveSpeedCurve::PresetType::Flat; // Reset to flat
+                currentSpeedCurve.endSpeed = (float) speedSlider.getValue();
             }
-
-            // Always update current end speed
-            currentSpeedCurve.endSpeed = (float) speedSlider.getValue();
 
             uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
                                                                     trackIndex,
@@ -146,6 +145,7 @@ private:
     void applyProgressiveSpeed (const ProgressiveSpeedCurve& curve, int index = 0)
     {
         currentSpeedCurve = curve;
+
         uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
                                                                 trackIndex,
                                                                 curve.breakpoints[(size_t) index].getY() }); // Set initial speed
@@ -188,6 +188,7 @@ private:
                 {
                     int speedIndex = std::get<int> (event.data);
 
+                    // jassert (currentSpeedCurve.breakpoints.size() > 0);
                     if (speedMode == SpeedMode::Automation && currentSpeedCurve.breakpoints.size() > 0)
                     {
                         int index = std::min (speedIndex, (int) currentSpeedCurve.breakpoints.size() - 1);

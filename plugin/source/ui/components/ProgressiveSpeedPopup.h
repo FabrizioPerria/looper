@@ -25,18 +25,18 @@ struct ProgressiveSpeedCurve
 
     std::vector<juce::Point<float>> breakpoints; // x = loop repetition number, y = speed multiplier
 
-    void reset()
-    {
-        preset = PresetType::Flat;
-        durationMinutes = 10.0f;
-        startSpeed = 0.7f;
-        endSpeed = 1.0f;
-        stepSize = 0.03f;
-        repsPerStep = 2.0f;
-        baseSpeedOffset = 0.0f;
-        breakpoints.clear();
-        currentStep = 0;
-    }
+    // void reset()
+    // {
+    //     preset = PresetType::Flat;
+    //     durationMinutes = 10.0f;
+    //     startSpeed = 0.7f;
+    //     endSpeed = 1.0f;
+    //     stepSize = 0.03f;
+    //     repsPerStep = 2.0f;
+    //     baseSpeedOffset = 0.0f;
+    //     breakpoints.clear();
+    //     currentStep = 0;
+    // }
 
 private:
     int currentStep = 0;
@@ -239,6 +239,17 @@ public:
         addAndMakeVisible (startButton);
 
         selectPreset (curve.preset);
+        setWantsKeyboardFocus (true);
+        grabKeyboardFocus();
+    }
+
+    bool keyPressed (const juce::KeyPress& key) override
+    {
+        if (key == juce::KeyPress::escapeKey)
+        {
+            closePopup (false);
+        }
+        return true;
     }
 
     void paint (juce::Graphics& g) override
@@ -378,6 +389,8 @@ private:
         bool showFlat = (preset == ProgressiveSpeedCurve::PresetType::Flat);
         startSpeedKnob.setVisible (! showFlat);
         startSpeedLabel.setVisible (! showFlat);
+        repsPerLevelKnob.setVisible (! showFlat);
+        repsPerLevelLabel.setVisible (! showFlat);
         endSpeedLabel.setText (showFlat ? "Speed" : "End Speed", juce::dontSendNotification);
 
         updateCurve();
@@ -472,6 +485,7 @@ private:
     {
         if (shouldStart && onStart)
         {
+            updateCurve();
             onStart (currentCurve);
         }
         else if (onCancel)
