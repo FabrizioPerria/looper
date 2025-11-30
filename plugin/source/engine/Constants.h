@@ -103,3 +103,9 @@ constexpr int METRONOME_DEFAULT_TIME_SIGNATURE_DENOMINATOR = 4;
 constexpr float DECAY_FACTOR = 0.99f; // Decay factor for smoothing
 constexpr float DEFAULT_INPUT_GAIN = 1.0f;
 constexpr float DEFAULT_OUTPUT_GAIN = 1.0f;
+
+//**************************************************************
+// Audio File Constants
+constexpr float PLAYBACK_SPEED_MIN = 0.5f;
+constexpr float PLAYBACK_SPEED_MAX = 1.5f;
+//**************************************************************

@@ -97,8 +97,15 @@ public:
         speedSlider.setValue (DEFAULT_PLAYBACK_SPEED);
         speedSlider.onValueChange = [this]()
         {
-            // set progress speed to flat value when changed via slider
-            currentSpeedCurve.isActive = false;
+            if (speedMode == SpeedMode::Automation)
+            {
+                // User touched knob - exit automation
+                speedMode = SpeedMode::Manual;
+                currentSpeedCurve.reset();
+            }
+
+            // Always update current end speed
+            currentSpeedCurve.endSpeed = (float) speedSlider.getValue();
 
             uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
                                                                     trackIndex,
@@ -132,40 +139,9 @@ private:
     std::unique_ptr<ProgressiveSpeedPopup> progressiveSpeedPopup;
     ProgressiveSpeedCurve currentSpeedCurve;
 
-    void openProgressiveSpeedPopup()
-    {
-        if (! progressiveSpeedPopup)
-        {
-            progressiveSpeedPopup = std::make_unique<ProgressiveSpeedPopup> (trackIndex, uiToEngineBus);
+    void openProgressiveSpeedPopup();
 
-            progressiveSpeedPopup->onStart = [this] (const ProgressiveSpeedCurve& curve)
-            {
-                applyProgressiveSpeed (curve, 0);
-                closeProgressiveSpeedPopup();
-            };
-
-            progressiveSpeedPopup->onCancel = [this]() { closeProgressiveSpeedPopup(); };
-
-            // Add to top-level parent (LooperEditor)
-            if (auto* editor = getTopLevelComponent())
-            {
-                editor->addAndMakeVisible (progressiveSpeedPopup.get());
-                progressiveSpeedPopup->setBounds (editor->getLocalBounds());
-            }
-        }
-    }
-
-    void closeProgressiveSpeedPopup()
-    {
-        if (progressiveSpeedPopup)
-        {
-            if (auto* editor = getTopLevelComponent())
-            {
-                editor->removeChildComponent (progressiveSpeedPopup.get());
-            }
-            progressiveSpeedPopup.reset();
-        }
-    }
+    void closeProgressiveSpeedPopup();
 
     void applyProgressiveSpeed (const ProgressiveSpeedCurve& curve, int index = 0)
     {
@@ -173,7 +149,16 @@ private:
         uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
                                                                 trackIndex,
                                                                 curve.breakpoints[(size_t) index].getY() }); // Set initial speed
+                                                                                                             //
     }
+
+    enum class SpeedMode
+    {
+        Manual,    // User directly controls speed via knob
+        Automation // Speed controlled by progressive curve
+    };
+
+    SpeedMode speedMode = SpeedMode::Manual;
 
     constexpr static EngineMessageBus::EventType subscribedEvents[] = {
         EngineMessageBus::EventType::TrackWrappedAround,
@@ -203,7 +188,7 @@ private:
                 {
                     int speedIndex = std::get<int> (event.data);
 
-                    if (currentSpeedCurve.isActive)
+                    if (speedMode == SpeedMode::Automation && currentSpeedCurve.breakpoints.size() > 0)
                     {
                         int index = std::min (speedIndex, (int) currentSpeedCurve.breakpoints.size() - 1);
                         applyProgressiveSpeed (currentSpeedCurve, index);
