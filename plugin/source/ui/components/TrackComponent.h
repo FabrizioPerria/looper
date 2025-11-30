@@ -153,11 +153,8 @@ private:
 
     void setActive (bool shouldBeActive)
     {
-        if (isActive != shouldBeActive)
-        {
-            isActive = shouldBeActive;
-            repaint();
-        }
+        isActive = shouldBeActive;
+        repaint();
     }
 
     constexpr static EngineMessageBus::EventType subscribedEvents[] = {
@@ -169,7 +166,6 @@ private:
 
     void handleEngineEvent (const EngineMessageBus::Event& event) override
     {
-        if (event.trackIndex != trackIndex) return;
         bool isSubscribed = std::find (std::begin (subscribedEvents), std::end (subscribedEvents), event.type)
                             != std::end (subscribedEvents);
         if (! isSubscribed) return;

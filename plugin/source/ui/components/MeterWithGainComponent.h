@@ -90,7 +90,7 @@ public:
         drawMeter (g, rightChannelBounds, rightPeak, rightRms);
 
         // Draw gain value indicator
-        drawGainIndicator (g);
+        // drawGainIndicator (g);
     }
 
 private:

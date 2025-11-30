@@ -117,7 +117,7 @@ public:
         mainBox.flexDirection = juce::FlexBox::Direction::row;
         mainBox.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        mainBox.items.add (juce::FlexItem (inputMeter).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 50, 0, 1)));
+        mainBox.items.add (juce::FlexItem (inputMeter).withFlex (0.5f).withMargin (juce::FlexItem::Margin (4, 50, 0, 1)));
 
         juce::FlexBox audioMidisettingsBox;
         audioMidisettingsBox.flexDirection = juce::FlexBox::Direction::row;
@@ -132,7 +132,7 @@ public:
         settingsBox.items.add (juce::FlexItem (settingsLabel).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         settingsBox.items.add (juce::FlexItem (audioMidisettingsBox).withFlex (0.9f).withMargin (juce::FlexItem::Margin (6, 1, 0, 1)));
 
-        mainBox.items.add (juce::FlexItem (settingsBox).withFlex (0.4f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        mainBox.items.add (juce::FlexItem (settingsBox).withFlex (0.4f).withMargin (juce::FlexItem::Margin (4, 1, 0, 1)));
 
         juce::FlexBox playModeBox;
         playModeBox.flexDirection = juce::FlexBox::Direction::column;
@@ -140,7 +140,7 @@ public:
         playModeBox.items.add (juce::FlexItem (playModeLabel).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         playModeBox.items.add (juce::FlexItem (playModeButton).withFlex (0.9f).withMargin (juce::FlexItem::Margin (6, 1, 0, 1)));
 
-        mainBox.items.add (juce::FlexItem (playModeBox).withFlex (0.2f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        mainBox.items.add (juce::FlexItem (playModeBox).withFlex (0.2f).withMargin (juce::FlexItem::Margin (4, 1, 0, 1)));
 
         juce::FlexBox saveButtonsBox;
         saveButtonsBox.flexDirection = juce::FlexBox::Direction::row;
@@ -154,9 +154,9 @@ public:
         saveBox.items.add (juce::FlexItem (saveLabel).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
         saveBox.items.add (juce::FlexItem (saveButtonsBox).withFlex (0.9f).withMargin (juce::FlexItem::Margin (6, 1, 0, 1)));
 
-        mainBox.items.add (juce::FlexItem (saveBox).withFlex (0.4f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        mainBox.items.add (juce::FlexItem (saveBox).withFlex (0.4f).withMargin (juce::FlexItem::Margin (4, 1, 0, 1)));
 
-        mainBox.items.add (juce::FlexItem (outputMeter).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 1, 0, 50)));
+        mainBox.items.add (juce::FlexItem (outputMeter).withFlex (0.5f).withMargin (juce::FlexItem::Margin (4, 1, 0, 50)));
 
         mainBox.performLayout (bounds.toFloat());
     }

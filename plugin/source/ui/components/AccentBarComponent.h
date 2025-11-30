@@ -51,7 +51,6 @@ public:
 
     void handleEngineEvent (const EngineMessageBus::Event& event) override
     {
-        if (event.trackIndex != trackIndex) return;
         bool isSubscribed = std::find (std::begin (subscribedEvents), std::end (subscribedEvents), event.type)
                             != std::end (subscribedEvents);
         if (! isSubscribed) return;
