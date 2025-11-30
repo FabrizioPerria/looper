@@ -92,14 +92,15 @@ public:
     }
     double getPlaybackPitchSemitones() const { return playbackPitchSemitones; }
 
-    void processPlayback (juce::AudioBuffer<float>& output, BufferManager& audioBufferManager, const int numSamples, const bool isOverdub)
+    bool processPlayback (juce::AudioBuffer<float>& output, BufferManager& audioBufferManager, const int numSamples, const bool isOverdub)
     {
         PERFETTO_FUNCTION();
-        if (shouldNotPlayback (audioBufferManager.getLength(), numSamples)) return;
+        if (shouldNotPlayback (audioBufferManager.getLength(), numSamples)) return false;
 
         bool useFastPath = (std::abs (playbackSpeed - 1.0f) < 0.01f && isPlaybackDirectionForward()
                             && std::abs (playbackPitchSemitones - 0.0) < 0.01);
 
+        bool loopFinished = false;
         if (useFastPath)
         {
             if (! wasUsingFastPath)
@@ -123,14 +124,15 @@ public:
                 }
             }
 
-            processPlaybackNormalSpeedForward (output, audioBufferManager, numSamples, isOverdub);
+            loopFinished = processPlaybackNormalSpeedForward (output, audioBufferManager, numSamples, isOverdub);
         }
         else
         {
-            processPlaybackInterpolatedSpeed (output, audioBufferManager, numSamples, isOverdub);
+            loopFinished = processPlaybackInterpolatedSpeed (output, audioBufferManager, numSamples, isOverdub);
         }
 
         wasUsingFastPath = useFastPath;
+        return loopFinished;
     }
 
 private:
@@ -151,7 +153,7 @@ private:
 
     bool shouldNotPlayback (const int trackLength, const int numSamples) const { return trackLength <= 0 || numSamples <= 0; }
 
-    void processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output,
+    bool processPlaybackInterpolatedSpeed (juce::AudioBuffer<float>& output,
                                            BufferManager& audioBufferManager,
                                            const int numSamples,
                                            const bool isOverdub)
@@ -166,7 +168,11 @@ private:
         previousSpeedMultiplier = speedMultiplier;
         previousKeepPitch = shouldKeepPitchWhenChangingSpeed();
 
-        audioBufferManager.linearizeAndReadFromAudioBuffer (*interpolationBuffer, maxSourceSamples, numSamples, speedMultiplier, isOverdub);
+        bool loopFinished = audioBufferManager.linearizeAndReadFromAudioBuffer (*interpolationBuffer,
+                                                                                maxSourceSamples,
+                                                                                numSamples,
+                                                                                speedMultiplier,
+                                                                                isOverdub);
 
         int channelsToProcess = (int) std::min ({ output.getNumChannels(),
                                                   audioBufferManager.getNumChannels(),
@@ -206,20 +212,21 @@ private:
 
             output.addFrom (ch, 0, *interpolationBuffer, ch, outputOffset, (int) numSamples);
         }
+        return loopFinished;
     }
 
-    void processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output,
+    bool processPlaybackNormalSpeedForward (juce::AudioBuffer<float>& output,
                                             BufferManager& audioBufferManager,
                                             const int numSamples,
                                             const bool isOverdub)
     {
         PERFETTO_FUNCTION();
-        audioBufferManager.readFromAudioBuffer ([&] (float* dest, const float* source, const int samples)
-                                                { juce::FloatVectorOperations::add (dest, source, samples); },
-                                                output,
-                                                numSamples,
-                                                playbackSpeed * (float) playheadDirection,
-                                                isOverdub);
+        return audioBufferManager.readFromAudioBuffer ([&] (float* dest, const float* source, const int samples)
+                                                       { juce::FloatVectorOperations::add (dest, source, samples); },
+                                                       output,
+                                                       numSamples,
+                                                       playbackSpeed * (float) playheadDirection,
+                                                       isOverdub);
     }
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PlaybackEngine)
 };

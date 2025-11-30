@@ -101,26 +101,41 @@ public:
         return ((idx % musicalLength) + musicalLength) % musicalLength; // Handles negative indices in one step
     }
 
-    void finishedRead (int numRead, float playbackRate, bool overdub)
+    bool finishedRead (int numRead, float playbackRate, bool overdub)
     {
         PERFETTO_FUNCTION();
         lastPlaybackRate = playbackRate;
         readPos += playbackRate * (float) numRead;
 
+        bool wrapped = false;
+
         if (regionEnabled)
         {
             if (readPos >= regionEnd)
+            {
                 readPos = (double) regionStart + std::fmod (readPos - regionStart, regionEnd - regionStart);
+                wrapped = true;
+            }
             else if (readPos < regionStart)
+            {
                 readPos = (double) regionEnd - std::fmod (regionEnd - readPos, regionEnd - regionStart);
+                wrapped = true;
+            }
         }
         else if (musicalLength > 0)
         {
+            if (readPos >= musicalLength || readPos < 0)
+            {
+                wrapped = true;
+            }
+
             readPos = std::fmod (readPos, musicalLength);
             if (readPos < 0) readPos += musicalLength;
         }
 
         if (overdub) writePos = (int) readPos;
+
+        return wrapped;
     }
 
     int getWritePos() const { return writePos; }

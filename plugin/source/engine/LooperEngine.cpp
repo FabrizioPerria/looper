@@ -104,7 +104,10 @@ StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& b
 {
     PERFETTO_FUNCTION();
     for (int i = 0; i < NUM_TRACKS; ++i)
+    {
         tracksToPlay[(size_t) i] = shouldTrackPlay (i);
+        hasWrappedAround[(size_t) i] = false;
+    }
 
     return StateContext { .track = getActiveTrack(),
                           .inputBuffer = &buffer,
@@ -115,6 +118,7 @@ StateContext LooperEngine::createStateContext (const juce::AudioBuffer<float>& b
                           .wasRecording = StateConfig::isRecording (currentState),
                           .isSinglePlayMode = singlePlayMode.load(),
                           .syncMasterLength = syncMasterLength,
+                          .hasWrappedAround = hasWrappedAround,
                           .syncMasterTrackIndex = syncMasterTrackIndex,
                           .allTracks = &loopTracks,
                           .tracksToPlay = &tracksToPlay };
@@ -188,6 +192,10 @@ void LooperEngine::stop()
             track->resetPlaybackPosition (currentState);
 
         transitionTo (LooperState::Idle);
+        for (int i = 0; i < NUM_TRACKS; ++i)
+        {
+            loopCounts[(size_t) i] = 0;
+        }
     }
 }
 
@@ -344,6 +352,15 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
     auto ctx = createStateContext (buffer);
     stateMachine.processAudio (currentState, ctx);
+    for (int i = 0; i < NUM_TRACKS; ++i)
+    {
+        if (ctx.hasWrappedAround.at ((size_t) i))
+        {
+            messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackWrappedAround,
+                                                                 (int) i,
+                                                                 loopCounts[(size_t) i]++));
+        }
+    }
 
     granularFreeze->processBlock (buffer);
     if (metronome->isEnabled()) metronome->processBlock (buffer);

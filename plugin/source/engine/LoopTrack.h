@@ -30,7 +30,7 @@ public:
 
     void finalizeLayer (const bool isOverdub, const int masterLoopLengthSamples);
 
-    void processPlayback (juce::AudioBuffer<float>& output,
+    bool processPlayback (juce::AudioBuffer<float>& output,
                           const int numSamples,
                           const bool isOverdub,
                           const LooperState& currentLooperState);

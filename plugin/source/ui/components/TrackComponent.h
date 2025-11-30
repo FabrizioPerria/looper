@@ -64,8 +64,9 @@ public:
         addAndMakeVisible (reverseButton);
 
         addAndMakeVisible (accentBar);
-        addAndMakeVisible (speedFader);
+
         addAndMakeVisible (pitchFader);
+        addAndMakeVisible (speedFader);
         addAndMakeVisible (trackEditComponent);
         addAndMakeVisible (volumesComponent);
 
@@ -142,6 +143,7 @@ private:
     AccentBar accentBar;
     LevelComponent volumeFader;
     PlaybackSpeedComponent speedFader;
+
     PlaybackPitchComponent pitchFader;
     TrackEditComponent trackEditComponent;
 
@@ -161,9 +163,8 @@ private:
     constexpr static EngineMessageBus::EventType subscribedEvents[] = {
         EngineMessageBus::EventType::TrackMuteChanged,      EngineMessageBus::EventType::TrackSoloChanged,
         EngineMessageBus::EventType::TrackPitchLockChanged, EngineMessageBus::EventType::TrackReverseDirection,
-        EngineMessageBus::EventType::TrackVolumeChanged,    EngineMessageBus::EventType::TrackSpeedChanged,
-        EngineMessageBus::EventType::TrackPitchChanged,     EngineMessageBus::EventType::ActiveTrackChanged,
-        EngineMessageBus::EventType::ActiveTrackCleared
+        EngineMessageBus::EventType::TrackVolumeChanged,    EngineMessageBus::EventType::TrackPitchChanged,
+        EngineMessageBus::EventType::ActiveTrackChanged,    EngineMessageBus::EventType::ActiveTrackCleared
     };
 
     void handleEngineEvent (const EngineMessageBus::Event& event) override
@@ -208,13 +209,6 @@ private:
                 {
                     float volume = std::get<float> (event.data);
                     if (std::abs (volumeFader.getValue() - volume) > 0.001) volumeFader.setValue (volume, juce::dontSendNotification);
-                }
-                break;
-            case EngineMessageBus::EventType::TrackSpeedChanged:
-                if (std::holds_alternative<float> (event.data))
-                {
-                    float speed = std::get<float> (event.data);
-                    if (std::abs (speedFader.getValue() - speed) > 0.001) speedFader.setValue (speed, juce::dontSendNotification);
                 }
                 break;
             case EngineMessageBus::EventType::TrackPitchChanged:

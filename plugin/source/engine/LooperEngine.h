@@ -104,6 +104,7 @@ private:
     std::unique_ptr<EngineMessageBus> messageBus = std::make_unique<EngineMessageBus>();
     std::unique_ptr<Metronome> metronome = std::make_unique<Metronome>();
     std::unique_ptr<GranularFreeze> granularFreeze = std::make_unique<GranularFreeze>();
+    std::array<int, NUM_TRACKS> loopCounts = { 0 };
 
     std::unique_ptr<LevelMeter> inputMeter = std::make_unique<LevelMeter>();
     std::unique_ptr<LevelMeter> outputMeter = std::make_unique<LevelMeter>();
@@ -126,6 +127,7 @@ private:
 
     std::array<std::unique_ptr<LoopTrack>, NUM_TRACKS> loopTracks;
     std::array<bool, NUM_TRACKS> tracksToPlay;
+    std::array<bool, NUM_TRACKS> hasWrappedAround;
 
     // Helper methods
     LooperState determineStateAfterRecording() const;

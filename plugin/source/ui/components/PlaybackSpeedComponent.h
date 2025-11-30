@@ -1,6 +1,7 @@
 #pragma once
 #include "audio/EngineCommandBus.h"
 #include "ui/colors/TokyoNight.h"
+#include "ui/components/ProgressiveSpeedPopup.h"
 #include <JuceHeader.h>
 
 class PlaybackSpeedSlider : public juce::Slider
@@ -60,6 +61,18 @@ public:
         }
     }
 
+    std::function<void()> onShiftClick;
+
+    void mouseDown (const juce::MouseEvent& event) override
+    {
+        if (event.mods.isShiftDown() && onShiftClick)
+        {
+            onShiftClick();
+            return;
+        }
+        juce::Slider::mouseDown (event);
+    }
+
 private:
     double min = MIN_PLAYBACK_SPEED;
     double max = MAX_PLAYBACK_SPEED;
@@ -70,7 +83,7 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PlaybackSpeedSlider)
 };
 
-class PlaybackSpeedComponent : public juce::Component
+class PlaybackSpeedComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
     PlaybackSpeedComponent (EngineMessageBus* engineMessageBus, int trackIdx) : trackIndex (trackIdx), uiToEngineBus (engineMessageBus)
@@ -84,12 +97,26 @@ public:
         speedSlider.setValue (DEFAULT_PLAYBACK_SPEED);
         speedSlider.onValueChange = [this]()
         {
+            if (speedMode == SpeedMode::Automation)
+            {
+                // User touched knob - exit automation
+                speedMode = SpeedMode::Manual;
+                currentSpeedCurve.reset();
+            }
+
+            // Always update current end speed
+            currentSpeedCurve.endSpeed = (float) speedSlider.getValue();
+
             uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
                                                                     trackIndex,
                                                                     (float) speedSlider.getValue() });
         };
+        speedSlider.onShiftClick = [this]() { openProgressiveSpeedPopup(); };
         addAndMakeVisible (speedSlider);
+        uiToEngineBus->addListener (this);
     }
+
+    ~PlaybackSpeedComponent() override { uiToEngineBus->removeListener (this); }
 
     void setValue (double newValue, juce::NotificationType notification) { speedSlider.setValue (newValue, notification); }
 
@@ -109,5 +136,72 @@ private:
     int trackIndex;
     EngineMessageBus* uiToEngineBus;
 
+    std::unique_ptr<ProgressiveSpeedPopup> progressiveSpeedPopup;
+    ProgressiveSpeedCurve currentSpeedCurve;
+
+    void openProgressiveSpeedPopup();
+
+    void closeProgressiveSpeedPopup();
+
+    void applyProgressiveSpeed (const ProgressiveSpeedCurve& curve, int index = 0)
+    {
+        currentSpeedCurve = curve;
+        uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
+                                                                trackIndex,
+                                                                curve.breakpoints[(size_t) index].getY() }); // Set initial speed
+                                                                                                             //
+    }
+
+    enum class SpeedMode
+    {
+        Manual,    // User directly controls speed via knob
+        Automation // Speed controlled by progressive curve
+    };
+
+    SpeedMode speedMode = SpeedMode::Manual;
+
+    constexpr static EngineMessageBus::EventType subscribedEvents[] = {
+        EngineMessageBus::EventType::TrackWrappedAround,
+        EngineMessageBus::EventType::TrackSpeedChanged,
+    };
+
+    void handleEngineEvent (const EngineMessageBus::Event& event) override
+    {
+        if (event.trackIndex != trackIndex) return;
+        bool isSubscribed = std::find (std::begin (subscribedEvents), std::end (subscribedEvents), event.type)
+                            != std::end (subscribedEvents);
+        if (! isSubscribed) return;
+
+        switch (event.type)
+        {
+            case EngineMessageBus::EventType::TrackSpeedChanged:
+                if (std::holds_alternative<float> (event.data))
+                {
+                    float speed = std::get<float> (event.data);
+                    if (std::abs (getValue() - speed) > 0.001) setValue (speed, juce::dontSendNotification);
+                }
+                break;
+            case EngineMessageBus::EventType::TrackWrappedAround:
+                if (event.trackIndex != trackIndex) return;
+
+                if (std::holds_alternative<int> (event.data))
+                {
+                    int speedIndex = std::get<int> (event.data);
+
+                    if (speedMode == SpeedMode::Automation && currentSpeedCurve.breakpoints.size() > 0)
+                    {
+                        int index = std::min (speedIndex, (int) currentSpeedCurve.breakpoints.size() - 1);
+                        applyProgressiveSpeed (currentSpeedCurve, index);
+                    }
+                    else
+                    {
+                        uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
+                                                                                trackIndex,
+                                                                                (float) getValue() });
+                    }
+                }
+                break;
+        }
+    }
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PlaybackSpeedComponent)
 };

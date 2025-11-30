@@ -92,15 +92,16 @@ void LoopTrack::applyPostProcessing (juce::AudioBuffer<float>& audioBuffer, int 
     volumeProcessor.applyCrossfade (audioBuffer, length);
 }
 
-void LoopTrack::processPlayback (juce::AudioBuffer<float>& output,
+bool LoopTrack::processPlayback (juce::AudioBuffer<float>& output,
                                  const int numSamples,
                                  const bool isOverdub,
                                  const LooperState& currentLooperState)
 {
     PERFETTO_FUNCTION();
-    playbackEngine.processPlayback (output, bufferManager, numSamples, isOverdub);
+    bool loopFinished = playbackEngine.processPlayback (output, bufferManager, numSamples, isOverdub);
     volumeProcessor.applyVolume (output, numSamples);
     updateUIBridge (numSamples, false, currentLooperState);
+    return loopFinished;
 }
 
 void LoopTrack::clear()

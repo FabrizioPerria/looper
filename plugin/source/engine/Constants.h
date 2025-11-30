@@ -36,7 +36,7 @@ constexpr float BASE_DEFAULT_GAIN = 1.0f;
 constexpr float OVERDUB_DEFAULT_GAIN = 1.0f;
 constexpr bool DEFAULT_SOLO_STATE = false;
 constexpr bool DEFAULT_MUTE_STATE = false;
-constexpr bool DEFAULT_PITCH_LOCK_STATE = false;
+constexpr bool DEFAULT_PITCH_LOCK_STATE = true;
 constexpr bool DEFAULT_TRACK_SYNCED = true;
 constexpr bool DEFAULT_REVERSE_STATE = false;
 constexpr bool DEFAULT_SINGLE_PLAY_MODE = true;
@@ -103,3 +103,9 @@ constexpr int METRONOME_DEFAULT_TIME_SIGNATURE_DENOMINATOR = 4;
 constexpr float DECAY_FACTOR = 0.99f; // Decay factor for smoothing
 constexpr float DEFAULT_INPUT_GAIN = 1.0f;
 constexpr float DEFAULT_OUTPUT_GAIN = 1.0f;
+
+//**************************************************************
+// Audio File Constants
+constexpr float PLAYBACK_SPEED_MIN = 0.5f;
+constexpr float PLAYBACK_SPEED_MAX = 1.5f;
+//**************************************************************
