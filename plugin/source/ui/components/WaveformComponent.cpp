@@ -31,10 +31,7 @@ void WaveformComponent::paint (juce::Graphics& g)
 {
     PERFETTO_FUNCTION();
 
-    // Enable high quality rendering
     g.setImageResamplingQuality (juce::Graphics::highResamplingQuality);
-
-    // Use surface color instead of pure black
     g.fillAll (LooperTheme::Colors::surface);
 
     if (! bridge)
@@ -60,6 +57,47 @@ void WaveformComponent::paint (juce::Graphics& g)
 
         g.setColour (LooperTheme::Colors::green.brighter (0.6f).withAlpha (0.2f));
         g.fillRect (regionBounds);
+
+        // Subloop region time overlays
+        int subloopLength = regionEndSample - regionStartSample;
+        double sampleRate = cache.getTrackLength() > 0 ? 44100.0 : 0.0; // You may need to pass actual sample rate
+
+        // Bottom left: start time
+        drawTimeOverlay (g,
+                         formatTime (regionStartSample, sampleRate),
+                         (float) regionBounds.getX() + 4,
+                         (float) getHeight() - 4,
+                         juce::Justification::bottomLeft);
+
+        // Bottom right: end time
+        drawTimeOverlay (g,
+                         formatTime (regionEndSample, sampleRate),
+                         (float) regionBounds.getRight() - 4,
+                         (float) getHeight() - 4,
+                         juce::Justification::bottomRight);
+
+        // Top center: region length
+        drawTimeOverlay (g,
+                         formatTime (subloopLength, sampleRate),
+                         (float) regionBounds.getCentreX(),
+                         4.0f,
+                         juce::Justification::centredTop);
+    }
+
+    if (length > 0)
+    {
+        double sampleRate = 44100.0; // You may need to pass actual sample rate
+
+        // Bottom right: total length
+        drawTimeOverlay (g,
+                         formatTime (length, sampleRate),
+                         (float) getWidth() - 4,
+                         (float) getHeight() - 4,
+                         juce::Justification::bottomRight);
+
+        // Near playhead: current position
+        float playheadX = sampleToX (readPos);
+        drawTimeOverlay (g, formatTime (readPos, sampleRate), playheadX + 4, 4.0f, juce::Justification::topLeft);
     }
 }
 

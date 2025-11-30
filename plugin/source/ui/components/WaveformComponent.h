@@ -152,5 +152,43 @@ private:
                || extension == ".flac";
     }
 
+    juce::String formatTime (int samples, double sampleRate) const
+    {
+        if (sampleRate <= 0) return "00:00";
+
+        int totalSeconds = (int) (samples / sampleRate);
+        int minutes = totalSeconds / 60;
+        int seconds = totalSeconds % 60;
+
+        return juce::String::formatted ("%02d:%02d", minutes, seconds);
+    }
+
+    void drawTimeOverlay (juce::Graphics& g, const juce::String& text, float x, float y, juce::Justification justification)
+    {
+        g.setColour (LooperTheme::Colors::backgroundDark.withAlpha (0.7f));
+
+        g.setFont (LooperTheme::Fonts::getRegularFont (12.0f));
+
+        int textWidth = GlyphArrangement::getStringWidth (g.getCurrentFont(), text) + 8;
+        int textHeight = 16;
+
+        juce::Rectangle<float> bgRect;
+        if (justification == juce::Justification::topLeft)
+            bgRect = juce::Rectangle<float> (x, y, (float) textWidth, (float) textHeight);
+        else if (justification == juce::Justification::topRight)
+            bgRect = juce::Rectangle<float> (x - textWidth, y, (float) textWidth, (float) textHeight);
+        else if (justification == juce::Justification::bottomLeft)
+            bgRect = juce::Rectangle<float> (x, y - textHeight, (float) textWidth, (float) textHeight);
+        else if (justification == juce::Justification::bottomRight)
+            bgRect = juce::Rectangle<float> (x - textWidth, y - textHeight, (float) textWidth, (float) textHeight);
+        else if (justification == juce::Justification::centredTop)
+            bgRect = juce::Rectangle<float> (x - textWidth / 2, y, (float) textWidth, (float) textHeight);
+
+        g.fillRoundedRectangle (bgRect, 3.0f);
+
+        g.setColour (LooperTheme::Colors::text);
+        g.drawText (text, bgRect.toNearestInt(), juce::Justification::centred);
+    }
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WaveformComponent)
 };
