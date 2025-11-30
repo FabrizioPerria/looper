@@ -192,6 +192,10 @@ void LooperEngine::stop()
             track->resetPlaybackPosition (currentState);
 
         transitionTo (LooperState::Idle);
+        for (int i = 0; i < NUM_TRACKS; ++i)
+        {
+            loopCounts[(size_t) i] = 0;
+        }
     }
 }
 
@@ -354,7 +358,7 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
         {
             messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackWrappedAround,
                                                                  (int) i,
-                                                                 std::monostate {}));
+                                                                 loopCounts[(size_t) i]++));
         }
     }
 

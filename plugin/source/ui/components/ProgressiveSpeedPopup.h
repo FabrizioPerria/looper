@@ -11,8 +11,7 @@ struct ProgressiveSpeedCurve
     {
         Flat,
         TwoForwardOneBack,
-        LinearRamp,
-        Plateau
+        LinearRamp
     };
 
     PresetType preset = PresetType::Flat;
@@ -20,11 +19,15 @@ struct ProgressiveSpeedCurve
     float startSpeed = 0.7f;
     float endSpeed = 1.0f;
     float stepSize = 0.03f;
+    int repsPerStep = 2.0f;
     float baseSpeedOffset = 0.0f;
 
     std::vector<juce::Point<float>> breakpoints; // x = loop repetition number, y = speed multiplier
 
     bool isActive = false;
+
+private:
+    int currentStep = 0;
 };
 
 class ProgressiveSpeedGraph : public juce::Component
@@ -59,12 +62,21 @@ public:
         g.setFont (LooperTheme::Fonts::getRegularFont (10.0f));
 
         // Y-axis speed labels
-        const float speeds[] = { 0.5f, 0.75f, 1.0f, 1.25f, 1.5f };
-        for (auto speed : speeds)
+        int numSpeedLabels = 5;
+        const float speedStep = (MAX_SPEED - MIN_SPEED) / (numSpeedLabels - 1);
+        for (int i = 0; i < numSpeedLabels; ++i)
         {
+            float speed = MIN_SPEED + i * speedStep;
             float y = speedToY (speed, bounds);
             g.drawText (juce::String (speed, 2) + "x", juce::Rectangle<float> (2, y - 8, 35, 16), juce::Justification::centredLeft);
         }
+
+        // const float speeds[] = { MIN_SPEED, 0.75f, 1.0f, 1.25f, MAX_SPEED };
+        // for (auto speed : speeds)
+        // {
+        //     float y = speedToY (speed, bounds);
+        //     g.drawText (juce::String (speed, 2) + "x", juce::Rectangle<float> (2, y - 8, 35, 16), juce::Justification::centredLeft);
+        // }
 
         // Draw curve
         if (breakpoints.size() >= 2)
@@ -105,11 +117,13 @@ public:
 
 private:
     std::vector<juce::Point<float>> breakpoints;
+    float MIN_SPEED = 0.5f;
+    float MAX_SPEED = 1.25f;
 
     float speedToY (float speed, juce::Rectangle<float> bounds)
     {
         // Map speed range 0.5-1.5 to vertical space
-        return juce::jmap (speed, 0.5f, 1.5f, bounds.getBottom() - 20.0f, bounds.getY() + 20.0f);
+        return juce::jmap (speed, MIN_SPEED, MAX_SPEED, bounds.getBottom() - 20.0f, bounds.getY() + 20.0f);
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProgressiveSpeedGraph)
@@ -132,10 +146,6 @@ public:
         linearButton.setButtonText ("LINEAR");
         linearButton.onClick = [this]() { selectPreset (ProgressiveSpeedCurve::PresetType::LinearRamp); };
         addAndMakeVisible (linearButton);
-
-        plateauButton.setButtonText ("PLATEAU");
-        plateauButton.onClick = [this]() { selectPreset (ProgressiveSpeedCurve::PresetType::Plateau); };
-        addAndMakeVisible (plateauButton);
 
         // Duration control
         durationLabel.setText ("Duration (min):", juce::dontSendNotification);
@@ -190,6 +200,19 @@ public:
         stepSizeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (stepSizeLabel);
 
+        repsPerLevelKnob.setRange (1, 10, 1);
+        repsPerLevelKnob.setValue (1);
+        repsPerLevelKnob.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+        repsPerLevelKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
+        repsPerLevelKnob.onValueChange = [this]() { updateCurve(); };
+        addAndMakeVisible (repsPerLevelKnob);
+
+        repsPerLevelLabel.setText ("Reps/Level", juce::dontSendNotification);
+        repsPerLevelLabel.setFont (LooperTheme::Fonts::getBoldFont (10.0f));
+        repsPerLevelLabel.setJustificationType (juce::Justification::centred);
+        repsPerLevelLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
+        addAndMakeVisible (repsPerLevelLabel);
+
         // Graph
         addAndMakeVisible (graph);
 
@@ -237,7 +260,6 @@ public:
         flatButton.setBounds (presetRow.removeFromLeft (buttonWidth).reduced (2));
         twoFBButton.setBounds (presetRow.removeFromLeft (buttonWidth).reduced (2));
         linearButton.setBounds (presetRow.removeFromLeft (buttonWidth).reduced (2));
-        plateauButton.setBounds (presetRow.removeFromLeft (buttonWidth).reduced (2));
 
         dialogBounds.removeFromTop (10);
 
@@ -250,7 +272,7 @@ public:
 
         // Parameter knobs row
         auto knobsRow = dialogBounds.removeFromTop (90);
-        int knobWidth = knobsRow.getWidth() / 3;
+        int knobWidth = knobsRow.getWidth() / 4;
 
         auto startCol = knobsRow.removeFromLeft (knobWidth).reduced (5);
         startSpeedLabel.setBounds (startCol.removeFromTop (15));
@@ -263,6 +285,10 @@ public:
         auto stepCol = knobsRow.removeFromLeft (knobWidth).reduced (5);
         stepSizeLabel.setBounds (stepCol.removeFromTop (15));
         stepSizeKnob.setBounds (stepCol);
+
+        auto repsCol = knobsRow.reduced (5);
+        repsPerLevelLabel.setBounds (repsCol.removeFromTop (15));
+        repsPerLevelKnob.setBounds (repsCol);
 
         dialogBounds.removeFromTop (10);
 
@@ -287,11 +313,11 @@ private:
     EngineMessageBus* uiToEngineBus;
     ProgressiveSpeedCurve currentCurve;
 
-    juce::TextButton flatButton, twoFBButton, linearButton, plateauButton;
+    juce::TextButton flatButton, twoFBButton, linearButton;
     juce::Label durationLabel;
     juce::Slider durationSlider;
-    juce::Slider startSpeedKnob, endSpeedKnob, stepSizeKnob;
-    juce::Label startSpeedLabel, endSpeedLabel, stepSizeLabel;
+    juce::Slider startSpeedKnob, endSpeedKnob, stepSizeKnob, repsPerLevelKnob;
+    juce::Label startSpeedLabel, endSpeedLabel, stepSizeLabel, repsPerLevelLabel;
     ProgressiveSpeedGraph graph;
     juce::TextButton cancelButton, startButton;
 
@@ -311,7 +337,6 @@ private:
         flatButton.setToggleState (preset == ProgressiveSpeedCurve::PresetType::Flat, juce::dontSendNotification);
         twoFBButton.setToggleState (preset == ProgressiveSpeedCurve::PresetType::TwoForwardOneBack, juce::dontSendNotification);
         linearButton.setToggleState (preset == ProgressiveSpeedCurve::PresetType::LinearRamp, juce::dontSendNotification);
-        plateauButton.setToggleState (preset == ProgressiveSpeedCurve::PresetType::Plateau, juce::dontSendNotification);
 
         // Show/hide relevant parameters
         bool show2FB = (preset == ProgressiveSpeedCurve::PresetType::TwoForwardOneBack);
@@ -327,6 +352,7 @@ private:
         currentCurve.startSpeed = (float) startSpeedKnob.getValue();
         currentCurve.endSpeed = (float) endSpeedKnob.getValue();
         currentCurve.stepSize = (float) stepSizeKnob.getValue();
+        currentCurve.repsPerStep = (int) repsPerLevelKnob.getValue();
 
         generateBreakpoints();
         graph.setCurve (currentCurve.breakpoints);
@@ -352,40 +378,52 @@ private:
             case ProgressiveSpeedCurve::PresetType::TwoForwardOneBack:
             {
                 float currentSpeed = currentCurve.startSpeed;
-                for (int i = 0; i < numLoops; ++i)
-                {
-                    currentCurve.breakpoints.push_back ({ (float) i, currentSpeed });
+                int loopIndex = 0;
 
-                    int posInCycle = i % 3;
-                    if (posInCycle == 0 || posInCycle == 1)
-                        currentSpeed = juce::jmin (currentSpeed + currentCurve.stepSize, currentCurve.endSpeed);
-                    else
+                while (loopIndex < numLoops)
+                {
+                    // Calculate what the next speed should be based on pattern
+                    int patternPos = (loopIndex / currentCurve.repsPerStep) % 3;
+
+                    // Determine speed change
+                    if (patternPos == 0 || patternPos == 1)
+                    {
+                        // Going forward
+                        if (loopIndex > 0 && (loopIndex / currentCurve.repsPerStep) > 0)
+                            currentSpeed = juce::jmin (currentSpeed + currentCurve.stepSize, currentCurve.endSpeed);
+                    }
+                    else // patternPos == 2
+                    {
+                        // Going back
                         currentSpeed = juce::jmax (currentSpeed - currentCurve.stepSize, currentCurve.startSpeed);
+                    }
+
+                    // Repeat this speed repsPerLevel times
+                    for (int rep = 0; rep < currentCurve.repsPerStep && loopIndex < numLoops; ++rep, ++loopIndex)
+                    {
+                        currentCurve.breakpoints.push_back ({ (float) loopIndex, currentSpeed });
+                    }
                 }
                 break;
             }
 
             case ProgressiveSpeedCurve::PresetType::LinearRamp:
             {
-                for (int i = 0; i < numLoops; ++i)
-                {
-                    float progress = (float) i / (float) (numLoops - 1);
-                    float speed = juce::jmap (progress, currentCurve.startSpeed, currentCurve.endSpeed);
-                    currentCurve.breakpoints.push_back ({ (float) i, speed });
-                }
-                break;
-            }
+                // Calculate number of unique speed levels
+                int numLevels = numLoops / currentCurve.repsPerStep;
+                if (numLoops % currentCurve.repsPerStep != 0) numLevels++; // Round up
 
-            case ProgressiveSpeedCurve::PresetType::Plateau:
-            {
-                int numPlateaus = 4;
-                int loopsPerPlateau = numLoops / numPlateaus;
-                for (int i = 0; i < numLoops; ++i)
+                int loopIndex = 0;
+                for (int level = 0; level < numLevels && loopIndex < numLoops; ++level)
                 {
-                    int plateau = i / loopsPerPlateau;
-                    float progress = (float) plateau / (float) (numPlateaus - 1);
+                    float progress = (float) level / (float) (numLevels - 1);
                     float speed = juce::jmap (progress, currentCurve.startSpeed, currentCurve.endSpeed);
-                    currentCurve.breakpoints.push_back ({ (float) i, speed });
+
+                    // Repeat this speed level repsPerLevel times
+                    for (int rep = 0; rep < currentCurve.repsPerStep && loopIndex < numLoops; ++rep, ++loopIndex)
+                    {
+                        currentCurve.breakpoints.push_back ({ (float) loopIndex, speed });
+                    }
                 }
                 break;
             }

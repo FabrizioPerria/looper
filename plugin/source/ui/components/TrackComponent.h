@@ -5,9 +5,7 @@
 #include "ui/components/AccentBarComponent.h"
 #include "ui/components/LevelComponent.h"
 #include "ui/components/PlaybackPitchComponent.h"
-// #include "ui/components/PlaybackSpeedComponent.h"
-#include "ui/components/ProgressiveSpeedButton.h"
-#include "ui/components/ProgressiveSpeedPopup.h"
+#include "ui/components/PlaybackSpeedComponent.h"
 #include "ui/components/TrackEditComponent.h"
 #include "ui/components/VolumesComponent.h"
 #include "ui/components/WaveformComponent.h"
@@ -27,7 +25,7 @@ public:
                        TRACK_DEFAULT_VOLUME,
                        MIN_TRACK_VOLUME,
                        MAX_TRACK_VOLUME)
-        // , speedFader (engineMessageBus, trackIdx)
+        , speedFader (engineMessageBus, trackIdx)
         , pitchFader (engineMessageBus, trackIdx)
         , trackEditComponent (engineMessageBus, trackIdx)
         , volumesComponent (engineMessageBus, trackIdx)
@@ -67,10 +65,8 @@ public:
 
         addAndMakeVisible (accentBar);
 
-        speedButton.onClick = [this]() { openProgressiveSpeedPopup(); };
-        addAndMakeVisible (speedButton);
-
         addAndMakeVisible (pitchFader);
+        addAndMakeVisible (speedFader);
         addAndMakeVisible (trackEditComponent);
         addAndMakeVisible (volumesComponent);
 
@@ -113,7 +109,7 @@ public:
 
         juce::FlexBox pitchSpeedRow;
         pitchSpeedRow.flexDirection = juce::FlexBox::Direction::row;
-        pitchSpeedRow.items.add (juce::FlexItem (speedButton).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
+        pitchSpeedRow.items.add (juce::FlexItem (speedFader).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
         pitchSpeedRow.items.add (juce::FlexItem (pitchFader).withFlex (0.5f).withMargin (juce::FlexItem::Margin (0, 4, 0, 4)));
 
         juce::FlexBox MSButtons;
@@ -146,10 +142,7 @@ private:
     juce::TextButton reverseButton;
     AccentBar accentBar;
     LevelComponent volumeFader;
-
-    ProgressiveSpeedButton speedButton;
-    std::unique_ptr<ProgressiveSpeedPopup> progressiveSpeedPopup;
-    ProgressiveSpeedCurve currentSpeedCurve;
+    PlaybackSpeedComponent speedFader;
 
     PlaybackPitchComponent pitchFader;
     TrackEditComponent trackEditComponent;
@@ -167,63 +160,11 @@ private:
         }
     }
 
-    void openProgressiveSpeedPopup()
-    {
-        if (! progressiveSpeedPopup)
-        {
-            progressiveSpeedPopup = std::make_unique<ProgressiveSpeedPopup> (trackIndex, uiToEngineBus);
-
-            progressiveSpeedPopup->onStart = [this] (const ProgressiveSpeedCurve& curve)
-            {
-                applyProgressiveSpeed (curve);
-                closeProgressiveSpeedPopup();
-            };
-
-            progressiveSpeedPopup->onCancel = [this]() { closeProgressiveSpeedPopup(); };
-
-            // Add to top-level parent (LooperEditor)
-            if (auto* editor = getTopLevelComponent())
-            {
-                editor->addAndMakeVisible (progressiveSpeedPopup.get());
-                progressiveSpeedPopup->setBounds (editor->getLocalBounds());
-            }
-        }
-    }
-
-    void closeProgressiveSpeedPopup()
-    {
-        if (progressiveSpeedPopup)
-        {
-            if (auto* editor = getTopLevelComponent())
-            {
-                editor->removeChildComponent (progressiveSpeedPopup.get());
-            }
-            progressiveSpeedPopup.reset();
-        }
-    }
-
-    void applyProgressiveSpeed (const ProgressiveSpeedCurve& curve)
-    {
-        currentSpeedCurve = curve;
-        speedButton.setActive (curve.isActive);
-
-        // Send command to engine to start progressive speed mode
-        // You'll need to add a new command type for this
-        // For now, just update UI state
-
-        // TODO: Send curve data to engine via message bus
-        // uiToEngineBus->pushCommand({
-        //     EngineMessageBus::CommandType::StartProgressiveSpeed,
-        //     trackIndex,
-        //     /* encode curve data somehow */
-        // });
-    }
     constexpr static EngineMessageBus::EventType subscribedEvents[] = {
         EngineMessageBus::EventType::TrackMuteChanged,      EngineMessageBus::EventType::TrackSoloChanged,
         EngineMessageBus::EventType::TrackPitchLockChanged, EngineMessageBus::EventType::TrackReverseDirection,
-        EngineMessageBus::EventType::TrackVolumeChanged,    EngineMessageBus::EventType::TrackSpeedChanged,
-        EngineMessageBus::EventType::TrackPitchChanged,     EngineMessageBus::EventType::ActiveTrackChanged,
-        EngineMessageBus::EventType::ActiveTrackCleared
+        EngineMessageBus::EventType::TrackVolumeChanged,    EngineMessageBus::EventType::TrackPitchChanged,
+        EngineMessageBus::EventType::ActiveTrackChanged,    EngineMessageBus::EventType::ActiveTrackCleared
     };
 
     void handleEngineEvent (const EngineMessageBus::Event& event) override
@@ -270,13 +211,6 @@ private:
                     if (std::abs (volumeFader.getValue() - volume) > 0.001) volumeFader.setValue (volume, juce::dontSendNotification);
                 }
                 break;
-            // case EngineMessageBus::EventType::TrackSpeedChanged:
-            //     if (std::holds_alternative<float> (event.data))
-            //     {
-            //         float speed = std::get<float> (event.data);
-            //         if (std::abs (speedFader.getValue() - speed) > 0.001) speedFader.setValue (speed, juce::dontSendNotification);
-            //     }
-            //     break;
             case EngineMessageBus::EventType::TrackPitchChanged:
                 if (std::holds_alternative<float> (event.data))
                 {

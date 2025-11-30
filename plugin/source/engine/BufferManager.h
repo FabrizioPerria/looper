@@ -192,15 +192,16 @@ public:
 
         if (length == 0) return false;
 
-        readFromAudioBuffer ([=] (float* destination, const float* source, const int numSamples)
-                             { juce::FloatVectorOperations::copy (destination, source, numSamples); },
-                             destBuffer,
-                             sourceSamples,
-                             speedMultiplier,
-                             isOverdub);
+        bool wrapped = readFromAudioBuffer ([=] (float* destination, const float* source, const int numSamples)
+                                            { juce::FloatVectorOperations::copy (destination, source, numSamples); },
+                                            destBuffer,
+                                            sourceSamples,
+                                            speedMultiplier,
+                                            isOverdub);
 
         // Advance the fifo accounting for the difference between sourceSamples and outputSamples
-        return fifo.finishedRead (outputSamples - sourceSamples, speedMultiplier, isOverdub);
+        bool wrappedDelta = fifo.finishedRead (outputSamples - sourceSamples, speedMultiplier, isOverdub);
+        return wrapped || wrappedDelta;
     }
 
     void setWritePosition (int pos) { fifo.setWritePosition (pos); }
