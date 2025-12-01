@@ -417,7 +417,7 @@ private:
     {
         processor = createPluginFilterOfType (AudioProcessor::wrapperType_Standalone);
         processor->disableNonMainBuses();
-        processor->setRateAndBufferSizeDetails (44100, 512);
+        // processor->setRateAndBufferSizeDetails (44100, 512);
 
         processorHasPotentialFeedbackLoop = (getNumInputChannels() > 0 && getNumOutputChannels() > 0);
     }

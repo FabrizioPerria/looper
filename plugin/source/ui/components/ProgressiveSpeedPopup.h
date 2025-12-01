@@ -1,5 +1,6 @@
 // ProgressiveSpeedPopup.h
 #pragma once
+#include "audio/AudioToUIBridge.h"
 #include "audio/EngineCommandBus.h"
 #include "engine/Constants.h"
 #include "ui/colors/TokyoNight.h"
@@ -134,8 +135,8 @@ private:
 class ProgressiveSpeedPopup : public juce::Component
 {
 public:
-    ProgressiveSpeedPopup (int trackIdx, ProgressiveSpeedCurve curve, EngineMessageBus* messageBus)
-        : trackIndex (trackIdx), uiToEngineBus (messageBus)
+    ProgressiveSpeedPopup (int trackIdx, ProgressiveSpeedCurve curve, EngineMessageBus* messageBus, AudioToUIBridge* uiBridge)
+        : trackIndex (trackIdx), uiToEngineBus (messageBus), uiBridge (uiBridge)
     {
         // Preset buttons
         flatButton.setComponentID ("flatButton");
@@ -364,6 +365,8 @@ private:
     ProgressiveSpeedGraph graph;
     juce::TextButton cancelButton, startButton;
 
+    AudioToUIBridge* uiBridge;
+
     juce::Rectangle<int> getDialogBounds()
     {
         auto bounds = getLocalBounds();
@@ -412,9 +415,12 @@ private:
     void generateBreakpoints()
     {
         currentCurve.breakpoints.clear();
+        int length, readPos;
+        bool recording, playing;
+        double sampleRate;
+        uiBridge->getPlaybackState (length, readPos, recording, playing, sampleRate);
 
-        // For now, assume 16-second loops (we'll need actual loop length from backend)
-        float loopLengthSeconds = 16.0f;
+        float loopLengthSeconds = (float) length / (float) sampleRate;
         int numLoops = (int) ((currentCurve.durationMinutes * 60.0f) / loopLengthSeconds);
 
         switch (currentCurve.preset)

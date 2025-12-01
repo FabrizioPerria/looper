@@ -151,7 +151,8 @@ private:
         int lengthToShow = calculateLengthToShow (nowRecording);
         bool shouldShowPlaying = StateConfig::isPlaying (currentState);
 
-        uiBridge->updateFromAudioThread (getAudioBuffer(), lengthToShow, getCurrentReadPosition(), nowRecording, shouldShowPlaying);
+        uiBridge
+            ->updateFromAudioThread (getAudioBuffer(), lengthToShow, getCurrentReadPosition(), nowRecording, shouldShowPlaying, sampleRate);
     }
 
     int calculateLengthToShow (bool isRecording) const

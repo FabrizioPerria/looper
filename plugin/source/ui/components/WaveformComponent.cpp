@@ -8,7 +8,8 @@ void WaveformComponent::timerCallback()
 
     int length, readPos;
     bool recording, playing;
-    bridge->getPlaybackState (length, readPos, recording, playing);
+    double sampleRate;
+    bridge->getPlaybackState (length, readPos, recording, playing, sampleRate);
 
     bool stateChanged = (recording != lastRecording || playing != lastPlaying);
     bool posChanged = (readPos != lastReadPos);
@@ -43,7 +44,8 @@ void WaveformComponent::paint (juce::Graphics& g)
 
     int length, readPos;
     bool recording, playing;
-    bridge->getPlaybackState (length, readPos, recording, playing);
+    double sampleRate;
+    bridge->getPlaybackState (length, readPos, recording, playing, sampleRate);
 
     bool isSubLoop = regionEndSample > regionStartSample;
     renderer->render (g, cache, (int) readPos, (int) length, getWidth(), getHeight(), recording, isSubLoop);
@@ -60,7 +62,6 @@ void WaveformComponent::paint (juce::Graphics& g)
 
         // Subloop region time overlays
         int subloopLength = regionEndSample - regionStartSample;
-        double sampleRate = cache.getTrackLength() > 0 ? 44100.0 : 0.0; // You may need to pass actual sample rate
 
         // Bottom left: start time
         drawTimeOverlay (g,
@@ -86,8 +87,6 @@ void WaveformComponent::paint (juce::Graphics& g)
 
     if (length > 0)
     {
-        double sampleRate = 44100.0; // You may need to pass actual sample rate
-
         // Bottom right: total length
         drawTimeOverlay (g,
                          formatTime (length, sampleRate),
@@ -111,7 +110,8 @@ void WaveformComponent::onVBlankCallback()
     {
         int length, readPos;
         bool recording, playing;
-        bridge->getPlaybackState (length, readPos, recording, playing);
+        double sampleRate;
+        bridge->getPlaybackState (length, readPos, recording, playing, sampleRate);
 
         lastReadPos = readPos;
         lastRecording = recording;

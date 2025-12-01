@@ -12,6 +12,7 @@ public:
         std::atomic<int> readPosition { 0 };
         std::atomic<bool> isRecording { false };
         std::atomic<bool> isPlaying { false };
+        std::atomic<double> sampleRate { 44100.0 };
 
         std::atomic<int> stateVersion { 0 }; // Increment when waveform changes
     };
@@ -71,6 +72,7 @@ public:
         state.isRecording.store (false, std::memory_order_relaxed);
         state.isPlaying.store (false, std::memory_order_relaxed);
         state.stateVersion.fetch_add (1, std::memory_order_release);
+        state.sampleRate.store (44100.0, std::memory_order_relaxed);
 
         pendingUpdate.store (false, std::memory_order_relaxed);
         lastUIVersion = -1;
@@ -97,7 +99,12 @@ public:
     }
 
     // Called from AUDIO THREAD - must be lock-free and fast
-    void updateFromAudioThread (const juce::AudioBuffer<float>* audioBuffer, int length, int readPos, bool recording, bool playing)
+    void updateFromAudioThread (const juce::AudioBuffer<float>* audioBuffer,
+                                int length,
+                                int readPos,
+                                bool recording,
+                                bool playing,
+                                double sampleRate)
     {
         PERFETTO_FUNCTION();
         int prevPos = state.readPosition.load (std::memory_order_relaxed);
@@ -112,6 +119,7 @@ public:
         state.loopLength.store (length, std::memory_order_relaxed);
         state.isRecording.store (recording, std::memory_order_relaxed);
         state.isPlaying.store (playing, std::memory_order_relaxed);
+        state.sampleRate.store (sampleRate, std::memory_order_relaxed);
 
         // Only update waveform snapshot when it actually changes
         if (pendingUpdate.exchange (false, std::memory_order_acq_rel))
@@ -143,13 +151,14 @@ public:
     }
 
     // Called from UI THREAD - get latest playback position
-    void getPlaybackState (int& length, int& readPos, bool& recording, bool& playing)
+    void getPlaybackState (int& length, int& readPos, bool& recording, bool& playing, double& sampleRate)
     {
         PERFETTO_FUNCTION();
         length = state.loopLength.load (std::memory_order_relaxed);
         readPos = state.readPosition.load (std::memory_order_relaxed);
         recording = state.isRecording.load (std::memory_order_relaxed);
         playing = state.isPlaying.load (std::memory_order_relaxed);
+        sampleRate = state.sampleRate.load (std::memory_order_relaxed);
     }
 
     void getIsPendingUpdate (bool& pending)
