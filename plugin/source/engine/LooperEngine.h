@@ -155,7 +155,7 @@ private:
     void setNewOverdubGainForTrack (int trackIndex, double newGain);
     void setExistingGainForTrack (int trackIndex, double oldGain);
 
-    void loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex);
+    void loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex, double backingTrackSampleRate);
     void loadWaveFileToTrack (const juce::File& audioFile, int trackIndex);
     void setTrackPlaybackDirectionForward (int trackIndex);
     void setTrackPlaybackDirectionBackward (int trackIndex);

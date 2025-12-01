@@ -7,8 +7,8 @@ constexpr int LEFT_CHANNEL = 0;
 constexpr int RIGHT_CHANNEL = 1;
 
 constexpr int SAVE_TRACK_BITS_PER_SAMPLE = 16;
-constexpr int LOOP_MAX_SECONDS_HARD_LIMIT = 10 * 60; // 10 minutes
-constexpr int MAX_UNDO_LAYERS = 5;
+constexpr int LOOP_MAX_SECONDS_HARD_LIMIT = 5 * 60;
+constexpr int MAX_UNDO_LAYERS = 2;
 
 constexpr int DEFAULT_ACTIVE_TRACK_INDEX = -1;
 constexpr float MIN_PLAYBACK_SPEED = 0.5f;

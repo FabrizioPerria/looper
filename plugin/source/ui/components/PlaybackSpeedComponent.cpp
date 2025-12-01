@@ -6,7 +6,7 @@ void PlaybackSpeedComponent::openProgressiveSpeedPopup()
 {
     if (! progressiveSpeedPopup)
     {
-        progressiveSpeedPopup = std::make_unique<ProgressiveSpeedPopup> (trackIndex, currentSpeedCurve, uiToEngineBus);
+        progressiveSpeedPopup = std::make_unique<ProgressiveSpeedPopup> (trackIndex, currentSpeedCurve, uiToEngineBus, uiBridge);
 
         progressiveSpeedPopup->onStart = [this] (const ProgressiveSpeedCurve& curve)
         {

@@ -474,7 +474,7 @@ void LooperEngine::setNewOverdubGainForTrack (int trackIndex, double newGain)
     }
 }
 
-void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex)
+void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& backingTrack, int trackIndex, double backingTrackSampleRate)
 {
     PERFETTO_FUNCTION();
     if (trackIndex < 0 || trackIndex >= numTracks) trackIndex = activeTrackIndex;
@@ -482,7 +482,7 @@ void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& back
     auto* track = getTrackByIndex (trackIndex);
     if (track)
     {
-        track->loadBackingTrack (backingTrack, syncMasterLength);
+        track->loadBackingTrack (backingTrack, syncMasterLength, backingTrackSampleRate);
 
         play();
     }
@@ -513,7 +513,7 @@ void LooperEngine::loadWaveFileToTrack (const juce::File& audioFile, int trackIn
         }
 
         reader->read (&backingTrack, 0, samplesToRead, 0, true, true);
-        loadBackingTrackToTrack (backingTrack, trackIndex);
+        loadBackingTrackToTrack (backingTrack, trackIndex, reader->sampleRate);
     }
 }
 

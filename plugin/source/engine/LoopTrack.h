@@ -46,7 +46,9 @@ public:
 
     void setCrossFadeLength (const int newCrossFadeLength) { volumeProcessor.setCrossFadeLength (newCrossFadeLength); }
 
-    void loadBackingTrack (const juce::AudioBuffer<float>& backingTrack, const int masterLoopLengthSamples);
+    void loadBackingTrack (const juce::AudioBuffer<float>& backingTrack,
+                           const int masterLoopLengthSamples,
+                           const double backingTrackSampleRate);
     juce::AudioBuffer<float>* getAudioBuffer() { return bufferManager.getAudioBuffer().get(); }
 
     const int getAvailableTrackSizeSamples() const { return (int) alignedBufferSize; }
@@ -151,7 +153,8 @@ private:
         int lengthToShow = calculateLengthToShow (nowRecording);
         bool shouldShowPlaying = StateConfig::isPlaying (currentState);
 
-        uiBridge->updateFromAudioThread (getAudioBuffer(), lengthToShow, getCurrentReadPosition(), nowRecording, shouldShowPlaying);
+        uiBridge
+            ->updateFromAudioThread (getAudioBuffer(), lengthToShow, getCurrentReadPosition(), nowRecording, shouldShowPlaying, sampleRate);
     }
 
     int calculateLengthToShow (bool isRecording) const

@@ -86,7 +86,8 @@ private:
 class PlaybackSpeedComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    PlaybackSpeedComponent (EngineMessageBus* engineMessageBus, int trackIdx) : trackIndex (trackIdx), uiToEngineBus (engineMessageBus)
+    PlaybackSpeedComponent (EngineMessageBus* engineMessageBus, int trackIdx, AudioToUIBridge* bridge)
+        : trackIndex (trackIdx), uiToEngineBus (engineMessageBus), uiBridge (bridge)
     {
         titleLabel.setText ("SPEED", juce::dontSendNotification);
         titleLabel.setFont (LooperTheme::Fonts::getBoldFont (9.0f));
@@ -134,6 +135,7 @@ private:
     PlaybackSpeedSlider speedSlider;
     int trackIndex;
     EngineMessageBus* uiToEngineBus;
+    AudioToUIBridge* uiBridge;
 
     std::unique_ptr<ProgressiveSpeedPopup> progressiveSpeedPopup;
     ProgressiveSpeedCurve currentSpeedCurve;

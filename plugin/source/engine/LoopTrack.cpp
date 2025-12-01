@@ -164,7 +164,9 @@ bool LoopTrack::redo()
     return false;
 }
 
-void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack, const int masterLoopLengthSamples)
+void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack,
+                                  const int masterLoopLengthSamples,
+                                  const double backingTrackSampleRate)
 {
     PERFETTO_FUNCTION();
     if (backingTrack.getNumChannels() != bufferManager.getNumChannels() || backingTrack.getNumSamples() == 0) return;
@@ -175,7 +177,26 @@ void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack, 
     releaseResources();
     prepareToPlay (prevSampleRate, (int) prevBlockSize, (int) prevChannels);
 
-    int copySamples = std::min ((int) backingTrack.getNumSamples(), (int) LOOP_MAX_SECONDS_HARD_LIMIT * (int) sampleRate);
+    // need to resample if backing track sample rate differs
+    juce::AudioBuffer<float>& trackToUse = const_cast<juce::AudioBuffer<float>&> (backingTrack);
+    juce::AudioBuffer<float> resampledBackingTrack;
+    if (abs (backingTrackSampleRate - sampleRate) > 0.01)
+    {
+        juce::LagrangeInterpolator interpolator;
+        const double ratio = backingTrackSampleRate / sampleRate;
+        const int resampledLength = (int) (backingTrack.getNumSamples() / ratio) + 1;
+        resampledBackingTrack.setSize (backingTrack.getNumChannels(), resampledLength);
+        for (int ch = 0; ch < backingTrack.getNumChannels(); ++ch)
+        {
+            const float* sourceData = backingTrack.getReadPointer (ch);
+            float* destData = resampledBackingTrack.getWritePointer (ch);
+            interpolator.reset();
+            interpolator.process (ratio, sourceData, destData, resampledLength);
+        }
+        trackToUse = resampledBackingTrack;
+    }
+
+    int copySamples = std::min ((int) trackToUse.getNumSamples(), (int) alignedBufferSize);
     if (isSyncedToMaster && masterLoopLengthSamples > 0)
     {
         copySamples = masterLoopLengthSamples;

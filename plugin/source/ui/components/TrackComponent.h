@@ -25,7 +25,7 @@ public:
                        TRACK_DEFAULT_VOLUME,
                        MIN_TRACK_VOLUME,
                        MAX_TRACK_VOLUME)
-        , speedFader (engineMessageBus, trackIdx)
+        , speedFader (engineMessageBus, trackIdx, audioBridge)
         , pitchFader (engineMessageBus, trackIdx)
         , trackEditComponent (engineMessageBus, trackIdx)
         , volumesComponent (engineMessageBus, trackIdx)
