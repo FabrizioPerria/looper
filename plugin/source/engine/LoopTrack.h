@@ -46,7 +46,9 @@ public:
 
     void setCrossFadeLength (const int newCrossFadeLength) { volumeProcessor.setCrossFadeLength (newCrossFadeLength); }
 
-    void loadBackingTrack (const juce::AudioBuffer<float>& backingTrack, const int masterLoopLengthSamples);
+    void loadBackingTrack (const juce::AudioBuffer<float>& backingTrack,
+                           const int masterLoopLengthSamples,
+                           const double backingTrackSampleRate);
     juce::AudioBuffer<float>* getAudioBuffer() { return bufferManager.getAudioBuffer().get(); }
 
     const int getAvailableTrackSizeSamples() const { return (int) alignedBufferSize; }
