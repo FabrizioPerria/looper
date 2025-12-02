@@ -37,6 +37,26 @@ public:
 
     std::unique_ptr<juce::AudioBuffer<float>>& getAudioBuffer() { return audioBuffer; }
 
+    int getAudioBufferForSave (juce::AudioBuffer<float>* loopBuffer)
+    {
+        int loopStart = 0;
+        int loopLength = length;
+
+        if (loopRegionEnabled)
+        {
+            loopStart = loopRegionStart;
+            loopLength = loopRegionEnd - loopRegionStart;
+        }
+
+        loopBuffer->setSize (audioBuffer->getNumChannels(), loopLength, false, true, true);
+
+        for (int ch = 0; ch < audioBuffer->getNumChannels(); ++ch)
+        {
+            juce::FloatVectorOperations::copy (loopBuffer->getWritePointer (ch), audioBuffer->getReadPointer (ch) + loopStart, loopLength);
+        }
+        return loopLength;
+    }
+
     const int getNumChannels() const { return audioBuffer->getNumChannels(); }
     const int getNumSamples() const { return audioBuffer->getNumSamples(); }
 

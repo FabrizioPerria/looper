@@ -499,7 +499,9 @@ void LooperEngine::loadWaveFileToTrack (const juce::File& audioFile, int trackIn
         juce::AudioBuffer<float> backingTrack ((int) reader->numChannels, (int) reader->lengthInSamples);
         int samplesToRead = (int) reader->lengthInSamples;
         auto track = getTrackByIndex (trackIndex);
-        if (track && track->isSynced())
+
+        // Only apply sync logic in multitrack mode
+        if (! singlePlayMode.load() && track && track->isSynced())
         {
             if (syncMasterLength > 0)
             {
