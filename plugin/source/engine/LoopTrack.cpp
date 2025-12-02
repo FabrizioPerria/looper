@@ -204,7 +204,7 @@ void LoopTrack::loadBackingTrack (const juce::AudioBuffer<float>& backingTrack,
 
     bufferManager.writeToAudioBuffer ([&] (float* dest, const float* source, const int samples, const bool /*shouldOverdub*/)
                                       { juce::FloatVectorOperations::copy (dest, source, samples); },
-                                      backingTrack,
+                                      trackToUse,
                                       copySamples,
                                       false,
                                       false);
@@ -229,8 +229,8 @@ void LoopTrack::saveTrackToWavFile (const juce::File& audioFile)
                                              0));
     if (writer)
     {
-        auto& audioBuffer = *bufferManager.getAudioBuffer();
-        auto length = bufferManager.getLength();
-        writer->writeFromAudioSampleBuffer (audioBuffer, 0, length);
+        auto loopBuffer = std::make_unique<juce::AudioBuffer<float>>();
+        auto length = bufferManager.getAudioBufferForSave (loopBuffer.get());
+        writer->writeFromAudioSampleBuffer (*loopBuffer, 0, length);
     }
 }
