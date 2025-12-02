@@ -8,6 +8,7 @@
 #include "ui/components/DraggableToggleButtonComponent.h"
 #include "ui/components/DraggableValueLabelComponent.h"
 #include "ui/components/LevelComponent.h"
+#include "ui/components/ProgressiveMetronomePopup.h"
 #include <JuceHeader.h>
 
 class MetronomeComponent : public juce::Component, public EngineMessageBus::Listener
@@ -61,9 +62,18 @@ public:
         bpmEditor.setJustificationType (juce::Justification::centred);
         bpmEditor.onTextChange = [this]()
         {
+            if (! bpmEditor.isMouseButtonDown()) return; // Only respond to user drag
+            if (speedMode == SpeedMode::Automation)
+            {
+                // User touched knob - exit automation
+                speedMode = SpeedMode::Manual;
+                currentMetronomeCurve.preset = ProgressiveMetronomeCurve::PresetType::Flat; // Reset to flat
+                currentMetronomeCurve.endSpeed = (float) bpmEditor.getText().getFloatValue();
+            }
+
             uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetMetronomeBPM,
                                                                     DEFAULT_ACTIVE_TRACK_INDEX,
-                                                                    bpmEditor.getText().getIntValue() });
+                                                                    currentMetronomeCurve.endSpeed });
         };
         addAndMakeVisible (bpmEditor);
 
@@ -194,8 +204,17 @@ private:
     DraggableToggleButtonComponent strongBeatButton;
 
     LevelComponent metronomeLevel;
+    std::unique_ptr<ProgressiveMetronomePopup> progressiveMetronomePopup;
+    ProgressiveMetronomeCurve currentMetronomeCurve;
 
     BeatIndicatorComponent beatIndicator;
+    enum class SpeedMode
+    {
+        Manual,    // User directly controls speed via knob
+        Automation // Speed controlled by progressive curve
+    };
+
+    SpeedMode speedMode = SpeedMode::Manual;
 
     constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::MetronomeEnabledChanged,
                                                                         EngineMessageBus::EventType::MetronomeBPMChanged,
