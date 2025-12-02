@@ -358,6 +358,7 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
     {
         if (ctx.hasWrappedAround.at ((size_t) i))
         {
+            automationEngine->applyAtLoopIndex (i, loopCounts[(size_t) i]);
             messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackWrappedAround,
                                                                  (int) i,
                                                                  loopCounts[(size_t) i]++));

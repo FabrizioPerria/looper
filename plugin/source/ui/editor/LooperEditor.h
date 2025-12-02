@@ -22,7 +22,10 @@ public:
 
         for (int i = 0; i < engine->getNumTracks(); ++i)
         {
-            auto channel = std::make_unique<TrackComponent> (engine->getMessageBus(), i, engine->getTrackByIndex (i)->getUIBridge());
+            auto channel = std::make_unique<TrackComponent> (engine->getMessageBus(),
+                                                             i,
+                                                             engine->getTrackByIndex (i)->getUIBridge(),
+                                                             engine->getAutomationEngine());
             channels[(size_t) i] = std::move (channel);
             addAndMakeVisible (*channels[(size_t) i]);
         }

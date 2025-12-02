@@ -1,5 +1,6 @@
 #pragma once
 #include "audio/EngineCommandBus.h"
+#include "engine/AutomationEngine.h"
 #include "ui/colors/TokyoNight.h"
 #include "ui/components/ProgressiveSpeedPopup.h"
 #include <JuceHeader.h>
@@ -86,8 +87,8 @@ private:
 class PlaybackSpeedComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    PlaybackSpeedComponent (EngineMessageBus* engineMessageBus, int trackIdx, AudioToUIBridge* bridge)
-        : trackIndex (trackIdx), uiToEngineBus (engineMessageBus), uiBridge (bridge)
+    PlaybackSpeedComponent (EngineMessageBus* engineMessageBus, int trackIdx, AudioToUIBridge* bridge, AutomationEngine* automationEngine)
+        : trackIndex (trackIdx), uiToEngineBus (engineMessageBus), uiBridge (bridge), automationEngine (automationEngine)
     {
         titleLabel.setText ("SPEED", juce::dontSendNotification);
         titleLabel.setFont (LooperTheme::Fonts::getBoldFont (9.0f));
@@ -136,6 +137,7 @@ private:
     int trackIndex;
     EngineMessageBus* uiToEngineBus;
     AudioToUIBridge* uiBridge;
+    AutomationEngine* automationEngine;
 
     std::unique_ptr<ProgressiveSpeedPopup> progressiveSpeedPopup;
     ProgressiveSpeedCurve currentSpeedCurve;
@@ -147,11 +149,23 @@ private:
     void applyProgressiveSpeed (const ProgressiveSpeedCurve& curve, int index = 0)
     {
         currentSpeedCurve = curve;
+        speedMode = SpeedMode::Automation;
 
+        // Convert to automation curve
+        AutomationCurve autoCurve;
+        autoCurve.breakpoints = curve.breakpoints;
+        autoCurve.commandType = EngineMessageBus::CommandType::SetPlaybackSpeed;
+        autoCurve.trackIndex = trackIndex;
+        autoCurve.enabled = true;
+
+        // Register with automation engine
+        juce::String paramId = "track" + juce::String (trackIndex) + "_speed";
+        automationEngine->registerCurve (paramId, autoCurve);
+
+        // Set initial speed
         uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
                                                                 trackIndex,
-                                                                curve.breakpoints[(size_t) index].getY() }); // Set initial speed
-                                                                                                             //
+                                                                curve.breakpoints[(size_t) index].getY() });
     }
 
     enum class SpeedMode
@@ -163,7 +177,6 @@ private:
     SpeedMode speedMode = SpeedMode::Manual;
 
     constexpr static EngineMessageBus::EventType subscribedEvents[] = {
-        EngineMessageBus::EventType::TrackWrappedAround,
         EngineMessageBus::EventType::TrackSpeedChanged,
     };
 
@@ -181,27 +194,6 @@ private:
                 {
                     float speed = std::get<float> (event.data);
                     if (std::abs (getValue() - speed) > 0.001) setValue (speed, juce::dontSendNotification);
-                }
-                break;
-            case EngineMessageBus::EventType::TrackWrappedAround:
-                if (event.trackIndex != trackIndex) return;
-
-                if (std::holds_alternative<int> (event.data))
-                {
-                    int speedIndex = std::get<int> (event.data);
-
-                    // jassert (currentSpeedCurve.breakpoints.size() > 0);
-                    if (speedMode == SpeedMode::Automation && currentSpeedCurve.breakpoints.size() > 0)
-                    {
-                        int index = std::min (speedIndex, (int) currentSpeedCurve.breakpoints.size() - 1);
-                        applyProgressiveSpeed (currentSpeedCurve, index);
-                    }
-                    else
-                    {
-                        uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
-                                                                                trackIndex,
-                                                                                (float) getValue() });
-                    }
                 }
                 break;
         }
