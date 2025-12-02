@@ -8,6 +8,12 @@ public:
 
     void mouseDown (const juce::MouseEvent& e) override
     {
+        if (e.mods.isShiftDown() && onShiftClick)
+        {
+            onShiftClick();
+            return;
+        }
+
         if (e.mods.isLeftButtonDown())
         {
             dragStartY = e.getScreenPosition().y;
@@ -32,6 +38,8 @@ public:
         isDragging = false;
         Label::mouseUp (e);
     }
+
+    std::function<void()> onShiftClick;
 
 private:
     int minValue, maxValue, stepSize;

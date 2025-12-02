@@ -15,7 +15,7 @@ class LooperEditor : public juce::Component
 public:
     LooperEditor (LooperEngine* engine)
     {
-        globalBar = std::make_unique<GlobalControlBar> (engine->getMessageBus(), engine->getMetronome());
+        globalBar = std::make_unique<GlobalControlBar> (engine->getMessageBus(), engine->getMetronome(), engine->getAutomationEngine());
 
         footerComponent = std::make_unique<FooterComponent> (engine->getMessageBus(), engine->getEngineStateBridge(), engine);
         midiMappingComponent = std::make_unique<MidiMappingComponent> (engine->getMidiMappingManager(), engine->getMessageBus());

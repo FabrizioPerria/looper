@@ -9,8 +9,10 @@
 class GlobalControlBar : public juce::Component
 {
 public:
-    GlobalControlBar (EngineMessageBus* engineMessageBus, Metronome* m)
-        : transportControls (engineMessageBus), metronomeComponent (engineMessageBus, m), droneComponent (engineMessageBus)
+    GlobalControlBar (EngineMessageBus* engineMessageBus, Metronome* m, AutomationEngine* automationEngine)
+        : transportControls (engineMessageBus)
+        , metronomeComponent (engineMessageBus, m, automationEngine)
+        , droneComponent (engineMessageBus)
     {
         addAndMakeVisible (transportControls);
         addAndMakeVisible (metronomeComponent);

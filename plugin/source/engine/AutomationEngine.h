@@ -5,12 +5,20 @@
 #include <map>
 #include <vector>
 
+enum class AutomationMode
+{
+    LoopBased, // Applied on wrap (speed, pitch, etc.)
+    TimeBased  // Applied continuously (metronome, volume fades)
+};
+
 struct AutomationCurve
 {
     std::vector<juce::Point<float>> breakpoints; // x = loop index, y = parameter value
     EngineMessageBus::CommandType commandType;
     int trackIndex;
     bool enabled = true;
+    AutomationMode mode = AutomationMode::LoopBased;
+    double startTime = 0.0;
 
     float getValueAtLoopIndex (int loopIndex) const
     {
@@ -19,6 +27,27 @@ struct AutomationCurve
 
         int clampedIndex = juce::jmin (loopIndex, (int) breakpoints.size() - 1);
         return breakpoints[(size_t) clampedIndex].getY();
+    }
+
+    float getValueAtTime (double elapsedSeconds) const
+    {
+        if (breakpoints.empty()) return 0.0f;
+
+        // Find position in curve based on elapsed time
+        // breakpoints[i].x = time in seconds
+        // breakpoints[i].y = parameter value
+
+        for (size_t i = 0; i < breakpoints.size() - 1; ++i)
+        {
+            if (elapsedSeconds >= breakpoints[i].x && elapsedSeconds < breakpoints[i + 1].x)
+            {
+                // Linear interpolation between points
+                float t = (elapsedSeconds - breakpoints[i].x) / (breakpoints[i + 1].x - breakpoints[i].x);
+                return juce::jmap (t, breakpoints[i].y, breakpoints[i + 1].y);
+            }
+        }
+
+        return breakpoints.back().y; // Past end, use final value
     }
 };
 
@@ -34,6 +63,27 @@ class AutomationEngine
 {
 public:
     AutomationEngine (EngineMessageBus* messageBus) : engineMessageBus (messageBus) {}
+
+    void prepareToPlay (double sampleRate)
+    {
+        this->sampleRate = sampleRate;
+        elapsedSamples = 0;
+    }
+
+    void processBlock (int numSamples) // Called every audio block
+    {
+        elapsedSamples += numSamples;
+        double elapsedSeconds = elapsedSamples / sampleRate;
+
+        // Apply time-based automation
+        for (const auto& [paramId, curve] : curves)
+        {
+            if (! curve.enabled || curve.mode != AutomationMode::TimeBased) continue;
+
+            float value = curve.getValueAtTime (elapsedSeconds - curve.startTime);
+            dispatchCommand (curve.commandType, curve.trackIndex, value);
+        }
+    }
 
     void registerCurve (const juce::String& paramId, const AutomationCurve& curve) { curves[paramId] = curve; }
 
@@ -122,6 +172,22 @@ public:
         }
     }
 
+    void startTimeBasedAutomation (const juce::String& paramId)
+    {
+        if (curves.count (paramId))
+        {
+            curves[paramId].startTime = elapsedSamples / sampleRate;
+        }
+    }
+
+    void stopTimeBasedAutomation (const juce::String& paramId)
+    {
+        if (curves.count (paramId))
+        {
+            curves[paramId].enabled = false;
+        }
+    }
+
     void clear()
     {
         curves.clear();
@@ -135,6 +201,8 @@ private:
     EngineMessageBus* engineMessageBus;
     std::map<juce::String, AutomationCurve> curves;
     std::vector<ParameterCoupling> couplings;
+    double sampleRate;
+    uint64_t elapsedSamples = 0;
 
     void dispatchCommand (EngineMessageBus::CommandType commandType, int trackIndex, float value)
     {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "audio/EngineCommandBus.h"
+#include "engine/AutomationEngine.h"
 #include "engine/Constants.h"
 #include "engine/Metronome.h"
 #include "ui/colors/TokyoNight.h"
@@ -14,13 +15,14 @@
 class MetronomeComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    MetronomeComponent (EngineMessageBus* engineMessageBus, Metronome* m)
+    MetronomeComponent (EngineMessageBus* engineMessageBus, Metronome* m, AutomationEngine* automationEngine)
         : uiToEngineBus (engineMessageBus)
         , metronomeLevel (engineMessageBus,
                           DEFAULT_ACTIVE_TRACK_INDEX,
                           "Level",
                           EngineMessageBus::CommandType::SetMetronomeVolume,
                           METRONOME_DEFAULT_VOLUME)
+        , automationEngine (automationEngine)
         , beatIndicator (engineMessageBus, m)
     {
         metronomeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
@@ -67,6 +69,7 @@ public:
             {
                 // User touched knob - exit automation
                 speedMode = SpeedMode::Manual;
+                this->automationEngine->stopTimeBasedAutomation (bpmParamId);
                 currentMetronomeCurve.preset = ProgressiveMetronomeCurve::PresetType::Flat; // Reset to flat
                 currentMetronomeCurve.endSpeed = (float) bpmEditor.getText().getFloatValue();
             }
@@ -75,6 +78,7 @@ public:
                                                                     DEFAULT_ACTIVE_TRACK_INDEX,
                                                                     currentMetronomeCurve.endSpeed });
         };
+        bpmEditor.onShiftClick = [this]() { openProgressiveMetronomePopup(); };
         addAndMakeVisible (bpmEditor);
 
         // Numerator (beats per measure)
@@ -206,6 +210,34 @@ private:
     LevelComponent metronomeLevel;
     std::unique_ptr<ProgressiveMetronomePopup> progressiveMetronomePopup;
     ProgressiveMetronomeCurve currentMetronomeCurve;
+    AutomationEngine* automationEngine;
+
+    void openProgressiveMetronomePopup();
+    void closeProgressiveMetronomePopup();
+    juce::String bpmParamId = "metronome_bpm";
+
+    void applyProgressiveSpeed (const ProgressiveMetronomeCurve& curve, int index = 0)
+    {
+        currentMetronomeCurve = curve;
+        speedMode = SpeedMode::Automation;
+
+        // Convert to automation curve
+        AutomationCurve autoCurve;
+        autoCurve.breakpoints = curve.breakpoints;
+        autoCurve.commandType = EngineMessageBus::CommandType::SetMetronomeBPM;
+        autoCurve.trackIndex = -1;
+        autoCurve.enabled = true;
+        autoCurve.mode = AutomationMode::TimeBased;
+
+        // Register with automation engine
+        automationEngine->registerCurve (bpmParamId, autoCurve);
+        automationEngine->startTimeBasedAutomation (bpmParamId);
+
+        // Set initial speed
+        uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetMetronomeBPM,
+                                                                -1,
+                                                                curve.breakpoints[(size_t) index].getY() });
+    }
 
     BeatIndicatorComponent beatIndicator;
     enum class SpeedMode
@@ -234,6 +266,7 @@ private:
             {
                 bool isEnabled = std::get<bool> (event.data);
                 enableButton.setToggleState (isEnabled, juce::dontSendNotification);
+                if (! isEnabled && speedMode == SpeedMode::Automation) this->automationEngine->stopTimeBasedAutomation (bpmParamId);
                 break;
             }
             case EngineMessageBus::EventType::MetronomeBPMChanged:

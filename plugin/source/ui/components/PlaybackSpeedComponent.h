@@ -157,6 +157,7 @@ private:
         autoCurve.commandType = EngineMessageBus::CommandType::SetPlaybackSpeed;
         autoCurve.trackIndex = trackIndex;
         autoCurve.enabled = true;
+        autoCurve.mode = AutomationMode::LoopBased;
 
         // Register with automation engine
         juce::String paramId = "track" + juce::String (trackIndex) + "_speed";

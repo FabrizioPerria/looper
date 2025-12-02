@@ -121,8 +121,7 @@ private:
 class ProgressiveMetronomePopup : public juce::Component
 {
 public:
-    ProgressiveMetronomePopup (int trackIdx, ProgressiveMetronomeCurve curve, EngineMessageBus* messageBus, AudioToUIBridge* uiBridge)
-        : trackIndex (trackIdx), uiToEngineBus (messageBus), uiBridge (uiBridge)
+    ProgressiveMetronomePopup (ProgressiveMetronomeCurve curve, EngineMessageBus* messageBus) : uiToEngineBus (messageBus)
     {
         // Preset buttons
         flatButton.setComponentID ("flatButton");
@@ -155,8 +154,8 @@ public:
         durationSlider.setValue (curve.durationMinutes);
 
         // Parameter knobs
-        startSpeedKnob.setRange (0.5, 2.0, 0.01);
-        startSpeedKnob.setValue (0.7);
+        startSpeedKnob.setRange (METRONOME_MIN_BPM, METRONOME_MAX_BPM, 1.0);
+        startSpeedKnob.setValue (METRONOME_DEFAULT_BPM);
         startSpeedKnob.setSliderStyle (juce::Slider::LinearHorizontal);
         startSpeedKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 60, 20);
         startSpeedKnob.onValueChange = [this]() { updateCurve(); };
@@ -169,8 +168,8 @@ public:
         startSpeedLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (startSpeedLabel);
 
-        endSpeedKnob.setRange (0.5, 2.0, 0.01);
-        endSpeedKnob.setValue (1.0);
+        endSpeedKnob.setRange (METRONOME_MIN_BPM, METRONOME_MAX_BPM, 1.0);
+        endSpeedKnob.setValue (METRONOME_DEFAULT_BPM);
         endSpeedKnob.setSliderStyle (juce::Slider::LinearHorizontal);
         endSpeedKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 60, 20);
         endSpeedKnob.onValueChange = [this]() { updateCurve(); };
@@ -183,8 +182,8 @@ public:
         endSpeedLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (endSpeedLabel);
 
-        stepSizeKnob.setRange (0.01, 0.10, 0.01);
-        stepSizeKnob.setValue (0.03);
+        stepSizeKnob.setRange (1.0, 10.0, 1.0);
+        stepSizeKnob.setValue (1.0);
         stepSizeKnob.setSliderStyle (juce::Slider::LinearHorizontal);
         stepSizeKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 60, 20);
         stepSizeKnob.onValueChange = [this]() { updateCurve(); };
@@ -197,7 +196,7 @@ public:
         stepSizeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (stepSizeLabel);
 
-        repsPerLevelKnob.setRange (1, 10, 1);
+        repsPerLevelKnob.setRange (1, 40, 1);
         repsPerLevelKnob.setValue (1);
         repsPerLevelKnob.setSliderStyle (juce::Slider::LinearHorizontal);
         repsPerLevelKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 60, 20);
@@ -339,7 +338,6 @@ public:
     std::function<void()> onCancel;
 
 private:
-    int trackIndex;
     EngineMessageBus* uiToEngineBus;
     ProgressiveMetronomeCurve currentCurve;
 
@@ -350,8 +348,6 @@ private:
     juce::Label startSpeedLabel, endSpeedLabel, stepSizeLabel, repsPerLevelLabel;
     ProgressiveMetronomeGraph graph;
     juce::TextButton cancelButton, startButton;
-
-    AudioToUIBridge* uiBridge;
 
     juce::Rectangle<int> getDialogBounds()
     {
@@ -401,12 +397,8 @@ private:
     void generateBreakpoints()
     {
         currentCurve.breakpoints.clear();
-        int length, readPos;
-        bool recording, playing;
-        double sampleRate;
-        uiBridge->getPlaybackState (length, readPos, recording, playing, sampleRate);
 
-        float loopLengthSeconds = (float) length / (float) sampleRate;
+        float loopLengthSeconds = 60;
         int numLoops = (int) ((currentCurve.durationMinutes * 60.0f) / loopLengthSeconds);
 
         switch (currentCurve.preset)
