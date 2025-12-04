@@ -28,6 +28,7 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
     engineStateBridge->setNumChannels (numChannels);
     inputMeter->prepare (numChannels);
     outputMeter->prepare (numChannels);
+    performanceMonitor.prepareToPlay (sampleRate, maxBlockSize);
 
     setPendingAction (PendingAction::Type::SwitchTrack, 0, false, currentState);
 }
@@ -336,6 +337,7 @@ void LooperEngine::clear (int trackIndex)
 
 void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    performanceMonitor.startBlock();
     PERFETTO_FUNCTION();
 
     handleMidiCommand (midiMessages, activeTrackIndex);
@@ -377,6 +379,8 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
                                               inputMeter->getMeterContext(),
                                               outputMeter->getMeterContext());
     midiMessages.clear();
+
+    performanceMonitor.endBlock();
 }
 
 void LooperEngine::processCommandsFromMessageBus()
@@ -497,7 +501,6 @@ void LooperEngine::loadWaveFileToTrack (const juce::File& audioFile, int trackIn
     if (reader)
     {
         juce::AudioBuffer<float> backingTrack ((int) reader->numChannels, (int) reader->lengthInSamples);
-        int samplesToRead = (int) reader->lengthInSamples;
         auto track = getTrackByIndex (trackIndex);
 
         // Only apply sync logic in multitrack mode
@@ -505,16 +508,16 @@ void LooperEngine::loadWaveFileToTrack (const juce::File& audioFile, int trackIn
         {
             if (syncMasterLength > 0)
             {
-                samplesToRead = syncMasterLength;
+                backingTrack.setSize ((int) reader->numChannels, syncMasterLength, true, true, true);
             }
             else
             {
-                syncMasterLength = samplesToRead;
+                syncMasterLength = reader->lengthInSamples;
                 syncMasterTrackIndex = trackIndex;
             }
         }
 
-        reader->read (&backingTrack, 0, samplesToRead, 0, true, true);
+        reader->read (&backingTrack, 0, backingTrack.getNumSamples(), 0, true, true);
         loadBackingTrackToTrack (backingTrack, trackIndex, reader->sampleRate);
     }
 }

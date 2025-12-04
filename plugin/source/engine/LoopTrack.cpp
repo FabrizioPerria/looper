@@ -73,7 +73,6 @@ void LoopTrack::initializeForNewOverdubSession()
 
 void LoopTrack::finalizeLayer (const bool isOverdub, const int masterLoopLengthSamples)
 {
-    juce::Logger::outputDebugString ("LoopTrack::finalizeLayer called");
     PERFETTO_FUNCTION();
 
     bufferManager.finalizeLayer (isOverdub, masterLoopLengthSamples);
@@ -82,6 +81,7 @@ void LoopTrack::finalizeLayer (const bool isOverdub, const int masterLoopLengthS
     auto length = bufferManager.getLength();
 
     applyPostProcessing (audioBuffer, length);
+
     undoManager.stageCurrentBuffer (audioBuffer, length);
     uiBridge->signalWaveformChanged();
 }

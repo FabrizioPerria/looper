@@ -20,8 +20,10 @@ constexpr size_t NUM_STATES = static_cast<size_t>(LooperState::COUNT);
 constexpr int TRANSITIONS[NUM_STATES] =
     {
         [static_cast<size_t>(LooperState::Idle)] =
+            (1u << static_cast<uint32_t>(LooperState::Playing)) |
             (1u << static_cast<uint32_t>(LooperState::Recording)) |
-            (1u << static_cast<uint32_t>(LooperState::Playing)),
+            (1u << static_cast<uint32_t>(LooperState::Overdubbing)) |
+            (1u << static_cast<uint32_t>(LooperState::Idle)),
 
         [static_cast<size_t>(LooperState::Stopped)] =
             (1u << static_cast<uint32_t>(LooperState::Playing)) |

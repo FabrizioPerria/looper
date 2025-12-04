@@ -170,6 +170,7 @@ private:
                             != std::end (subscribedEvents);
         if (! isSubscribed) return;
 
+        if (event.trackIndex != trackIndex) return;
         switch (event.type)
         {
             case EngineMessageBus::EventType::TrackMuteChanged:
