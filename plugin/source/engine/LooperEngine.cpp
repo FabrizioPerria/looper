@@ -497,7 +497,6 @@ void LooperEngine::loadWaveFileToTrack (const juce::File& audioFile, int trackIn
     if (reader)
     {
         juce::AudioBuffer<float> backingTrack ((int) reader->numChannels, (int) reader->lengthInSamples);
-        int samplesToRead = (int) reader->lengthInSamples;
         auto track = getTrackByIndex (trackIndex);
 
         // Only apply sync logic in multitrack mode
@@ -505,16 +504,16 @@ void LooperEngine::loadWaveFileToTrack (const juce::File& audioFile, int trackIn
         {
             if (syncMasterLength > 0)
             {
-                samplesToRead = syncMasterLength;
+                backingTrack.setSize ((int) reader->numChannels, syncMasterLength, true, true, true);
             }
             else
             {
-                syncMasterLength = samplesToRead;
+                syncMasterLength = reader->lengthInSamples;
                 syncMasterTrackIndex = trackIndex;
             }
         }
 
-        reader->read (&backingTrack, 0, samplesToRead, 0, true, true);
+        reader->read (&backingTrack, 0, backingTrack.getNumSamples(), 0, true, true);
         loadBackingTrackToTrack (backingTrack, trackIndex, reader->sampleRate);
     }
 }
