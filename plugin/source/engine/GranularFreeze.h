@@ -126,7 +126,8 @@ public:
     {
         if (! isActive) return { 0.0f, 0.0f };
 
-        const int envIdx = static_cast<int> (envPosition * (float) window.size());
+        // Clamp envelope index to valid range
+        const int envIdx = std::min (static_cast<int> (envPosition * (float) window.size()), (int) window.size() - 1);
         const float env = window[envIdx];
 
         const int pos1 = static_cast<int> (position);
@@ -142,7 +143,10 @@ public:
         const float amp = env * ampMod;
 
         position += increment * pitchMod;
-        position = (float) std::fmod (position, frozenBuffer.getNumSamples());
+        if (position >= frozenBuffer.getNumSamples())
+            position = std::fmod (position, (float) frozenBuffer.getNumSamples());
+        else if (position < 0.0f)
+            position += frozenBuffer.getNumSamples();
 
         envPosition += envIncrement;
         isActive = envPosition < 1.0f;
@@ -210,6 +214,7 @@ public:
             sampleRate_ = sampleRate;
             clearAllGrains();
             bufferSizeFloat_ = (float) sampleRate_ * bufferDuration;
+            modulator.prepare (sampleRate);
         }
 
         std::array<Grain, MAX_GRAINS> getActiveGrains() const { return grains; }
@@ -320,7 +325,6 @@ public:
                 if (! grain.isPlaying())
                 {
                     float startPosition = random.nextFloat() * (bufferSizeFloat_ * cloudParams.positionSpread);
-                    grain.trigger (startPosition, cloudParams.grainParams);
 
                     auto params = cloudParams.grainParams;
                     params.duration *= (1.0f - GRAIN_DURATION_RANDOM_FACTOR) + random.nextFloat() * 2.0f * GRAIN_DURATION_RANDOM_FACTOR;
@@ -422,6 +426,7 @@ public:
     {
         circularBuffer.releaseResources();
         frozenBuffer.setSize (0, 0);
+        tailBuffer.setSize (0, 0);
     }
 
     void processBlock (juce::AudioBuffer<float>& buffer)
@@ -441,7 +446,7 @@ public:
         }
     }
 
-    bool isEnabled() const { return cloudController.isFreezing(); } //|| cloudController.isTailing(); }
+    bool isEnabled() const { return cloudController.isFreezing(); }
 
     void setLevel (float amplitude) { cloudController.setLevelParameters (amplitude); }
     float getLevel() const { return cloudController.getLevelParameters(); }
