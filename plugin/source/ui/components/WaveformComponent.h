@@ -34,6 +34,7 @@ public:
     void clearTrack()
     {
         cache.clear();
+        clearRegion();
         repaint();
     }
 
@@ -83,6 +84,13 @@ public:
         }
     }
 
+    void clearRegion()
+    {
+        regionStartSample = 0;
+        regionEndSample = 0;
+        isDraggingRegion = false;
+    }
+
     void mouseUp (const juce::MouseEvent& event) override
     {
         if (isDraggingRegion)
@@ -90,12 +98,9 @@ public:
             dragEndX = event.x;
             if (dragEndX - dragStartX < 5)
             {
-                // Click without drag - clear region
-                regionStartSample = 0;
-                regionEndSample = 0;
-                isDraggingRegion = false;
-                repaint();
+                clearRegion();
                 uiToEngineBus->pushCommand ({ EngineMessageBus::CommandType::ClearSubLoopRegion, trackIndex, {} });
+                repaint();
                 return;
             }
             regionEndSample = xToSample (event.x);
