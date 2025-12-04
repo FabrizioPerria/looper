@@ -2,6 +2,8 @@
 //**************************************************************
 // General Constants
 //**************************************************************
+#include <JuceHeader.h>
+
 constexpr int NUM_TRACKS = 4;
 constexpr int LEFT_CHANNEL = 0;
 constexpr int RIGHT_CHANNEL = 1;
@@ -53,25 +55,26 @@ constexpr int MESSAGE_BUS_FIFO_SIZE = 1024;
 //**************************************************************
 // Granular Freeze Constants
 //**************************************************************
-constexpr float FREEZE_BUFFER_DURATION_SECONDS = 0.5f;
+constexpr float FREEZE_BUFFER_DURATION_SECONDS = 1.0f;
 constexpr int MAX_GRAINS = 64;
-constexpr int GRAIN_LENGTH = 16384;
-constexpr int GRAIN_SPACING = 512;
-constexpr int ENVELOPE_WINDOW_SIZE = 2048;
+constexpr int GRAIN_LENGTH = 32768;
+constexpr int GRAIN_SPACING = 1024;
+constexpr int ENVELOPE_WINDOW_SIZE = 4096;
 
 constexpr int MOD_TABLE_SIZE = 1024;
 constexpr int MOD_TABLE_MASK = MOD_TABLE_SIZE - 1;
 
 constexpr float MOD_RATE = 0.04f;
-constexpr float PITCH_MOD_DEPTH = 0.005f;
+constexpr float PITCH_MOD_DEPTH = 0.02f;
 constexpr float AMP_MOD_DEPTH = 0.01f;
 
 constexpr float MIN_AMP_MOD = 0.7f;
 constexpr float MAX_AMP_MOD = 1.0f;
 
-constexpr float DEFAULT_FREEZE_AMPLITUDE = 0.8f;
-constexpr float GRAIN_DURATION_RANDOM_FACTOR = 0.3f; // ±30% random variation in grain duration
+constexpr float DEFAULT_FREEZE_AMPLITUDE = 0.4f;
+constexpr float GRAIN_DURATION_RANDOM_FACTOR = 0.5f; // ±30% random variation in grain duration
 constexpr float GRAIN_SPAWN_TIMING_JITTER = 0.2f;    // ±20% random variation in grain spawn timing
+constexpr float FREEZE_CUTOFF_FREQUENCY_HZ = 8000.0f;
 
 //**************************************************************
 // Metronome Constants

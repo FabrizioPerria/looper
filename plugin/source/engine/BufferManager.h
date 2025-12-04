@@ -19,11 +19,16 @@ public:
     void clear()
     {
         PERFETTO_FUNCTION();
+        fifo.clearLoopRegion();
         fifo.prepareToPlay (audioBuffer->getNumSamples());
         audioBuffer->clear();
         length = 0;
         provisionalLength = 0;
         previousReadPos = -1.0;
+
+        loopRegionEnabled = false;
+        loopRegionStart = 0;
+        loopRegionEnd = 0;
     }
 
     void releaseResources()
@@ -33,6 +38,10 @@ public:
         length = 0;
         provisionalLength = 0;
         previousReadPos = 0.0;
+
+        loopRegionEnabled = false;
+        loopRegionStart = 0;
+        loopRegionEnd = 0;
     }
 
     std::unique_ptr<juce::AudioBuffer<float>>& getAudioBuffer() { return audioBuffer; }

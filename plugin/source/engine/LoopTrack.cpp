@@ -221,6 +221,11 @@ void LoopTrack::saveTrackToWavFile (const juce::File& audioFile)
     std::unique_ptr<juce::AudioFormatWriter> writer;
 
     juce::WavAudioFormat wavFormat;
+    if (audioFile.existsAsFile())
+    {
+        audioFile.deleteFile();
+    }
+
     writer.reset (wavFormat.createWriterFor (new juce::FileOutputStream (audioFile),
                                              sampleRate,
                                              (unsigned int) bufferManager.getNumChannels(),

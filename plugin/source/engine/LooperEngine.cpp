@@ -331,7 +331,7 @@ void LooperEngine::clear (int trackIndex)
             }
         }
     }
-    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::ActiveTrackCleared, trackIndex, trackIndex));
+    // messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::ActiveTrackCleared, trackIndex, trackIndex));
 }
 
 void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
@@ -482,7 +482,7 @@ void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& back
     auto* track = getTrackByIndex (trackIndex);
     if (track)
     {
-        track->loadBackingTrack (backingTrack, syncMasterLength, backingTrackSampleRate);
+        track->loadBackingTrack (backingTrack, backingTrack.getNumSamples(), backingTrackSampleRate);
 
         play();
     }
