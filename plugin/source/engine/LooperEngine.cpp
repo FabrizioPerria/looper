@@ -331,7 +331,7 @@ void LooperEngine::clear (int trackIndex)
             }
         }
     }
-    messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::ActiveTrackCleared, trackIndex, trackIndex));
+    // messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::ActiveTrackCleared, trackIndex, trackIndex));
 }
 
 void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)

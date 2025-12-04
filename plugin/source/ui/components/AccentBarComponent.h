@@ -74,7 +74,7 @@ public:
                 }
                 break;
             case EngineMessageBus::EventType::ActiveTrackCleared:
-                isTrackActive = false;
+                // isTrackActive = false;
                 isPendingTrack = false;
                 break;
             default:
