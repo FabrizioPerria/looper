@@ -71,12 +71,28 @@ inline void playingOnExit (StateContext&) {}
 inline void recordingProcessAudio (StateContext& ctx, const LooperState& currentState)
 {
     if (ctx.track && ctx.inputBuffer)
+
     {
         ctx.track->processRecord (*ctx.inputBuffer, ctx.numSamples, false, currentState);
     }
     playingProcessAudio (ctx, currentState);
 }
 
+// inline void recordingOnEnter (StateContext& ctx)
+// {
+//     DBG ("recordingOnEnter - writePos before: " << ctx.track->getCurrentWritePosition()
+//                                                 << ", readPos: " << ctx.track->getCurrentReadPosition());
+//
+//     if (ctx.track->isSynced() && ! ctx.isSinglePlayMode && ctx.syncMasterLength > 0)
+//     {
+//         auto* masterTrack = ctx.allTracks->at ((size_t) ctx.syncMasterTrackIndex).get();
+//         int masterStart = masterTrack->getCurrentReadPosition();
+//         ctx.track->setWritePosition (masterStart);
+//         DBG ("recordingOnEnter - synced to master at: " << masterStart);
+//     }
+//
+//     DBG ("recordingOnEnter - writePos after: " << ctx.track->getCurrentWritePosition());
+// }
 inline void recordingOnEnter (StateContext& ctx)
 {
     if (ctx.track->isSynced() && ! ctx.isSinglePlayMode && ctx.syncMasterLength > 0)
