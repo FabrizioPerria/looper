@@ -482,7 +482,7 @@ void LooperEngine::loadBackingTrackToTrack (const juce::AudioBuffer<float>& back
     auto* track = getTrackByIndex (trackIndex);
     if (track)
     {
-        track->loadBackingTrack (backingTrack, syncMasterLength, backingTrackSampleRate);
+        track->loadBackingTrack (backingTrack, backingTrack.getNumSamples(), backingTrackSampleRate);
 
         play();
     }
