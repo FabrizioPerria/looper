@@ -43,7 +43,7 @@ public:
         audioSettingsButton.setButtonText ("Audio");
         audioSettingsButton.setComponentID ("audioSettings");
         audioSettingsButton.onClick = [this]() { juce::StandalonePluginHolder::getInstance()->showAudioSettingsDialog(); };
-        addAndMakeVisible (audioSettingsButton);
+        if (JUCEApplicationBase::isStandaloneApp()) addAndMakeVisible (audioSettingsButton);
 
         midiButton.setButtonText ("Midi");
         midiButton.setComponentID ("midi");
