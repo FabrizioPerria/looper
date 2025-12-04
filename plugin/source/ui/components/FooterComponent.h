@@ -3,14 +3,15 @@
 #include "CustomStandaloneFilterWindow.h"
 #include "audio/EngineCommandBus.h"
 #include "engine/Constants.h"
+#include "engine/LooperEngine.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/components/MeterWithGainComponent.h"
-#include <JuceHeader.h>
+#include "ui/components/MeterWithGainComponent.h" #include "ui/components/PerformanceMonitorPopup.h" #include < JuceHeader.h>
+#include "ui/components/PerformanceMonitorPopup.h"
 
 class FooterComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    FooterComponent (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge)
+    FooterComponent (EngineMessageBus* engineMessageBus, EngineStateToUIBridge* bridge, LooperEngine* engine)
         : inputMeter ("IN",
                       engineMessageBus,
                       bridge,
@@ -24,6 +25,7 @@ public:
                        EngineMessageBus::EventType::OutputGainChanged,
                        juce::Decibels::decibelsToGain (DEFAULT_OUTPUT_GAIN))
         , uiToEngineBus (engineMessageBus)
+        , engine (engine)
     {
         addAndMakeVisible (inputMeter);
         addAndMakeVisible (outputMeter);
@@ -105,6 +107,26 @@ public:
 
         addAndMakeVisible (allTracks);
 
+        systemLabel.setText ("System", juce::dontSendNotification);
+        systemLabel.setJustificationType (juce::Justification::centred);
+        systemLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::cyan);
+        addAndMakeVisible (systemLabel);
+
+        systemButton.setButtonText ("Check");
+        systemButton.setComponentID ("performanceMonitor");
+        systemButton.onClick = [this]()
+        {
+            if (! performanceMonitorPopup)
+            {
+                performanceMonitorPopup = std::make_unique<PerformanceMonitorPopup> (this->engine->getPerformanceMonitor());
+                performanceMonitorPopup->onClose = [this]() { performanceMonitorPopup.reset(); };
+            }
+
+            performanceMonitorPopup->toFront (true);
+        };
+
+        addAndMakeVisible (systemButton);
+
         uiToEngineBus->addListener (this);
     }
 
@@ -156,6 +178,13 @@ public:
 
         mainBox.items.add (juce::FlexItem (saveBox).withFlex (0.4f).withMargin (juce::FlexItem::Margin (4, 1, 0, 1)));
 
+        juce::FlexBox systemBox;
+        systemBox.flexDirection = juce::FlexBox::Direction::column;
+        systemBox.alignItems = juce::FlexBox::AlignItems::stretch;
+        systemBox.items.add (juce::FlexItem (systemLabel).withFlex (0.3f).withMargin (juce::FlexItem::Margin (0, 1, 0, 1)));
+        systemBox.items.add (juce::FlexItem (systemButton).withFlex (0.9f).withMargin (juce::FlexItem::Margin (6, 1, 0, 1)));
+        mainBox.items.add (juce::FlexItem (systemBox).withFlex (0.2f).withMargin (juce::FlexItem::Margin (4, 1, 0, 1)));
+
         mainBox.items.add (juce::FlexItem (outputMeter).withFlex (0.5f).withMargin (juce::FlexItem::Margin (4, 1, 0, 50)));
 
         mainBox.performLayout (bounds.toFloat());
@@ -175,6 +204,9 @@ public:
 
         auto saveTitleBounds = saveLabel.getBounds().toFloat();
         g.fillRect (saveTitleBounds.getX() + 3.0f, saveTitleBounds.getBottom() + 3.0f, saveTitleBounds.getWidth() - 6.0f, 1.0f);
+
+        auto systemTitleBounds = systemLabel.getBounds().toFloat();
+        g.fillRect (systemTitleBounds.getX() + 3.0f, systemTitleBounds.getBottom() + 3.0f, systemTitleBounds.getWidth() - 6.0f, 1.0f);
     }
 
 private:
@@ -203,6 +235,7 @@ private:
     juce::TextButton midiButton { "MIDI Settings" };
     juce::TextButton playModeButton { "Single Track" };
     juce::TextButton audioSettingsButton { "Audio Settings" };
+    juce::TextButton systemButton { "Check" };
 
     juce::TextButton activeTrack { "Active Track" };
     juce::TextButton allTracks { "All Tracks" };
@@ -212,8 +245,11 @@ private:
     juce::Label settingsLabel;
     juce::Label playModeLabel;
     juce::Label saveLabel;
+    juce::Label systemLabel;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
+    std::unique_ptr<PerformanceMonitorPopup> performanceMonitorPopup;
+    LooperEngine* engine;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FooterComponent)
 };

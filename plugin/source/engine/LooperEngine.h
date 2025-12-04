@@ -10,6 +10,7 @@
 #include "engine/LooperStateMachine.h"
 #include "engine/Metronome.h"
 #include "engine/MidiCommandConfig.h"
+#include "engine/PerformanceMonitor.h"
 #include <JuceHeader.h>
 
 struct PendingAction
@@ -94,6 +95,8 @@ public:
     bool trackHasContent (int index) const;
     int getActiveTrackIndex() const { return activeTrackIndex; }
 
+    PerformanceMonitor* getPerformanceMonitor() { return &performanceMonitor; }
+
 private:
     // State machine
     LooperStateMachine stateMachine;
@@ -113,6 +116,8 @@ private:
     std::atomic<float> outputGain { DEFAULT_OUTPUT_GAIN };
 
     std::atomic<bool> singlePlayMode { DEFAULT_SINGLE_PLAY_MODE };
+
+    PerformanceMonitor performanceMonitor;
 
     // Engine data
     double sampleRate = 0.0;

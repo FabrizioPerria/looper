@@ -28,6 +28,7 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
     engineStateBridge->setNumChannels (numChannels);
     inputMeter->prepare (numChannels);
     outputMeter->prepare (numChannels);
+    performanceMonitor.prepareToPlay (sampleRate, maxBlockSize);
 
     setPendingAction (PendingAction::Type::SwitchTrack, 0, false, currentState);
 }
@@ -336,6 +337,7 @@ void LooperEngine::clear (int trackIndex)
 
 void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    performanceMonitor.startBlock();
     PERFETTO_FUNCTION();
 
     handleMidiCommand (midiMessages, activeTrackIndex);
@@ -377,6 +379,8 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
                                               inputMeter->getMeterContext(),
                                               outputMeter->getMeterContext());
     midiMessages.clear();
+
+    performanceMonitor.endBlock();
 }
 
 void LooperEngine::processCommandsFromMessageBus()

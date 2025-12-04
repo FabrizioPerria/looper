@@ -17,7 +17,7 @@ public:
     {
         globalBar = std::make_unique<GlobalControlBar> (engine->getMessageBus(), engine->getMetronome());
 
-        footerComponent = std::make_unique<FooterComponent> (engine->getMessageBus(), engine->getEngineStateBridge());
+        footerComponent = std::make_unique<FooterComponent> (engine->getMessageBus(), engine->getEngineStateBridge(), engine);
         midiMappingComponent = std::make_unique<MidiMappingComponent> (engine->getMidiMappingManager(), engine->getMessageBus());
 
         for (int i = 0; i < engine->getNumTracks(); ++i)
