@@ -421,6 +421,7 @@ private:
         uiBridge->getPlaybackState (length, readPos, recording, playing, sampleRate);
 
         float loopLengthSeconds = (float) length / (float) sampleRate;
+        if (loopLengthSeconds <= 0.0f) loopLengthSeconds = 10.0f; // Prevent division by zero
         int numLoops = (int) ((currentCurve.durationMinutes * 60.0f) / loopLengthSeconds);
 
         switch (currentCurve.preset)
