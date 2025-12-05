@@ -1,14 +1,25 @@
 #include "PlaybackSpeedComponent.h"
-#include "ProgressiveSpeedPopup.h"
+#include "ui/components/ProgressiveAutomationPopup.h"
 #include "ui/editor/LooperEditor.h"
 
 void PlaybackSpeedComponent::openProgressiveSpeedPopup()
 {
     if (! progressiveSpeedPopup)
     {
-        progressiveSpeedPopup = std::make_unique<ProgressiveSpeedPopup> (trackIndex, currentSpeedCurve, uiToEngineBus, uiBridge);
+        ProgressiveAutomationConfig config { MIN_PLAYBACK_SPEED,           MAX_PLAYBACK_SPEED, 0.7f, 1.0f, 0.03f, "x",
+                                             "Progressive Speed Practice", "End Speed" };
 
-        progressiveSpeedPopup->onStart = [this] (const ProgressiveSpeedCurve& curve)
+        auto getLoopLength = [this]()
+        {
+            int length, readPos;
+            bool recording, playing;
+            double sampleRate;
+            uiBridge->getPlaybackState (length, readPos, recording, playing, sampleRate);
+            return (float) length / (float) sampleRate;
+        };
+
+        progressiveSpeedPopup = std::make_unique<ProgressiveAutomationPopup> (config, currentSpeedCurve, getLoopLength);
+        progressiveSpeedPopup->onStart = [this] (const ProgressiveAutomationCurve& curve)
         {
             speedMode = SpeedMode::Automation;
 

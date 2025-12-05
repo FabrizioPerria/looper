@@ -2,6 +2,7 @@
 
 #include "audio/EngineCommandBus.h"
 #include "audio/EngineStateToUIBridge.h"
+#include "engine/AutomationEngine.h"
 #include "engine/Constants.h"
 #include "engine/GranularFreeze.h"
 #include "engine/LevelMeter.h"
@@ -96,6 +97,7 @@ public:
     int getActiveTrackIndex() const { return activeTrackIndex; }
 
     PerformanceMonitor* getPerformanceMonitor() { return &performanceMonitor; }
+    AutomationEngine* getAutomationEngine() const { return automationEngine.get(); }
 
 private:
     // State machine
@@ -116,6 +118,7 @@ private:
     std::atomic<float> outputGain { DEFAULT_OUTPUT_GAIN };
 
     std::atomic<bool> singlePlayMode { DEFAULT_SINGLE_PLAY_MODE };
+    std::unique_ptr<AutomationEngine> automationEngine = std::make_unique<AutomationEngine> (messageBus.get());
 
     PerformanceMonitor performanceMonitor;
 
@@ -354,6 +357,11 @@ private:
               if (std::holds_alternative<int> (cmd.payload))
               {
                   auto bpm = static_cast<int> (std::get<int> (cmd.payload));
+                  setMetronomeBpm (bpm);
+              }
+              if (std::holds_alternative<float> (cmd.payload))
+              {
+                  auto bpm = static_cast<int> (std::get<float> (cmd.payload));
                   setMetronomeBpm (bpm);
               }
           } },

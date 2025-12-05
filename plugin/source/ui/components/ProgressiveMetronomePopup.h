@@ -1,4 +1,3 @@
-// ProgressiveSpeedPopup.h
 #pragma once
 #include "audio/AudioToUIBridge.h"
 #include "audio/EngineCommandBus.h"
@@ -7,7 +6,7 @@
 #include <JuceHeader.h>
 
 // Data structure to store the speed automation curve
-struct ProgressiveSpeedCurve
+struct ProgressiveMetronomeCurve
 {
     enum class PresetType
     {
@@ -24,29 +23,16 @@ struct ProgressiveSpeedCurve
     int repsPerStep = 2.0f;
     float baseSpeedOffset = 0.0f;
 
-    std::vector<juce::Point<float>> breakpoints; // x = loop repetition number, y = speed multiplier
-
-    // void reset()
-    // {
-    //     preset = PresetType::Flat;
-    //     durationMinutes = 10.0f;
-    //     startSpeed = 0.7f;
-    //     endSpeed = 1.0f;
-    //     stepSize = 0.03f;
-    //     repsPerStep = 2.0f;
-    //     baseSpeedOffset = 0.0f;
-    //     breakpoints.clear();
-    //     currentStep = 0;
-    // }
+    std::vector<juce::Point<float>> breakpoints;
 
 private:
     int currentStep = 0;
 };
 
-class ProgressiveSpeedGraph : public juce::Component
+class ProgressiveMetronomeGraph : public juce::Component
 {
 public:
-    ProgressiveSpeedGraph() { setInterceptsMouseClicks (true, true); }
+    ProgressiveMetronomeGraph() { setInterceptsMouseClicks (true, true); }
 
     void setCurve (const std::vector<juce::Point<float>>& points)
     {
@@ -76,12 +62,12 @@ public:
 
         // Y-axis speed labels
         int numSpeedLabels = 10;
-        const float speedStep = (PLAYBACK_SPEED_MAX - PLAYBACK_SPEED_MIN) / (numSpeedLabels - 1);
+        const float speedStep = (METRONOME_MAX_BPM - METRONOME_MIN_BPM) / (numSpeedLabels - 1);
         for (int i = 0; i < numSpeedLabels; ++i)
         {
-            float speed = PLAYBACK_SPEED_MIN + i * speedStep;
+            float speed = METRONOME_MIN_BPM + i * speedStep;
             float y = speedToY (speed, bounds);
-            g.drawText (juce::String (speed, 2) + "x", juce::Rectangle<float> (2, y - 8, 35, 16), juce::Justification::centredLeft);
+            g.drawText (juce::String (speed, 2) + " BPM", juce::Rectangle<float> (2, y - 8, 35, 16), juce::Justification::centredLeft);
         }
 
         // Draw curve
@@ -126,32 +112,31 @@ private:
 
     float speedToY (float speed, juce::Rectangle<float> bounds)
     {
-        return juce::jmap (speed, PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX, bounds.getBottom() - 20.0f, bounds.getY() + 20.0f);
+        return juce::jmap (speed, METRONOME_MIN_BPM, METRONOME_MAX_BPM, bounds.getBottom() - 20.0f, bounds.getY() + 20.0f);
     }
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProgressiveSpeedGraph)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProgressiveMetronomeGraph)
 };
 
-class ProgressiveSpeedPopup : public juce::Component
+class ProgressiveMetronomePopup : public juce::Component
 {
 public:
-    ProgressiveSpeedPopup (int trackIdx, ProgressiveSpeedCurve curve, EngineMessageBus* messageBus, AudioToUIBridge* uiBridge)
-        : trackIndex (trackIdx), uiToEngineBus (messageBus), uiBridge (uiBridge)
+    ProgressiveMetronomePopup (ProgressiveMetronomeCurve curve, EngineMessageBus* messageBus) : uiToEngineBus (messageBus)
     {
         // Preset buttons
         flatButton.setComponentID ("flatButton");
         flatButton.setButtonText ("FLAT");
-        flatButton.onClick = [this]() { selectPreset (ProgressiveSpeedCurve::PresetType::Flat); };
+        flatButton.onClick = [this]() { selectPreset (ProgressiveMetronomeCurve::PresetType::Flat); };
         addAndMakeVisible (flatButton);
 
         twoFBButton.setComponentID ("twoFBButton");
         twoFBButton.setButtonText ("2F-1B");
-        twoFBButton.onClick = [this]() { selectPreset (ProgressiveSpeedCurve::PresetType::TwoForwardOneBack); };
+        twoFBButton.onClick = [this]() { selectPreset (ProgressiveMetronomeCurve::PresetType::TwoForwardOneBack); };
         addAndMakeVisible (twoFBButton);
 
         linearButton.setComponentID ("linearButton");
         linearButton.setButtonText ("LINEAR");
-        linearButton.onClick = [this]() { selectPreset (ProgressiveSpeedCurve::PresetType::LinearRamp); };
+        linearButton.onClick = [this]() { selectPreset (ProgressiveMetronomeCurve::PresetType::LinearRamp); };
         addAndMakeVisible (linearButton);
 
         // Duration control
@@ -169,8 +154,8 @@ public:
         durationSlider.setValue (curve.durationMinutes);
 
         // Parameter knobs
-        startSpeedKnob.setRange (0.5, 2.0, 0.01);
-        startSpeedKnob.setValue (0.7);
+        startSpeedKnob.setRange (METRONOME_MIN_BPM, METRONOME_MAX_BPM, 1.0);
+        startSpeedKnob.setValue (METRONOME_DEFAULT_BPM);
         startSpeedKnob.setSliderStyle (juce::Slider::LinearHorizontal);
         startSpeedKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 60, 20);
         startSpeedKnob.onValueChange = [this]() { updateCurve(); };
@@ -183,8 +168,8 @@ public:
         startSpeedLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (startSpeedLabel);
 
-        endSpeedKnob.setRange (0.5, 2.0, 0.01);
-        endSpeedKnob.setValue (1.0);
+        endSpeedKnob.setRange (METRONOME_MIN_BPM, METRONOME_MAX_BPM, 1.0);
+        endSpeedKnob.setValue (METRONOME_DEFAULT_BPM);
         endSpeedKnob.setSliderStyle (juce::Slider::LinearHorizontal);
         endSpeedKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 60, 20);
         endSpeedKnob.onValueChange = [this]() { updateCurve(); };
@@ -197,8 +182,8 @@ public:
         endSpeedLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (endSpeedLabel);
 
-        stepSizeKnob.setRange (0.01, 0.10, 0.01);
-        stepSizeKnob.setValue (0.03);
+        stepSizeKnob.setRange (1.0, 10.0, 1.0);
+        stepSizeKnob.setValue (1.0);
         stepSizeKnob.setSliderStyle (juce::Slider::LinearHorizontal);
         stepSizeKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 60, 20);
         stepSizeKnob.onValueChange = [this]() { updateCurve(); };
@@ -211,7 +196,7 @@ public:
         stepSizeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (stepSizeLabel);
 
-        repsPerLevelKnob.setRange (1, 10, 1);
+        repsPerLevelKnob.setRange (1, 40, 1);
         repsPerLevelKnob.setValue (1);
         repsPerLevelKnob.setSliderStyle (juce::Slider::LinearHorizontal);
         repsPerLevelKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 60, 20);
@@ -269,7 +254,7 @@ public:
         // Title
         g.setColour (LooperTheme::Colors::cyan);
         g.setFont (LooperTheme::Fonts::getBoldFont (16.0f));
-        g.drawText ("Progressive Speed Practice", dialogBounds.removeFromTop (40), juce::Justification::centred);
+        g.drawText ("Progressive Metronome Practice", dialogBounds.removeFromTop (40), juce::Justification::centred);
     }
 
     void resized() override
@@ -349,23 +334,20 @@ public:
         mainFlex.performLayout (dialogBounds.toFloat());
     }
 
-    std::function<void (const ProgressiveSpeedCurve&)> onStart;
+    std::function<void (const ProgressiveMetronomeCurve&)> onStart;
     std::function<void()> onCancel;
 
 private:
-    int trackIndex;
     EngineMessageBus* uiToEngineBus;
-    ProgressiveSpeedCurve currentCurve;
+    ProgressiveMetronomeCurve currentCurve;
 
     juce::TextButton flatButton, twoFBButton, linearButton;
     juce::Label durationLabel;
     juce::Slider durationSlider;
     juce::Slider startSpeedKnob, endSpeedKnob, stepSizeKnob, repsPerLevelKnob;
     juce::Label startSpeedLabel, endSpeedLabel, stepSizeLabel, repsPerLevelLabel;
-    ProgressiveSpeedGraph graph;
+    ProgressiveMetronomeGraph graph;
     juce::TextButton cancelButton, startButton;
-
-    AudioToUIBridge* uiBridge;
 
     juce::Rectangle<int> getDialogBounds()
     {
@@ -375,21 +357,21 @@ private:
         return bounds.withSizeKeepingCentre (width, height);
     }
 
-    void selectPreset (ProgressiveSpeedCurve::PresetType preset)
+    void selectPreset (ProgressiveMetronomeCurve::PresetType preset)
     {
         currentCurve.preset = preset;
 
         // Update button states
-        flatButton.setToggleState (preset == ProgressiveSpeedCurve::PresetType::Flat, juce::dontSendNotification);
-        twoFBButton.setToggleState (preset == ProgressiveSpeedCurve::PresetType::TwoForwardOneBack, juce::dontSendNotification);
-        linearButton.setToggleState (preset == ProgressiveSpeedCurve::PresetType::LinearRamp, juce::dontSendNotification);
+        flatButton.setToggleState (preset == ProgressiveMetronomeCurve::PresetType::Flat, juce::dontSendNotification);
+        twoFBButton.setToggleState (preset == ProgressiveMetronomeCurve::PresetType::TwoForwardOneBack, juce::dontSendNotification);
+        linearButton.setToggleState (preset == ProgressiveMetronomeCurve::PresetType::LinearRamp, juce::dontSendNotification);
 
         // Show/hide relevant parameters
-        bool show2FB = (preset == ProgressiveSpeedCurve::PresetType::TwoForwardOneBack);
+        bool show2FB = (preset == ProgressiveMetronomeCurve::PresetType::TwoForwardOneBack);
         stepSizeKnob.setVisible (show2FB);
         stepSizeLabel.setVisible (show2FB);
 
-        bool showFlat = (preset == ProgressiveSpeedCurve::PresetType::Flat);
+        bool showFlat = (preset == ProgressiveMetronomeCurve::PresetType::Flat);
         startSpeedKnob.setVisible (! showFlat);
         startSpeedLabel.setVisible (! showFlat);
         repsPerLevelKnob.setVisible (! showFlat);
@@ -415,24 +397,20 @@ private:
     void generateBreakpoints()
     {
         currentCurve.breakpoints.clear();
-        int length, readPos;
-        bool recording, playing;
-        double sampleRate;
-        uiBridge->getPlaybackState (length, readPos, recording, playing, sampleRate);
 
-        float loopLengthSeconds = (float) length / (float) sampleRate;
+        float loopLengthSeconds = 60;
         int numLoops = (int) ((currentCurve.durationMinutes * 60.0f) / loopLengthSeconds);
 
         switch (currentCurve.preset)
         {
-            case ProgressiveSpeedCurve::PresetType::Flat:
+            case ProgressiveMetronomeCurve::PresetType::Flat:
             {
                 for (int i = 0; i < numLoops; ++i)
                     currentCurve.breakpoints.push_back ({ (float) i, currentCurve.endSpeed });
                 break;
             }
 
-            case ProgressiveSpeedCurve::PresetType::TwoForwardOneBack:
+            case ProgressiveMetronomeCurve::PresetType::TwoForwardOneBack:
             {
                 float currentSpeed = currentCurve.startSpeed;
                 int loopIndex = 0;
@@ -464,7 +442,7 @@ private:
                 break;
             }
 
-            case ProgressiveSpeedCurve::PresetType::LinearRamp:
+            case ProgressiveMetronomeCurve::PresetType::LinearRamp:
             {
                 // Calculate number of unique speed levels
                 int numLevels = numLoops / currentCurve.repsPerStep;
@@ -500,5 +478,5 @@ private:
         }
     }
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProgressiveSpeedPopup)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProgressiveMetronomePopup)
 };

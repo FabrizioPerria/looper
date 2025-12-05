@@ -14,7 +14,7 @@
 class TrackComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    TrackComponent (EngineMessageBus* engineMessageBus, int trackIdx, AudioToUIBridge* audioBridge)
+    TrackComponent (EngineMessageBus* engineMessageBus, int trackIdx, AudioToUIBridge* audioBridge, AutomationEngine* automationEngine)
         : trackIndex (trackIdx)
         , waveformDisplay (trackIdx, audioBridge, engineMessageBus)
         , accentBar (engineMessageBus, trackIdx)
@@ -25,7 +25,7 @@ public:
                        TRACK_DEFAULT_VOLUME,
                        MIN_TRACK_VOLUME,
                        MAX_TRACK_VOLUME)
-        , speedFader (engineMessageBus, trackIdx, audioBridge)
+        , speedFader (engineMessageBus, trackIdx, audioBridge, automationEngine)
         , pitchFader (engineMessageBus, trackIdx)
         , trackEditComponent (engineMessageBus, trackIdx)
         , volumesComponent (engineMessageBus, trackIdx)

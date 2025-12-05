@@ -29,6 +29,7 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
     inputMeter->prepare (numChannels);
     outputMeter->prepare (numChannels);
     performanceMonitor.prepareToPlay (sampleRate, maxBlockSize);
+    automationEngine->prepareToPlay (sampleRate);
 
     setPendingAction (PendingAction::Type::SwitchTrack, 0, false, currentState);
 }
@@ -354,10 +355,12 @@ void LooperEngine::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
     auto ctx = createStateContext (buffer);
     stateMachine.processAudio (currentState, ctx);
+    automationEngine->processBlock (buffer.getNumSamples());
     for (int i = 0; i < NUM_TRACKS; ++i)
     {
         if (ctx.hasWrappedAround.at ((size_t) i))
         {
+            automationEngine->applyAtLoopIndex (i, loopCounts[(size_t) i]);
             messageBus->broadcastEvent (EngineMessageBus::Event (EngineMessageBus::EventType::TrackWrappedAround,
                                                                  (int) i,
                                                                  loopCounts[(size_t) i]++));

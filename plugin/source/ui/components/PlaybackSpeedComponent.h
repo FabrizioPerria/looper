@@ -1,7 +1,9 @@
 #pragma once
+#include "audio/AudioToUIBridge.h"
 #include "audio/EngineCommandBus.h"
+#include "engine/AutomationEngine.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/components/ProgressiveSpeedPopup.h"
+#include "ui/components/ProgressiveAutomationPopup.h"
 #include <JuceHeader.h>
 
 class PlaybackSpeedSlider : public juce::Slider
@@ -86,8 +88,8 @@ private:
 class PlaybackSpeedComponent : public juce::Component, public EngineMessageBus::Listener
 {
 public:
-    PlaybackSpeedComponent (EngineMessageBus* engineMessageBus, int trackIdx, AudioToUIBridge* bridge)
-        : trackIndex (trackIdx), uiToEngineBus (engineMessageBus), uiBridge (bridge)
+    PlaybackSpeedComponent (EngineMessageBus* engineMessageBus, int trackIdx, AudioToUIBridge* bridge, AutomationEngine* automationEngine)
+        : trackIndex (trackIdx), uiToEngineBus (engineMessageBus), uiBridge (bridge), automationEngine (automationEngine)
     {
         titleLabel.setText ("SPEED", juce::dontSendNotification);
         titleLabel.setFont (LooperTheme::Fonts::getBoldFont (9.0f));
@@ -103,7 +105,7 @@ public:
             {
                 // User touched knob - exit automation
                 speedMode = SpeedMode::Manual;
-                currentSpeedCurve.preset = ProgressiveSpeedCurve::PresetType::Flat; // Reset to flat
+                currentSpeedCurve.preset = ProgressiveAutomationCurve::PresetType::Flat;
                 currentSpeedCurve.endSpeed = (float) speedSlider.getValue();
             }
 
@@ -136,22 +138,41 @@ private:
     int trackIndex;
     EngineMessageBus* uiToEngineBus;
     AudioToUIBridge* uiBridge;
+    AutomationEngine* automationEngine;
 
-    std::unique_ptr<ProgressiveSpeedPopup> progressiveSpeedPopup;
-    ProgressiveSpeedCurve currentSpeedCurve;
+    std::unique_ptr<ProgressiveAutomationPopup> progressiveSpeedPopup;
+    ProgressiveAutomationCurve currentSpeedCurve;
 
     void openProgressiveSpeedPopup();
 
     void closeProgressiveSpeedPopup();
 
-    void applyProgressiveSpeed (const ProgressiveSpeedCurve& curve, int index = 0)
+    void applyProgressiveSpeed (const ProgressiveAutomationCurve& curve, int index = 0)
     {
         currentSpeedCurve = curve;
+        speedMode = SpeedMode::Automation;
+
+        // Get actual loop length
+        int length, readPos;
+        bool recording, playing;
+        double sampleRate;
+        uiBridge->getPlaybackState (length, readPos, recording, playing, sampleRate);
+        float actualLoopLength = (float) length / (float) sampleRate;
+
+        AutomationCurve autoCurve;
+        autoCurve.breakpoints = curve.breakpoints;
+        autoCurve.commandType = EngineMessageBus::CommandType::SetPlaybackSpeed;
+        autoCurve.trackIndex = trackIndex;
+        autoCurve.enabled = true;
+        autoCurve.mode = AutomationMode::LoopBased;
+        autoCurve.loopLengthSeconds = actualLoopLength; // Actual recorded loop length
+
+        juce::String paramId = "track" + juce::String (trackIndex) + "_speed";
+        automationEngine->registerCurve (paramId, autoCurve);
 
         uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
                                                                 trackIndex,
-                                                                curve.breakpoints[(size_t) index].getY() }); // Set initial speed
-                                                                                                             //
+                                                                curve.breakpoints[(size_t) index].getY() });
     }
 
     enum class SpeedMode
@@ -163,7 +184,6 @@ private:
     SpeedMode speedMode = SpeedMode::Manual;
 
     constexpr static EngineMessageBus::EventType subscribedEvents[] = {
-        EngineMessageBus::EventType::TrackWrappedAround,
         EngineMessageBus::EventType::TrackSpeedChanged,
     };
 
@@ -181,27 +201,6 @@ private:
                 {
                     float speed = std::get<float> (event.data);
                     if (std::abs (getValue() - speed) > 0.001) setValue (speed, juce::dontSendNotification);
-                }
-                break;
-            case EngineMessageBus::EventType::TrackWrappedAround:
-                if (event.trackIndex != trackIndex) return;
-
-                if (std::holds_alternative<int> (event.data))
-                {
-                    int speedIndex = std::get<int> (event.data);
-
-                    // jassert (currentSpeedCurve.breakpoints.size() > 0);
-                    if (speedMode == SpeedMode::Automation && currentSpeedCurve.breakpoints.size() > 0)
-                    {
-                        int index = std::min (speedIndex, (int) currentSpeedCurve.breakpoints.size() - 1);
-                        applyProgressiveSpeed (currentSpeedCurve, index);
-                    }
-                    else
-                    {
-                        uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
-                                                                                trackIndex,
-                                                                                (float) getValue() });
-                    }
                 }
                 break;
         }
