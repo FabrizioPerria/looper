@@ -9,7 +9,7 @@
 #include "ui/components/DraggableToggleButtonComponent.h"
 #include "ui/components/DraggableValueLabelComponent.h"
 #include "ui/components/LevelComponent.h"
-#include "ui/components/ProgressiveMetronomePopup.h"
+#include "ui/components/ProgressiveAutomationPopup.h"
 #include <JuceHeader.h>
 
 class MetronomeComponent : public juce::Component, public EngineMessageBus::Listener
@@ -70,7 +70,7 @@ public:
                 // User touched knob - exit automation
                 speedMode = SpeedMode::Manual;
                 this->automationEngine->stopTimeBasedAutomation (bpmParamId);
-                currentMetronomeCurve.preset = ProgressiveMetronomeCurve::PresetType::Flat; // Reset to flat
+                currentMetronomeCurve.preset = ProgressiveAutomationCurve::PresetType::Flat;
                 currentMetronomeCurve.endSpeed = (float) bpmEditor.getText().getFloatValue();
             }
 
@@ -208,32 +208,30 @@ private:
     DraggableToggleButtonComponent strongBeatButton;
 
     LevelComponent metronomeLevel;
-    std::unique_ptr<ProgressiveMetronomePopup> progressiveMetronomePopup;
-    ProgressiveMetronomeCurve currentMetronomeCurve;
+    std::unique_ptr<ProgressiveAutomationPopup> progressiveMetronomePopup;
+    ProgressiveAutomationCurve currentMetronomeCurve;
     AutomationEngine* automationEngine;
 
     void openProgressiveMetronomePopup();
     void closeProgressiveMetronomePopup();
     juce::String bpmParamId = "metronome_bpm";
 
-    void applyProgressiveSpeed (const ProgressiveMetronomeCurve& curve, int index = 0)
+    void applyProgressiveSpeed (const ProgressiveAutomationCurve& curve, int index = 0)
     {
         currentMetronomeCurve = curve;
         speedMode = SpeedMode::Automation;
 
-        // Convert to automation curve
         AutomationCurve autoCurve;
         autoCurve.breakpoints = curve.breakpoints;
         autoCurve.commandType = EngineMessageBus::CommandType::SetMetronomeBPM;
         autoCurve.trackIndex = -1;
         autoCurve.enabled = true;
         autoCurve.mode = AutomationMode::TimeBased;
+        autoCurve.loopLengthSeconds = 60.0f; // Fixed 60s for metronome
 
-        // Register with automation engine
         automationEngine->registerCurve (bpmParamId, autoCurve);
         automationEngine->startTimeBasedAutomation (bpmParamId);
 
-        // Set initial speed
         uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetMetronomeBPM,
                                                                 -1,
                                                                 curve.breakpoints[(size_t) index].getY() });

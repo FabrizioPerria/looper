@@ -13,13 +13,14 @@ enum class AutomationMode
 
 struct AutomationCurve
 {
-    std::vector<juce::Point<float>> breakpoints; // x = loop index, y = parameter value
+    std::vector<juce::Point<float>> breakpoints;
     EngineMessageBus::CommandType commandType;
     int trackIndex;
     bool enabled = true;
     AutomationMode mode = AutomationMode::LoopBased;
     double startTime = 0.0;
     int startSample = 0;
+    float loopLengthSeconds = 60.0f; // NEW: for time-based conversion
 
     float getValueAtLoopIndex (int loopIndex) const
     {
@@ -30,25 +31,21 @@ struct AutomationCurve
         return breakpoints[(size_t) clampedIndex].getY();
     }
 
-    float getValueAtTime (double elapsedSeconds) const
+    float getValueAtTime (double elapsedMinutes) const
     {
         if (breakpoints.empty()) return 0.0f;
 
-        // Find position in curve based on elapsed time
-        // breakpoints[i].x = time in seconds
-        // breakpoints[i].y = parameter value
+        float loopIndexEquivalent = (elapsedMinutes * 60.0f) / loopLengthSeconds;
 
         for (size_t i = 0; i < breakpoints.size() - 1; ++i)
         {
-            if (elapsedSeconds >= breakpoints[i].x && elapsedSeconds < breakpoints[i + 1].x)
+            if (loopIndexEquivalent >= breakpoints[i].x && loopIndexEquivalent < breakpoints[i + 1].x)
             {
-                // Linear interpolation between points
-                float t = (elapsedSeconds - breakpoints[i].x) / (breakpoints[i + 1].x - breakpoints[i].x);
-                return juce::jmap (t, breakpoints[i].y, breakpoints[i + 1].y);
+                return breakpoints[i].y; // Return value at start of interval, no interpolation
             }
         }
 
-        return breakpoints.back().y; // Past end, use final value
+        return breakpoints.back().y;
     }
 };
 

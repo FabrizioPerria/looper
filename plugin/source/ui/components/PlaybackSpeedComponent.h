@@ -1,8 +1,9 @@
 #pragma once
+#include "audio/AudioToUIBridge.h"
 #include "audio/EngineCommandBus.h"
 #include "engine/AutomationEngine.h"
 #include "ui/colors/TokyoNight.h"
-#include "ui/components/ProgressiveSpeedPopup.h"
+#include "ui/components/ProgressiveAutomationPopup.h"
 #include <JuceHeader.h>
 
 class PlaybackSpeedSlider : public juce::Slider
@@ -104,7 +105,7 @@ public:
             {
                 // User touched knob - exit automation
                 speedMode = SpeedMode::Manual;
-                currentSpeedCurve.preset = ProgressiveSpeedCurve::PresetType::Flat; // Reset to flat
+                currentSpeedCurve.preset = ProgressiveAutomationCurve::PresetType::Flat;
                 currentSpeedCurve.endSpeed = (float) speedSlider.getValue();
             }
 
@@ -139,31 +140,36 @@ private:
     AudioToUIBridge* uiBridge;
     AutomationEngine* automationEngine;
 
-    std::unique_ptr<ProgressiveSpeedPopup> progressiveSpeedPopup;
-    ProgressiveSpeedCurve currentSpeedCurve;
+    std::unique_ptr<ProgressiveAutomationPopup> progressiveSpeedPopup;
+    ProgressiveAutomationCurve currentSpeedCurve;
 
     void openProgressiveSpeedPopup();
 
     void closeProgressiveSpeedPopup();
 
-    void applyProgressiveSpeed (const ProgressiveSpeedCurve& curve, int index = 0)
+    void applyProgressiveSpeed (const ProgressiveAutomationCurve& curve, int index = 0)
     {
         currentSpeedCurve = curve;
         speedMode = SpeedMode::Automation;
 
-        // Convert to automation curve
+        // Get actual loop length
+        int length, readPos;
+        bool recording, playing;
+        double sampleRate;
+        uiBridge->getPlaybackState (length, readPos, recording, playing, sampleRate);
+        float actualLoopLength = (float) length / (float) sampleRate;
+
         AutomationCurve autoCurve;
         autoCurve.breakpoints = curve.breakpoints;
         autoCurve.commandType = EngineMessageBus::CommandType::SetPlaybackSpeed;
         autoCurve.trackIndex = trackIndex;
         autoCurve.enabled = true;
         autoCurve.mode = AutomationMode::LoopBased;
+        autoCurve.loopLengthSeconds = actualLoopLength; // Actual recorded loop length
 
-        // Register with automation engine
         juce::String paramId = "track" + juce::String (trackIndex) + "_speed";
         automationEngine->registerCurve (paramId, autoCurve);
 
-        // Set initial speed
         uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetPlaybackSpeed,
                                                                 trackIndex,
                                                                 curve.breakpoints[(size_t) index].getY() });

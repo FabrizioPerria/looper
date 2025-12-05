@@ -1,14 +1,22 @@
 #include "MetronomeComponent.h"
-#include "ProgressiveMetronomePopup.h"
 #include "ui/editor/LooperEditor.h"
 
 void MetronomeComponent::openProgressiveMetronomePopup()
 {
     if (! progressiveMetronomePopup)
     {
-        progressiveMetronomePopup = std::make_unique<ProgressiveMetronomePopup> (currentMetronomeCurve, uiToEngineBus);
+        ProgressiveAutomationConfig config { METRONOME_MIN_BPM,
+                                             METRONOME_MAX_BPM,
+                                             (float) METRONOME_DEFAULT_BPM,
+                                             (float) METRONOME_DEFAULT_BPM,
+                                             1,
+                                             " BPM",
+                                             "Progressive Metronome Practice",
+                                             "End Speed" };
 
-        progressiveMetronomePopup->onStart = [this] (const ProgressiveMetronomeCurve& curve)
+        progressiveMetronomePopup = std::make_unique<ProgressiveAutomationPopup> (config, currentMetronomeCurve, nullptr);
+
+        progressiveMetronomePopup->onStart = [this] (const ProgressiveAutomationCurve& curve)
         {
             speedMode = SpeedMode::Automation;
 

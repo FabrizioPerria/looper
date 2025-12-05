@@ -1,13 +1,10 @@
-// ProgressiveSpeedPopup.h
 #pragma once
 #include "audio/AudioToUIBridge.h"
 #include "audio/EngineCommandBus.h"
-#include "engine/Constants.h"
 #include "ui/colors/TokyoNight.h"
 #include <JuceHeader.h>
 
-// Data structure to store the speed automation curve
-struct ProgressiveSpeedCurve
+struct ProgressiveAutomationCurve
 {
     enum class PresetType
     {
@@ -20,33 +17,27 @@ struct ProgressiveSpeedCurve
     float durationMinutes = 10.0f;
     float startSpeed = 0.7f;
     float endSpeed = 1.0f;
-    float stepSize = 0.03f;
-    int repsPerStep = 2.0f;
-    float baseSpeedOffset = 0.0f;
-
-    std::vector<juce::Point<float>> breakpoints; // x = loop repetition number, y = speed multiplier
-
-    // void reset()
-    // {
-    //     preset = PresetType::Flat;
-    //     durationMinutes = 10.0f;
-    //     startSpeed = 0.7f;
-    //     endSpeed = 1.0f;
-    //     stepSize = 0.03f;
-    //     repsPerStep = 2.0f;
-    //     baseSpeedOffset = 0.0f;
-    //     breakpoints.clear();
-    //     currentStep = 0;
-    // }
-
-private:
-    int currentStep = 0;
+    int stepSize = 1;
+    int repsPerStep = 2;
+    std::vector<juce::Point<float>> breakpoints;
 };
 
-class ProgressiveSpeedGraph : public juce::Component
+struct ProgressiveAutomationConfig
+{
+    float minValue;
+    float maxValue;
+    float defaultStart;
+    float defaultEnd;
+    float defaultStep;
+    juce::String valueSuffix;
+    juce::String title;
+    juce::String endLabel = "End Speed";
+};
+
+class ProgressiveAutomationGraph : public juce::Component
 {
 public:
-    ProgressiveSpeedGraph() { setInterceptsMouseClicks (true, true); }
+    ProgressiveAutomationGraph (const ProgressiveAutomationConfig& cfg) : config (cfg) {}
 
     void setCurve (const std::vector<juce::Point<float>>& points)
     {
@@ -58,11 +49,9 @@ public:
     {
         auto bounds = getLocalBounds().toFloat();
 
-        // Draw background
         g.setColour (LooperTheme::Colors::backgroundDark);
         g.fillRoundedRectangle (bounds, 4.0f);
 
-        // Draw grid lines
         g.setColour (LooperTheme::Colors::border);
         for (int i = 1; i < 4; ++i)
         {
@@ -70,21 +59,20 @@ public:
             g.drawLine (bounds.getX(), y, bounds.getRight(), y, 0.5f);
         }
 
-        // Draw axis labels
         g.setColour (LooperTheme::Colors::textDim);
         g.setFont (LooperTheme::Fonts::getRegularFont (10.0f));
 
-        // Y-axis speed labels
         int numSpeedLabels = 10;
-        const float speedStep = (PLAYBACK_SPEED_MAX - PLAYBACK_SPEED_MIN) / (numSpeedLabels - 1);
+        const float speedStep = (config.maxValue - config.minValue) / (numSpeedLabels - 1);
         for (int i = 0; i < numSpeedLabels; ++i)
         {
-            float speed = PLAYBACK_SPEED_MIN + i * speedStep;
+            float speed = config.minValue + i * speedStep;
             float y = speedToY (speed, bounds);
-            g.drawText (juce::String (speed, 2) + "x", juce::Rectangle<float> (2, y - 8, 35, 16), juce::Justification::centredLeft);
+            g.drawText (juce::String (speed, 2) + config.valueSuffix,
+                        juce::Rectangle<float> (2, y - 8, 35, 16),
+                        juce::Justification::centredLeft);
         }
 
-        // Draw curve
         if (breakpoints.size() >= 2)
         {
             juce::Path curvePath;
@@ -106,11 +94,9 @@ public:
                 }
             }
 
-            // Draw the line
             g.setColour (LooperTheme::Colors::cyan);
             g.strokePath (curvePath, juce::PathStrokeType (2.0f));
 
-            // Draw points
             g.setColour (LooperTheme::Colors::cyan);
             for (const auto& point : breakpoints)
             {
@@ -122,60 +108,55 @@ public:
     }
 
 private:
+    ProgressiveAutomationConfig config;
     std::vector<juce::Point<float>> breakpoints;
 
     float speedToY (float speed, juce::Rectangle<float> bounds)
     {
-        return juce::jmap (speed, PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX, bounds.getBottom() - 20.0f, bounds.getY() + 20.0f);
+        return juce::jmap (speed, config.minValue, config.maxValue, bounds.getBottom() - 20.0f, bounds.getY() + 20.0f);
     }
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProgressiveSpeedGraph)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProgressiveAutomationGraph)
 };
 
-class ProgressiveSpeedPopup : public juce::Component
+class ProgressiveAutomationPopup : public juce::Component
 {
 public:
-    ProgressiveSpeedPopup (int trackIdx, ProgressiveSpeedCurve curve, EngineMessageBus* messageBus, AudioToUIBridge* uiBridge)
-        : trackIndex (trackIdx), uiToEngineBus (messageBus), uiBridge (uiBridge)
+    ProgressiveAutomationPopup (const ProgressiveAutomationConfig& cfg,
+                                ProgressiveAutomationCurve curve,
+                                std::function<float()> getLoopLength = nullptr)
+        : config (cfg), currentCurve (curve), getLoopLengthCallback (getLoopLength), graph (cfg)
     {
-        // Preset buttons
-        flatButton.setComponentID ("flatButton");
         flatButton.setButtonText ("FLAT");
-        flatButton.onClick = [this]() { selectPreset (ProgressiveSpeedCurve::PresetType::Flat); };
+        flatButton.onClick = [this]() { selectPreset (ProgressiveAutomationCurve::PresetType::Flat); };
         addAndMakeVisible (flatButton);
 
-        twoFBButton.setComponentID ("twoFBButton");
         twoFBButton.setButtonText ("2F-1B");
-        twoFBButton.onClick = [this]() { selectPreset (ProgressiveSpeedCurve::PresetType::TwoForwardOneBack); };
+        twoFBButton.onClick = [this]() { selectPreset (ProgressiveAutomationCurve::PresetType::TwoForwardOneBack); };
         addAndMakeVisible (twoFBButton);
 
-        linearButton.setComponentID ("linearButton");
         linearButton.setButtonText ("LINEAR");
-        linearButton.onClick = [this]() { selectPreset (ProgressiveSpeedCurve::PresetType::LinearRamp); };
+        linearButton.onClick = [this]() { selectPreset (ProgressiveAutomationCurve::PresetType::LinearRamp); };
         addAndMakeVisible (linearButton);
 
-        // Duration control
         durationLabel.setText ("Duration (min):", juce::dontSendNotification);
         durationLabel.setFont (LooperTheme::Fonts::getBoldFont (11.0f));
         durationLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (durationLabel);
 
         durationSlider.setRange (1.0, 60.0, 1.0);
-        durationSlider.setValue (10.0);
+        durationSlider.setValue (curve.durationMinutes);
         durationSlider.setSliderStyle (juce::Slider::LinearHorizontal);
         durationSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 50, 20);
         durationSlider.onValueChange = [this]() { updateCurve(); };
         addAndMakeVisible (durationSlider);
-        durationSlider.setValue (curve.durationMinutes);
 
-        // Parameter knobs
-        startSpeedKnob.setRange (0.5, 2.0, 0.01);
-        startSpeedKnob.setValue (0.7);
+        startSpeedKnob.setRange (config.minValue, config.maxValue, 0.01);
+        startSpeedKnob.setValue (curve.startSpeed);
         startSpeedKnob.setSliderStyle (juce::Slider::LinearHorizontal);
         startSpeedKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 60, 20);
         startSpeedKnob.onValueChange = [this]() { updateCurve(); };
         addAndMakeVisible (startSpeedKnob);
-        startSpeedKnob.setValue (curve.startSpeed);
 
         startSpeedLabel.setText ("Start Speed", juce::dontSendNotification);
         startSpeedLabel.setFont (LooperTheme::Fonts::getBoldFont (10.0f));
@@ -183,27 +164,25 @@ public:
         startSpeedLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (startSpeedLabel);
 
-        endSpeedKnob.setRange (0.5, 2.0, 0.01);
-        endSpeedKnob.setValue (1.0);
+        endSpeedKnob.setRange (config.minValue, config.maxValue, 0.01);
+        endSpeedKnob.setValue (curve.endSpeed);
         endSpeedKnob.setSliderStyle (juce::Slider::LinearHorizontal);
         endSpeedKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 60, 20);
         endSpeedKnob.onValueChange = [this]() { updateCurve(); };
         addAndMakeVisible (endSpeedKnob);
-        endSpeedKnob.setValue (curve.endSpeed);
 
-        endSpeedLabel.setText ("End Speed", juce::dontSendNotification);
+        endSpeedLabel.setText (config.endLabel, juce::dontSendNotification);
         endSpeedLabel.setFont (LooperTheme::Fonts::getBoldFont (10.0f));
         endSpeedLabel.setJustificationType (juce::Justification::centred);
         endSpeedLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (endSpeedLabel);
 
-        stepSizeKnob.setRange (0.01, 0.10, 0.01);
-        stepSizeKnob.setValue (0.03);
+        stepSizeKnob.setRange (config.minValue * 0.02, config.maxValue * 0.05, 0.01);
+        stepSizeKnob.setValue (curve.stepSize);
         stepSizeKnob.setSliderStyle (juce::Slider::LinearHorizontal);
         stepSizeKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 60, 20);
         stepSizeKnob.onValueChange = [this]() { updateCurve(); };
         addAndMakeVisible (stepSizeKnob);
-        stepSizeKnob.setValue (curve.stepSize);
 
         stepSizeLabel.setText ("Step Size", juce::dontSendNotification);
         stepSizeLabel.setFont (LooperTheme::Fonts::getBoldFont (10.0f));
@@ -211,13 +190,12 @@ public:
         stepSizeLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (stepSizeLabel);
 
-        repsPerLevelKnob.setRange (1, 10, 1);
-        repsPerLevelKnob.setValue (1);
+        repsPerLevelKnob.setRange (1, 40, 1);
+        repsPerLevelKnob.setValue (curve.repsPerStep);
         repsPerLevelKnob.setSliderStyle (juce::Slider::LinearHorizontal);
         repsPerLevelKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 60, 20);
         repsPerLevelKnob.onValueChange = [this]() { updateCurve(); };
         addAndMakeVisible (repsPerLevelKnob);
-        repsPerLevelKnob.setValue (curve.repsPerStep);
 
         repsPerLevelLabel.setText ("Reps/Step", juce::dontSendNotification);
         repsPerLevelLabel.setFont (LooperTheme::Fonts::getBoldFont (10.0f));
@@ -225,16 +203,12 @@ public:
         repsPerLevelLabel.setColour (juce::Label::textColourId, LooperTheme::Colors::textDim);
         addAndMakeVisible (repsPerLevelLabel);
 
-        // Graph
         addAndMakeVisible (graph);
 
-        // Action buttons
-        cancelButton.setComponentID ("cancelButton");
         cancelButton.setButtonText ("Cancel");
         cancelButton.onClick = [this]() { closePopup (false); };
         addAndMakeVisible (cancelButton);
 
-        startButton.setComponentID ("startButton");
         startButton.setButtonText ("Start Practice");
         startButton.onClick = [this]() { closePopup (true); };
         addAndMakeVisible (startButton);
@@ -249,16 +223,15 @@ public:
         if (key == juce::KeyPress::escapeKey)
         {
             closePopup (false);
+            return true;
         }
-        return true;
+        return false;
     }
 
     void paint (juce::Graphics& g) override
     {
-        // Semi-transparent overlay
         g.fillAll (juce::Colours::black.withAlpha (0.7f));
 
-        // Popup dialog background
         auto dialogBounds = getDialogBounds();
         g.setColour (LooperTheme::Colors::surface);
         g.fillRoundedRectangle (dialogBounds.toFloat(), 8.0f);
@@ -266,26 +239,23 @@ public:
         g.setColour (LooperTheme::Colors::cyan);
         g.drawRoundedRectangle (dialogBounds.toFloat(), 8.0f, 2.0f);
 
-        // Title
         g.setColour (LooperTheme::Colors::cyan);
         g.setFont (LooperTheme::Fonts::getBoldFont (16.0f));
-        g.drawText ("Progressive Speed Practice", dialogBounds.removeFromTop (40), juce::Justification::centred);
+        g.drawText (config.title, dialogBounds.removeFromTop (40), juce::Justification::centred);
     }
 
     void resized() override
     {
         auto dialogBounds = getDialogBounds();
-        dialogBounds.removeFromTop (40); // Title space
+        dialogBounds.removeFromTop (40);
         dialogBounds.reduce (20, 10);
 
         juce::FlexBox mainFlex;
         mainFlex.flexDirection = juce::FlexBox::Direction::column;
         mainFlex.alignItems = juce::FlexBox::AlignItems::stretch;
 
-        // Preset buttons row
         juce::FlexBox presetRow;
         presetRow.flexDirection = juce::FlexBox::Direction::row;
-        mainFlex.alignItems = juce::FlexBox::AlignItems::stretch;
         presetRow.items.add (juce::FlexItem (flatButton).withFlex (1).withMargin (2));
         presetRow.items.add (juce::FlexItem (twoFBButton).withFlex (1).withMargin (2));
         presetRow.items.add (juce::FlexItem (linearButton).withFlex (1).withMargin (2));
@@ -293,7 +263,6 @@ public:
 
         mainFlex.items.add (juce::FlexItem().withHeight (10));
 
-        // Duration control
         juce::FlexBox durationRow;
         durationRow.flexDirection = juce::FlexBox::Direction::row;
         durationRow.items.add (juce::FlexItem (durationLabel).withWidth (120));
@@ -302,7 +271,6 @@ public:
 
         mainFlex.items.add (juce::FlexItem().withHeight (15));
 
-        // Parameter knobs row
         juce::FlexBox knobsRow;
         knobsRow.flexDirection = juce::FlexBox::Direction::row;
 
@@ -338,7 +306,6 @@ public:
 
         mainFlex.items.add (juce::FlexItem().withHeight (15));
 
-        // Action buttons
         juce::FlexBox buttonRow;
         buttonRow.flexDirection = juce::FlexBox::Direction::row;
         buttonRow.alignItems = juce::FlexBox::AlignItems::stretch;
@@ -349,52 +316,46 @@ public:
         mainFlex.performLayout (dialogBounds.toFloat());
     }
 
-    std::function<void (const ProgressiveSpeedCurve&)> onStart;
+    std::function<void (const ProgressiveAutomationCurve&)> onStart;
     std::function<void()> onCancel;
 
 private:
-    int trackIndex;
-    EngineMessageBus* uiToEngineBus;
-    ProgressiveSpeedCurve currentCurve;
+    ProgressiveAutomationConfig config;
+    ProgressiveAutomationCurve currentCurve;
+    std::function<float()> getLoopLengthCallback;
 
     juce::TextButton flatButton, twoFBButton, linearButton;
     juce::Label durationLabel;
     juce::Slider durationSlider;
     juce::Slider startSpeedKnob, endSpeedKnob, stepSizeKnob, repsPerLevelKnob;
     juce::Label startSpeedLabel, endSpeedLabel, stepSizeLabel, repsPerLevelLabel;
-    ProgressiveSpeedGraph graph;
+    ProgressiveAutomationGraph graph;
     juce::TextButton cancelButton, startButton;
-
-    AudioToUIBridge* uiBridge;
 
     juce::Rectangle<int> getDialogBounds()
     {
         auto bounds = getLocalBounds();
-        int width = 600;
-        int height = 550;
-        return bounds.withSizeKeepingCentre (width, height);
+        return bounds.withSizeKeepingCentre (600, 550);
     }
 
-    void selectPreset (ProgressiveSpeedCurve::PresetType preset)
+    void selectPreset (ProgressiveAutomationCurve::PresetType preset)
     {
         currentCurve.preset = preset;
 
-        // Update button states
-        flatButton.setToggleState (preset == ProgressiveSpeedCurve::PresetType::Flat, juce::dontSendNotification);
-        twoFBButton.setToggleState (preset == ProgressiveSpeedCurve::PresetType::TwoForwardOneBack, juce::dontSendNotification);
-        linearButton.setToggleState (preset == ProgressiveSpeedCurve::PresetType::LinearRamp, juce::dontSendNotification);
+        flatButton.setToggleState (preset == ProgressiveAutomationCurve::PresetType::Flat, juce::dontSendNotification);
+        twoFBButton.setToggleState (preset == ProgressiveAutomationCurve::PresetType::TwoForwardOneBack, juce::dontSendNotification);
+        linearButton.setToggleState (preset == ProgressiveAutomationCurve::PresetType::LinearRamp, juce::dontSendNotification);
 
-        // Show/hide relevant parameters
-        bool show2FB = (preset == ProgressiveSpeedCurve::PresetType::TwoForwardOneBack);
+        bool show2FB = (preset == ProgressiveAutomationCurve::PresetType::TwoForwardOneBack);
         stepSizeKnob.setVisible (show2FB);
         stepSizeLabel.setVisible (show2FB);
 
-        bool showFlat = (preset == ProgressiveSpeedCurve::PresetType::Flat);
+        bool showFlat = (preset == ProgressiveAutomationCurve::PresetType::Flat);
         startSpeedKnob.setVisible (! showFlat);
         startSpeedLabel.setVisible (! showFlat);
         repsPerLevelKnob.setVisible (! showFlat);
         repsPerLevelLabel.setVisible (! showFlat);
-        endSpeedLabel.setText (showFlat ? "Speed" : "End Speed", juce::dontSendNotification);
+        endSpeedLabel.setText (showFlat ? "Speed" : config.endLabel, juce::dontSendNotification);
 
         updateCurve();
         repaint();
@@ -415,48 +376,39 @@ private:
     void generateBreakpoints()
     {
         currentCurve.breakpoints.clear();
-        int length, readPos;
-        bool recording, playing;
-        double sampleRate;
-        uiBridge->getPlaybackState (length, readPos, recording, playing, sampleRate);
 
-        float loopLengthSeconds = (float) length / (float) sampleRate;
-        if (loopLengthSeconds <= 0.0f) loopLengthSeconds = 10.0f; // Prevent division by zero
+        float loopLengthSeconds = getLoopLengthCallback ? getLoopLengthCallback() : 60.0f;
+        if (loopLengthSeconds <= 0.0f) loopLengthSeconds = 60.0f;
         int numLoops = (int) ((currentCurve.durationMinutes * 60.0f) / loopLengthSeconds);
 
         switch (currentCurve.preset)
         {
-            case ProgressiveSpeedCurve::PresetType::Flat:
+            case ProgressiveAutomationCurve::PresetType::Flat:
             {
                 for (int i = 0; i < numLoops; ++i)
                     currentCurve.breakpoints.push_back ({ (float) i, currentCurve.endSpeed });
                 break;
             }
 
-            case ProgressiveSpeedCurve::PresetType::TwoForwardOneBack:
+            case ProgressiveAutomationCurve::PresetType::TwoForwardOneBack:
             {
                 float currentSpeed = currentCurve.startSpeed;
                 int loopIndex = 0;
 
                 while (loopIndex < numLoops)
                 {
-                    // Calculate what the next speed should be based on pattern
                     int patternPos = (loopIndex / currentCurve.repsPerStep) % 3;
 
-                    // Determine speed change
                     if (patternPos == 0 || patternPos == 1)
                     {
-                        // Going forward
                         if (loopIndex > 0 && (loopIndex / currentCurve.repsPerStep) > 0)
                             currentSpeed = juce::jmin (currentSpeed + currentCurve.stepSize, currentCurve.endSpeed);
                     }
-                    else // patternPos == 2
+                    else
                     {
-                        // Going back
                         currentSpeed = juce::jmax (currentSpeed - currentCurve.stepSize, currentCurve.startSpeed);
                     }
 
-                    // Repeat this speed repsPerLevel times
                     for (int rep = 0; rep < currentCurve.repsPerStep && loopIndex < numLoops; ++rep, ++loopIndex)
                     {
                         currentCurve.breakpoints.push_back ({ (float) loopIndex, currentSpeed });
@@ -465,11 +417,10 @@ private:
                 break;
             }
 
-            case ProgressiveSpeedCurve::PresetType::LinearRamp:
+            case ProgressiveAutomationCurve::PresetType::LinearRamp:
             {
-                // Calculate number of unique speed levels
                 int numLevels = numLoops / currentCurve.repsPerStep;
-                if (numLoops % currentCurve.repsPerStep != 0) numLevels++; // Round up
+                if (numLoops % currentCurve.repsPerStep != 0) numLevels++;
 
                 int loopIndex = 0;
                 for (int level = 0; level < numLevels && loopIndex < numLoops; ++level)
@@ -477,7 +428,6 @@ private:
                     float progress = (float) level / (float) (numLevels - 1);
                     float speed = juce::jmap (progress, currentCurve.startSpeed, currentCurve.endSpeed);
 
-                    // Repeat this speed level repsPerLevel times
                     for (int rep = 0; rep < currentCurve.repsPerStep && loopIndex < numLoops; ++rep, ++loopIndex)
                     {
                         currentCurve.breakpoints.push_back ({ (float) loopIndex, speed });
@@ -501,5 +451,5 @@ private:
         }
     }
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProgressiveSpeedPopup)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProgressiveAutomationPopup)
 };
