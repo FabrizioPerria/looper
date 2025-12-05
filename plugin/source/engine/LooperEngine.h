@@ -359,6 +359,11 @@ private:
                   auto bpm = static_cast<int> (std::get<int> (cmd.payload));
                   setMetronomeBpm (bpm);
               }
+              if (std::holds_alternative<float> (cmd.payload))
+              {
+                  auto bpm = static_cast<int> (std::get<float> (cmd.payload));
+                  setMetronomeBpm (bpm);
+              }
           } },
         { EngineMessageBus::CommandType::SetMetronomeTimeSignature,
           [this] (const auto& cmd)

@@ -99,6 +99,7 @@ constexpr float METRONOME_WEAK_BEAT_ENVELOPE_DECAY = 250.0f; // Decay rate for w
 constexpr float METRONOME_WEAK_BEAT_GAIN = 1.5f;
 constexpr int METRONOME_DEFAULT_TIME_SIGNATURE_NUMERATOR = 4;
 constexpr int METRONOME_DEFAULT_TIME_SIGNATURE_DENOMINATOR = 4;
+constexpr float METRONOME_LOOP_DURATION_SECONDS = 60;
 
 //**************************************************************
 // Level Meter Constants

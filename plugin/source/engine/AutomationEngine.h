@@ -19,6 +19,7 @@ struct AutomationCurve
     bool enabled = true;
     AutomationMode mode = AutomationMode::LoopBased;
     double startTime = 0.0;
+    int startSample = 0;
 
     float getValueAtLoopIndex (int loopIndex) const
     {
@@ -74,13 +75,14 @@ public:
     {
         elapsedSamples += numSamples;
         double elapsedSeconds = elapsedSamples / sampleRate;
+        double elapsedMinutes = elapsedSeconds / 60.0;
 
         // Apply time-based automation
         for (const auto& [paramId, curve] : curves)
         {
             if (! curve.enabled || curve.mode != AutomationMode::TimeBased) continue;
 
-            float value = curve.getValueAtTime (elapsedSeconds - curve.startTime);
+            float value = curve.getValueAtTime (elapsedMinutes - curve.startTime);
             dispatchCommand (curve.commandType, curve.trackIndex, value);
         }
     }
@@ -176,7 +178,7 @@ public:
     {
         if (curves.count (paramId))
         {
-            curves[paramId].startTime = elapsedSamples / sampleRate;
+            curves[paramId].startTime = (elapsedSamples / sampleRate) / 60.0; // in minutes
         }
     }
 

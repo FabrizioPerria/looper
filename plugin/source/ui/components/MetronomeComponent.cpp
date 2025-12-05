@@ -13,6 +13,7 @@ void MetronomeComponent::openProgressiveMetronomePopup()
             speedMode = SpeedMode::Automation;
 
             applyProgressiveSpeed (curve, 0);
+            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleMetronomeEnabled, -1, {} });
             closeProgressiveMetronomePopup();
         };
 
