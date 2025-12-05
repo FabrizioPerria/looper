@@ -80,8 +80,8 @@ constexpr float FREEZE_CUTOFF_FREQUENCY_HZ = 8000.0f;
 // Metronome Constants
 //**************************************************************
 constexpr float METRONOME_MIN_BPM = 30;
-constexpr float METRONOME_MAX_BPM = 300;
-constexpr int METRONOME_DEFAULT_BPM = 120;
+constexpr float METRONOME_MAX_BPM = 200;
+constexpr int METRONOME_DEFAULT_BPM = 90;
 constexpr int METRONOME_TAP_RECENT_THRESHOLD_MS = 500; // Consider tap "recent" if within last 500ms
 constexpr int METRONOME_TAP_TIMEOUT_MS = 3000;         // Reset after 3 seconds of no taps
 constexpr int METRONOME_MIN_TAP_INTERVAL_MS = 100;     // Debounce - ignore taps closer than 100ms

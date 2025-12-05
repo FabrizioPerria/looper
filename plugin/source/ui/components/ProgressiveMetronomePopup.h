@@ -67,7 +67,7 @@ public:
         {
             float speed = METRONOME_MIN_BPM + i * speedStep;
             float y = speedToY (speed, bounds);
-            g.drawText (juce::String (speed, 2) + "x", juce::Rectangle<float> (2, y - 8, 35, 16), juce::Justification::centredLeft);
+            g.drawText (juce::String (speed, 2) + " BPM", juce::Rectangle<float> (2, y - 8, 35, 16), juce::Justification::centredLeft);
         }
 
         // Draw curve
@@ -254,7 +254,7 @@ public:
         // Title
         g.setColour (LooperTheme::Colors::cyan);
         g.setFont (LooperTheme::Fonts::getBoldFont (16.0f));
-        g.drawText ("Progressive Speed Practice", dialogBounds.removeFromTop (40), juce::Justification::centred);
+        g.drawText ("Progressive Metronome Practice", dialogBounds.removeFromTop (40), juce::Justification::centred);
     }
 
     void resized() override
