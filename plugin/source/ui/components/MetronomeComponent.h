@@ -227,7 +227,7 @@ private:
         autoCurve.trackIndex = -1;
         autoCurve.enabled = true;
         autoCurve.mode = AutomationMode::TimeBased;
-        autoCurve.loopLengthSeconds = 60.0f; // Fixed 60s for metronome
+        autoCurve.loopLengthSeconds = (curve.durationMinutes * 60.0f) / curve.breakpoints.size(); // Duration per breakpoint
 
         automationEngine->registerCurve (bpmParamId, autoCurve);
         automationEngine->startTimeBasedAutomation (bpmParamId);

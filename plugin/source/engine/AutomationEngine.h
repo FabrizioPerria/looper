@@ -34,14 +34,24 @@ struct AutomationCurve
     float getValueAtTime (double elapsedMinutes) const
     {
         if (breakpoints.empty()) return 0.0f;
+        if (breakpoints.size() == 1) return breakpoints[0].getY();
 
+        // Convert elapsed time to loop index equivalent
+        // Each breakpoint.x represents a loop iteration
+        // loopLengthSeconds is the duration of one "loop" for time-based conversion
         float loopIndexEquivalent = (elapsedMinutes * 60.0f) / loopLengthSeconds;
 
+        // Clamp to valid range
+        if (loopIndexEquivalent <= breakpoints.front().x) return breakpoints.front().y;
+        if (loopIndexEquivalent >= breakpoints.back().x) return breakpoints.back().y;
+
+        // Find the two breakpoints we're between
         for (size_t i = 0; i < breakpoints.size() - 1; ++i)
         {
-            if (loopIndexEquivalent >= breakpoints[i].x && loopIndexEquivalent < breakpoints[i + 1].x)
+            if (loopIndexEquivalent >= breakpoints[i].x && loopIndexEquivalent <= breakpoints[i + 1].x)
             {
-                return breakpoints[i].y; // Return value at start of interval, no interpolation
+                // No interpolation - return the value at the start of the interval
+                return breakpoints[i].y;
             }
         }
 
