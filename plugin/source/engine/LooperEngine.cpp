@@ -17,7 +17,7 @@ void LooperEngine::prepareToPlay (double newSampleRate, int newMaxBlockSize, int
 
     sampleRate = newSampleRate;
     maxBlockSize = newMaxBlockSize;
-    numChannels = newNumChannels;
+    numChannels = std::min (newNumChannels, MAX_NUM_CHANNELS);
 
     for (int i = 0; i < NUM_TRACKS; ++i)
         addTrack (i);
