@@ -3,7 +3,7 @@
 struct FreezeParameters
 {
     float grainLengthMs = 150.0f;
-    int grainSpacing = 256;
+    int grainSpacing = 1300;
     int maxGrains = 64;
     float positionSpread = 0.3f;
     float modRate = 0.04f;

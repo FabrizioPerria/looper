@@ -58,7 +58,7 @@ constexpr int MESSAGE_BUS_FIFO_SIZE = 1024;
 constexpr float FREEZE_BUFFER_DURATION_SECONDS = 1.0f;
 constexpr int MAX_GRAINS = 64;
 constexpr int GRAIN_LENGTH = 32768;
-constexpr int GRAIN_SPACING = 1024;
+constexpr int GRAIN_SPACING = 1300;
 constexpr int ENVELOPE_WINDOW_SIZE = 4096;
 
 constexpr int MOD_TABLE_SIZE = 1024;
