@@ -1,6 +1,7 @@
 #pragma once
 #include "BufferManager.h"
 #include "Constants.h"
+#include "ui/components/FreezeParametersPopup.h"
 #include <JuceHeader.h>
 #include <array>
 
@@ -206,6 +207,21 @@ public:
             nextGrainTime = static_cast<int> (params.grainParams.density);
         }
 
+        void setGranularParameters (const FreezeParameters& params)
+        {
+            cloudParams.grainParams.duration = params.grainLengthMs * 0.001f * sampleRate_;
+            cloudParams.grainParams.density = params.grainSpacing;
+            cloudParams.maxGrains = params.maxGrains;
+            cloudParams.positionSpread = params.positionSpread;
+            cloudParams.modParams.rate = params.modRate;
+            cloudParams.modParams.pitchDepth = params.pitchModDepth;
+            cloudParams.modParams.ampDepth = params.ampModDepth;
+            // Store randomness for use in grain triggering
+            grainDurationRandomFactor = params.grainRandomness;
+
+            modulator.setParameters (cloudParams.modParams);
+        }
+
         void setLevelParameters (float amplitude) { cloudParams.amplitude = amplitude; }
         float getLevelParameters() const { return cloudParams.amplitude; }
 
@@ -327,7 +343,7 @@ public:
                     float startPosition = random.nextFloat() * (bufferSizeFloat_ * cloudParams.positionSpread);
 
                     auto params = cloudParams.grainParams;
-                    params.duration *= (1.0f - GRAIN_DURATION_RANDOM_FACTOR) + random.nextFloat() * 2.0f * GRAIN_DURATION_RANDOM_FACTOR;
+                    params.duration *= (1.0f - grainDurationRandomFactor) + random.nextFloat() * 2.0f * grainDurationRandomFactor;
 
                     grain.trigger (startPosition, params);
                     return;
@@ -358,6 +374,7 @@ public:
         float bufferSizeFloat_ = 0.0f;
         juce::Random random;
         Parameters cloudParams;
+        float grainDurationRandomFactor;
 
         enum class CloudState
         {

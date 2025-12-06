@@ -32,6 +32,8 @@ public:
                 uiToEngineBus->pushCommand (EngineMessageBus::Command { commandType, trackIndex, (float) slider.getValue() });
         };
         addAndMakeVisible (slider);
+
+        slider.setInterceptsMouseClicks (false, false);
     }
 
     void resized() override
@@ -49,7 +51,26 @@ public:
 
     float getValue() const { return (float) slider.getValue(); }
 
+    std::function<void (const juce::MouseEvent&)> onShiftClick = nullptr;
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        if (e.mods.isShiftDown() && onShiftClick)
+        {
+            onShiftClick (e);
+            return;
+        }
+
+        slider.mouseDown (e.getEventRelativeTo (&slider));
+    }
+
+    void mouseDrag (const juce::MouseEvent& e) override { slider.mouseDrag (e.getEventRelativeTo (&slider)); }
+
+    void mouseUp (const juce::MouseEvent& e) override { slider.mouseUp (e.getEventRelativeTo (&slider)); }
+
 private:
+    std::function<void (const juce::MouseEvent&)> mouseCallback;
+
     EngineMessageBus* uiToEngineBus = nullptr;
     int trackIndex;
     EngineMessageBus::CommandType commandType;
