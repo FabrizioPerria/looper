@@ -8,11 +8,12 @@ void FreezeComponent::openPopup()
     {
         freezeParametersPopup = std::make_unique<FreezeParametersPopup> (uiToEngineBus, currentFreezeParams);
 
-        freezeParametersPopup->onApply = [this] (const FreezeParameters& params)
+        freezeParametersPopup->onApply = [this] (const FreezeParameters& params, bool shouldQuit = true)
         {
             currentFreezeParams = params;
-            // Push command to engine
-            closePopup();
+
+            uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::SetFreezeParameters, -1, params });
+            if (shouldQuit) closePopup();
         };
 
         freezeParametersPopup->onCancel = [this]() { closePopup(); };

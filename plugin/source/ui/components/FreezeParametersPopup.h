@@ -4,33 +4,23 @@
 #include "audio/EngineCommandBus.h"
 #include "engine/Constants.h"
 #include "ui/colors/TokyoNight.h"
+#include "ui/components/FreezeParameters.h"
 #include <JuceHeader.h>
-
-struct FreezeParameters
-{
-    float grainLengthMs = 150.0f;
-    int grainSpacing = 256;
-    int maxGrains = 64;
-    float positionSpread = 0.3f;
-    float modRate = 0.04f;
-    float pitchModDepth = 0.005f;
-    float ampModDepth = 0.01f;
-    float grainRandomness = 0.3f;
-};
 
 class FreezeParametersPopup : public juce::Component
 {
 public:
     FreezeParametersPopup (EngineMessageBus* bus, const FreezeParameters& currentParams) : messageBus (bus), currentParams (currentParams)
     {
-        setupSlider (grainLengthSlider, "Grain Length (ms)", 50.0, 500.0, currentParams.grainLengthMs);
+        setupSlider (grainLengthSlider, "Grain Length (ms)", 10.0, 1500.0, currentParams.grainLengthMs);
         setupSlider (grainSpacingSlider, "Grain Spacing", 64.0, 2048.0, currentParams.grainSpacing);
-        setupSlider (maxGrainsSlider, "Max Grains", 16.0, 128.0, currentParams.maxGrains);
+        setupSlider (maxGrainsSlider, "Max Grains", 2.0, 63.0, currentParams.maxGrains);
         setupSlider (positionSpreadSlider, "Position Spread", 0.0, 1.0, currentParams.positionSpread);
-        setupSlider (modRateSlider, "Mod Rate (Hz)", 0.01, 0.2, currentParams.modRate);
-        setupSlider (pitchModDepthSlider, "Pitch Mod Depth", 0.0, 0.1, currentParams.pitchModDepth);
-        setupSlider (ampModDepthSlider, "Amp Mod Depth", 0.0, 0.05, currentParams.ampModDepth);
         setupSlider (grainRandomnessSlider, "Grain Randomness", 0.0, 0.8, currentParams.grainRandomness);
+
+        setupSlider (modRateSlider, "Mod Rate (Hz)", 0.01, 2.0, currentParams.modRate);
+        setupSlider (pitchModDepthSlider, "Pitch Mod Depth", 0.0, 0.5, currentParams.pitchModDepth);
+        setupSlider (ampModDepthSlider, "Amp Mod Depth", 0.0, 0.3, currentParams.ampModDepth);
 
         grainSpacingSlider.setSkewFactorFromMidPoint (512.0);
         maxGrainsSlider.setSkewFactorFromMidPoint (48.0);
@@ -130,7 +120,7 @@ public:
         cancelButton.setBounds (buttonBounds.removeFromRight (buttonBounds.getWidth() - 5));
     }
 
-    std::function<void (const FreezeParameters&)> onApply;
+    std::function<void (const FreezeParameters&, const bool)> onApply;
     std::function<void()> onCancel;
 
 private:
@@ -164,6 +154,13 @@ private:
         slider.setRange (min, max);
         slider.setValue (value);
         slider.setComponentID (name);
+        slider.onValueChange = [this]()
+        {
+            FreezeParameters params;
+            getSliderValues (params);
+
+            onApply (params, false);
+        };
         addAndMakeVisible (slider);
 
         auto* label = new juce::Label (name, name);
@@ -198,21 +195,26 @@ private:
         }
     }
 
+    void getSliderValues (FreezeParameters& params)
+    {
+        params.grainLengthMs = (float) grainLengthSlider.getValue();
+        params.grainSpacing = (int) grainSpacingSlider.getValue();
+        params.maxGrains = (int) maxGrainsSlider.getValue();
+        params.positionSpread = (float) positionSpreadSlider.getValue();
+        params.modRate = (float) modRateSlider.getValue();
+        params.pitchModDepth = (float) pitchModDepthSlider.getValue();
+        params.ampModDepth = (float) ampModDepthSlider.getValue();
+        params.grainRandomness = (float) grainRandomnessSlider.getValue();
+    }
+
     void closePopup (bool shouldApply)
     {
         if (shouldApply && onApply)
         {
             FreezeParameters params;
-            params.grainLengthMs = (float) grainLengthSlider.getValue();
-            params.grainSpacing = (int) grainSpacingSlider.getValue();
-            params.maxGrains = (int) maxGrainsSlider.getValue();
-            params.positionSpread = (float) positionSpreadSlider.getValue();
-            params.modRate = (float) modRateSlider.getValue();
-            params.pitchModDepth = (float) pitchModDepthSlider.getValue();
-            params.ampModDepth = (float) ampModDepthSlider.getValue();
-            params.grainRandomness = (float) grainRandomnessSlider.getValue();
+            getSliderValues (params);
 
-            onApply (params);
+            onApply (params, true);
         }
         else if (onCancel)
         {

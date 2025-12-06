@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/Constants.h"
+#include "ui/components/FreezeParameters.h"
 #include <JuceHeader.h>
 #include <variant>
 #include <vector>
@@ -78,6 +79,7 @@ public:
         SaveAllTracksToFolder,
 
         SetPlayheadPosition,
+        SetFreezeParameters
     };
 
     // NOTE: not every command needs to be exposed in the menu
@@ -160,9 +162,16 @@ public:
         }
     }
 
-    typedef std::
-        variant<std::monostate, float, int, bool, juce::File, juce::AudioBuffer<float>, std::pair<int, int>, std::pair<float, float>>
-            CommandPayload;
+    typedef std::variant<std::monostate,
+                         float,
+                         int,
+                         bool,
+                         juce::File,
+                         juce::AudioBuffer<float>,
+                         std::pair<int, int>,
+                         std::pair<float, float>,
+                         FreezeParameters>
+        CommandPayload;
 
     struct Command
     {

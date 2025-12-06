@@ -387,6 +387,7 @@ public:
         int tailDurationSamples = 0;
     };
 
+    CloudController& getCloudController() { return cloudController; }
     GranularFreeze() {}
     ~GranularFreeze() {}
 
