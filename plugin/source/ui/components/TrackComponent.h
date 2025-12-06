@@ -170,10 +170,10 @@ private:
                             != std::end (subscribedEvents);
         if (! isSubscribed) return;
 
-        if (event.trackIndex != trackIndex) return;
         switch (event.type)
         {
             case EngineMessageBus::EventType::TrackMuteChanged:
+                if (event.trackIndex != trackIndex) return;
                 if (std::holds_alternative<bool> (event.data))
                 {
                     bool isMuted = std::get<bool> (event.data);
@@ -181,6 +181,7 @@ private:
                 }
                 break;
             case EngineMessageBus::EventType::TrackSoloChanged:
+                if (event.trackIndex != trackIndex) return;
                 if (std::holds_alternative<bool> (event.data))
                 {
                     bool isSoloed = std::get<bool> (event.data);
@@ -188,6 +189,7 @@ private:
                 }
                 break;
             case EngineMessageBus::EventType::TrackPitchLockChanged:
+                if (event.trackIndex != trackIndex) return;
                 if (std::holds_alternative<bool> (event.data))
                 {
                     bool isPitchLocked = std::get<bool> (event.data);
@@ -195,6 +197,7 @@ private:
                 }
                 break;
             case EngineMessageBus::EventType::TrackReverseDirection:
+                if (event.trackIndex != trackIndex) return;
                 if (std::holds_alternative<bool> (event.data))
                 {
                     bool isReversed = std::get<bool> (event.data);
@@ -202,6 +205,7 @@ private:
                 }
                 break;
             case EngineMessageBus::EventType::TrackVolumeChanged:
+                if (event.trackIndex != trackIndex) return;
                 if (std::holds_alternative<float> (event.data))
                 {
                     float volume = std::get<float> (event.data);
@@ -209,6 +213,7 @@ private:
                 }
                 break;
             case EngineMessageBus::EventType::TrackPitchChanged:
+                if (event.trackIndex != trackIndex) return;
                 if (std::holds_alternative<float> (event.data))
                 {
                     float pitch = std::get<float> (event.data);

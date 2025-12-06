@@ -19,6 +19,12 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
 AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 {
     // PerfettoProfiler::getInstance().writeTraceFile (juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("trace.json"));
+    while (processingBlockCount.load() > 0)
+    {
+        std::this_thread::yield();
+    }
+
+    looperEngine->releaseResources();
 }
 
 //==============================================================================
@@ -74,17 +80,25 @@ void AudioPluginAudioProcessor::changeProgramName (int index, const juce::String
 //==============================================================================
 void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    looperEngine->prepareToPlay (sampleRate, samplesPerBlock, getTotalNumInputChannels());
+    if (sampleRate != currentSampleRate || samplesPerBlock != currentBlockSize || getTotalNumInputChannels() != currentNumChannels)
+    {
+        if (currentSampleRate > 0)
+        {
+            while (processingBlockCount.load() > 0)
+            {
+                std::this_thread::yield();
+            }
+            looperEngine->releaseResources();
+        }
+
+        currentSampleRate = sampleRate;
+        currentBlockSize = samplesPerBlock;
+        currentNumChannels = getTotalNumInputChannels();
+        looperEngine->prepareToPlay (sampleRate, samplesPerBlock, getTotalNumInputChannels());
+    }
 }
 
-void AudioPluginAudioProcessor::releaseResources()
-{
-    while (processingBlockCount.load() > 0)
-    {
-        std::this_thread::yield();
-    }
-    looperEngine->releaseResources();
-}
+void AudioPluginAudioProcessor::releaseResources() {}
 
 bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {

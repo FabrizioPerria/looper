@@ -58,6 +58,9 @@ private:
     juce::int64 lastWarningTime = 0;
     std::unique_ptr<LooperEngine> looperEngine = std::make_unique<LooperEngine>();
     AudioToUIBridge uiBridge;
+    double currentSampleRate = 0;
+    double currentBlockSize = 0;
+    int currentNumChannels = 0;
 
     std::atomic<int> processingBlockCount { 0 };
     //==============================================================================
