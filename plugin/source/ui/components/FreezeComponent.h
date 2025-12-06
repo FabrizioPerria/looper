@@ -3,6 +3,7 @@
 #include "audio/EngineCommandBus.h"
 #include "engine/Constants.h"
 #include "ui/colors/TokyoNight.h"
+#include "ui/components/FreezeParametersPopup.h"
 #include "ui/components/LevelComponent.h"
 #include <JuceHeader.h>
 
@@ -30,6 +31,8 @@ public:
         { uiToEngineBus->pushCommand (EngineMessageBus::Command { EngineMessageBus::CommandType::ToggleFreeze, -1, std::monostate {} }); };
 
         addAndMakeVisible (freezeButton);
+
+        levelComponent.onShiftClick = [this] (const juce::MouseEvent& e) { openPopup(); };
         addAndMakeVisible (levelComponent);
         uiToEngineBus->addListener (this);
     }
@@ -69,6 +72,11 @@ private:
     LevelComponent levelComponent;
     // ButtonIconComponent freezeButton;
     juce::TextButton freezeButton;
+
+    std::unique_ptr<FreezeParametersPopup> freezeParametersPopup;
+    FreezeParameters currentFreezeParams;
+    void closePopup();
+    void openPopup();
 
     constexpr static EngineMessageBus::EventType subscribedEvents[] = { EngineMessageBus::EventType::FreezeStateChanged };
 

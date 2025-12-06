@@ -72,8 +72,8 @@ constexpr float MIN_AMP_MOD = 0.7f;
 constexpr float MAX_AMP_MOD = 1.0f;
 
 constexpr float DEFAULT_FREEZE_AMPLITUDE = 0.4f;
-constexpr float GRAIN_DURATION_RANDOM_FACTOR = 0.5f; // ±30% random variation in grain duration
-constexpr float GRAIN_SPAWN_TIMING_JITTER = 0.2f;    // ±20% random variation in grain spawn timing
+// constexpr float GRAIN_DURATION_RANDOM_FACTOR = 0.5f; // ±30% random variation in grain duration
+constexpr float GRAIN_SPAWN_TIMING_JITTER = 0.2f; // ±20% random variation in grain spawn timing
 constexpr float FREEZE_CUTOFF_FREQUENCY_HZ = 8000.0f;
 
 //**************************************************************

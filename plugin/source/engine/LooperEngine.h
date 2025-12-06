@@ -509,6 +509,15 @@ private:
                   setPlayheadPosition (cmd.trackIndex, position);
               }
           } },
+        { EngineMessageBus::CommandType::SetFreezeParameters,
+          [this] (const auto& cmd)
+          {
+              if (std::holds_alternative<FreezeParameters> (cmd.payload))
+              {
+                  auto params = std::get<FreezeParameters> (cmd.payload);
+                  granularFreeze->getCloudController().setGranularParameters (params);
+              }
+          } },
 
     };
 

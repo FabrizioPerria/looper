@@ -75,7 +75,8 @@ target_sources(
           source/ui/components/MidiMappingComponent.cpp
           source/CustomStandalone.cpp
           source/ui/components/PlaybackSpeedComponent.cpp
-          source/ui/components/MetronomeComponent.cpp)
+          source/ui/components/MetronomeComponent.cpp
+          source/ui/components/FreezeComponent.cpp)
 
 target_include_directories(
   ${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/source
