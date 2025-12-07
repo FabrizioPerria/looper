@@ -8,7 +8,7 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
     : AudioProcessor (BusesProperties()
 #if ! JucePlugin_IsMidiEffect
 #if ! JucePlugin_IsSynth
-                          .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                          .withInput ("Input", juce::AudioChannelSet::quadraphonic(), true)
 #endif
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
 #endif
@@ -106,22 +106,40 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
     juce::ignoreUnused (layouts);
     return true;
 #else
-    // This is the place where you check if the layout is supported.
-    // In this template code we only support mono or stereo.
-    // Some plugin hosts, such as certain GarageBand versions, will only
-    // load plugins that support stereo bus layouts.
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-        && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
-        return false;
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo()) return false;
 
-    // This checks if the input layout matches the output layout
+    // Allow any number of input channels up to 10
 #if ! JucePlugin_IsSynth
-    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet()) return false;
+    auto inputChannels = layouts.getMainInputChannelSet().size();
+    if (inputChannels < 1 || inputChannels > 10) return false;
 #endif
 
     return true;
 #endif
 }
+
+// bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+// {
+// #if JucePlugin_IsMidiEffect
+//     juce::ignoreUnused (layouts);
+//     return true;
+// #else
+//     // This is the place where you check if the layout is supported.
+//     // In this template code we only support mono or stereo.
+//     // Some plugin hosts, such as certain GarageBand versions, will only
+//     // load plugins that support stereo bus layouts.
+//     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
+//         && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+//         return false;
+//
+//     // This checks if the input layout matches the output layout
+// #if ! JucePlugin_IsSynth
+//     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet()) return false;
+// #endif
+//
+//     return true;
+// #endif
+// }
 
 void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
@@ -131,57 +149,58 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    // MIX INPUTS BEFORE PROCESSING
-    if (totalNumInputChannels > 2)
-    {
-        int activePairs = 1;
-
-        for (int ch = 2; ch < totalNumInputChannels; ch += 2)
-        {
-            int leftCh = ch;
-            int rightCh = ch + 1;
-
-            if (rightCh < totalNumInputChannels)
-            {
-                if (buffer.getMagnitude (leftCh, 0, buffer.getNumSamples()) > 0.0001f
-                    || buffer.getMagnitude (rightCh, 0, buffer.getNumSamples()) > 0.0001f)
-                {
-                    activePairs++;
-                }
-            }
-        }
-
-        float scale = 1.0f / activePairs;
-
-        for (int ch = 0; ch < totalNumInputChannels; ++ch)
-        {
-            buffer.applyGain (ch, 0, buffer.getNumSamples(), scale);
-        }
-
-        for (int ch = 2; ch < totalNumInputChannels; ch += 2)
-        {
-            int leftCh = ch;
-            int rightCh = ch + 1;
-
-            if (rightCh < totalNumInputChannels)
-            {
-                if (buffer.getMagnitude (leftCh, 0, buffer.getNumSamples()) > 0.0001f
-                    || buffer.getMagnitude (rightCh, 0, buffer.getNumSamples()) > 0.0001f)
-                {
-                    juce::FloatVectorOperations::add (buffer.getWritePointer (0, 0),
-                                                      buffer.getReadPointer (leftCh, 0),
-                                                      buffer.getNumSamples());
-                    juce::FloatVectorOperations::add (buffer.getWritePointer (1, 0),
-                                                      buffer.getReadPointer (rightCh, 0),
-                                                      buffer.getNumSamples());
-                }
-            }
-        }
-    }
-
-    // Only process first 2 channels
-    juce::AudioBuffer<float> stereoBuffer (buffer.getArrayOfWritePointers(), 2, buffer.getNumSamples());
-    looperEngine->processBlock (stereoBuffer, midiMessages);
+    // // MIX INPUTS BEFORE PROCESSING
+    // if (totalNumInputChannels > 2)
+    // {
+    //     int activePairs = 1;
+    //
+    //     for (int ch = 2; ch < totalNumInputChannels; ch += 2)
+    //     {
+    //         int leftCh = ch;
+    //         int rightCh = ch + 1;
+    //
+    //         if (rightCh < totalNumInputChannels)
+    //         {
+    //             if (buffer.getMagnitude (leftCh, 0, buffer.getNumSamples()) > 0.0001f
+    //                 || buffer.getMagnitude (rightCh, 0, buffer.getNumSamples()) > 0.0001f)
+    //             {
+    //                 activePairs++;
+    //             }
+    //         }
+    //     }
+    //
+    //     float scale = 1.0f / activePairs;
+    //
+    //     for (int ch = 0; ch < totalNumInputChannels; ++ch)
+    //     {
+    //         buffer.applyGain (ch, 0, buffer.getNumSamples(), scale);
+    //     }
+    //
+    //     for (int ch = 2; ch < totalNumInputChannels; ch += 2)
+    //     {
+    //         int leftCh = ch;
+    //         int rightCh = ch + 1;
+    //
+    //         if (rightCh < totalNumInputChannels)
+    //         {
+    //             if (buffer.getMagnitude (leftCh, 0, buffer.getNumSamples()) > 0.0001f
+    //                 || buffer.getMagnitude (rightCh, 0, buffer.getNumSamples()) > 0.0001f)
+    //             {
+    //                 juce::FloatVectorOperations::add (buffer.getWritePointer (0, 0),
+    //                                                   buffer.getReadPointer (leftCh, 0),
+    //                                                   buffer.getNumSamples());
+    //                 juce::FloatVectorOperations::add (buffer.getWritePointer (1, 0),
+    //                                                   buffer.getReadPointer (rightCh, 0),
+    //                                                   buffer.getNumSamples());
+    //             }
+    //         }
+    //     }
+    // }
+    //
+    // // Only process first 2 channels
+    // juce::AudioBuffer<float> stereoBuffer (buffer.getArrayOfWritePointers(), 2, buffer.getNumSamples());
+    // looperEngine->processBlock (stereoBuffer, midiMessages);
+    looperEngine->processBlock (buffer, midiMessages);
 
     midiMessages.clear();
     processingBlockCount--;

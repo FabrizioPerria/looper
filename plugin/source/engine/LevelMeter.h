@@ -63,6 +63,8 @@ public:
 
     ChannelContext* getChannel (int channel) const { return channels[(size_t) channel].get(); }
 
+    int getNumChannels() const { return static_cast<int> (channels.size()); }
+
 private:
     std::vector<std::unique_ptr<ChannelContext>> channels;
 
@@ -80,7 +82,7 @@ public:
 
     void processBuffer (const juce::AudioBuffer<float>& buffer)
     {
-        for (auto i = 0; i < buffer.getNumChannels(); ++i)
+        for (auto i = 0; i < meterContext->getNumChannels(); ++i)
         {
             auto* leftChannel = meterContext->getChannel (i);
             float leftDecayCurrentRMS = leftChannel->getRMSLevel() * DECAY_FACTOR;
