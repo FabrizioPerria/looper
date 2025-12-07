@@ -7,7 +7,7 @@
 constexpr int NUM_TRACKS = 4;
 constexpr int LEFT_CHANNEL = 0;
 constexpr int RIGHT_CHANNEL = 1;
-constexpr int MAX_NUM_CHANNELS = 2;
+constexpr int MAX_NUM_CHANNELS = 4;
 
 constexpr int SAVE_TRACK_BITS_PER_SAMPLE = 16;
 constexpr int LOOP_MAX_SECONDS_HARD_LIMIT = 5 * 60;

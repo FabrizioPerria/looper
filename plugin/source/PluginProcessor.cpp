@@ -93,8 +93,8 @@ void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 
         currentSampleRate = sampleRate;
         currentBlockSize = samplesPerBlock;
-        currentNumChannels = getTotalNumInputChannels();
-        looperEngine->prepareToPlay (sampleRate, samplesPerBlock, getTotalNumInputChannels());
+        currentNumChannels = 2;                                       //getTotalNumInputChannels();
+        looperEngine->prepareToPlay (sampleRate, samplesPerBlock, 2); //getTotalNumInputChannels());
     }
 }
 
@@ -149,58 +149,58 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    // // MIX INPUTS BEFORE PROCESSING
-    // if (totalNumInputChannels > 2)
-    // {
-    //     int activePairs = 1;
-    //
-    //     for (int ch = 2; ch < totalNumInputChannels; ch += 2)
-    //     {
-    //         int leftCh = ch;
-    //         int rightCh = ch + 1;
-    //
-    //         if (rightCh < totalNumInputChannels)
-    //         {
-    //             if (buffer.getMagnitude (leftCh, 0, buffer.getNumSamples()) > 0.0001f
-    //                 || buffer.getMagnitude (rightCh, 0, buffer.getNumSamples()) > 0.0001f)
-    //             {
-    //                 activePairs++;
-    //             }
-    //         }
-    //     }
-    //
-    //     float scale = 1.0f / activePairs;
-    //
-    //     for (int ch = 0; ch < totalNumInputChannels; ++ch)
-    //     {
-    //         buffer.applyGain (ch, 0, buffer.getNumSamples(), scale);
-    //     }
-    //
-    //     for (int ch = 2; ch < totalNumInputChannels; ch += 2)
-    //     {
-    //         int leftCh = ch;
-    //         int rightCh = ch + 1;
-    //
-    //         if (rightCh < totalNumInputChannels)
-    //         {
-    //             if (buffer.getMagnitude (leftCh, 0, buffer.getNumSamples()) > 0.0001f
-    //                 || buffer.getMagnitude (rightCh, 0, buffer.getNumSamples()) > 0.0001f)
-    //             {
-    //                 juce::FloatVectorOperations::add (buffer.getWritePointer (0, 0),
-    //                                                   buffer.getReadPointer (leftCh, 0),
-    //                                                   buffer.getNumSamples());
-    //                 juce::FloatVectorOperations::add (buffer.getWritePointer (1, 0),
-    //                                                   buffer.getReadPointer (rightCh, 0),
-    //                                                   buffer.getNumSamples());
-    //             }
-    //         }
-    //     }
-    // }
-    //
-    // // Only process first 2 channels
-    // juce::AudioBuffer<float> stereoBuffer (buffer.getArrayOfWritePointers(), 2, buffer.getNumSamples());
-    // looperEngine->processBlock (stereoBuffer, midiMessages);
-    looperEngine->processBlock (buffer, midiMessages);
+    // MIX INPUTS BEFORE PROCESSING
+    if (totalNumInputChannels > 2)
+    {
+        int activePairs = 1;
+
+        for (int ch = 2; ch < totalNumInputChannels; ch += 2)
+        {
+            int leftCh = ch;
+            int rightCh = ch + 1;
+
+            if (rightCh < totalNumInputChannels)
+            {
+                if (buffer.getMagnitude (leftCh, 0, buffer.getNumSamples()) > 0.0001f
+                    || buffer.getMagnitude (rightCh, 0, buffer.getNumSamples()) > 0.0001f)
+                {
+                    activePairs++;
+                }
+            }
+        }
+
+        float scale = 1.0f / activePairs;
+
+        for (int ch = 0; ch < totalNumInputChannels; ++ch)
+        {
+            buffer.applyGain (ch, 0, buffer.getNumSamples(), scale);
+        }
+
+        for (int ch = 2; ch < totalNumInputChannels; ch += 2)
+        {
+            int leftCh = ch;
+            int rightCh = ch + 1;
+
+            if (rightCh < totalNumInputChannels)
+            {
+                if (buffer.getMagnitude (leftCh, 0, buffer.getNumSamples()) > 0.0001f
+                    || buffer.getMagnitude (rightCh, 0, buffer.getNumSamples()) > 0.0001f)
+                {
+                    juce::FloatVectorOperations::add (buffer.getWritePointer (0, 0),
+                                                      buffer.getReadPointer (leftCh, 0),
+                                                      buffer.getNumSamples());
+                    juce::FloatVectorOperations::add (buffer.getWritePointer (1, 0),
+                                                      buffer.getReadPointer (rightCh, 0),
+                                                      buffer.getNumSamples());
+                }
+            }
+        }
+    }
+
+    // Only process first 2 channels
+    juce::AudioBuffer<float> stereoBuffer (buffer.getArrayOfWritePointers(), 2, buffer.getNumSamples());
+    looperEngine->processBlock (stereoBuffer, midiMessages);
+    // looperEngine->processBlock (buffer, midiMessages);
 
     midiMessages.clear();
     processingBlockCount--;
