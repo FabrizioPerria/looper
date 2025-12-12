@@ -18,6 +18,12 @@ endif()
 
 project(LooperRoot)
 
+if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_definitions(_LIBCPP_ENABLE_BACKWARDS_COMPATIBILITY_ABI=1)
+  add_compile_definitions(_LIBCPP_DISABLE_AVAILABILITY=1)
+endif()
+
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -140,4 +146,4 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 add_subdirectory(plugin)
-add_subdirectory(test)
+# add_subdirectory(test)

@@ -7,7 +7,7 @@ TEST_TARGET_DIR="${BUILD_DIR}/test/${TEST_TARGET}"
 PROFILE_FILE="${PWD}/${BUILD_DIR}/coverage-%p.profraw"
 MERGED_FILE="${BUILD_DIR}/coverage.profdata"
 HTML_DIR="${BUILD_DIR}/coverage_html"
-TARGET_TYPE="Debug"
+TARGET_TYPE="Release"
 
 cmake -S . -B "$BUILD_DIR" -DENABLE_COVERAGE=ON -DCMAKE_BUILD_TYPE=${TARGET_TYPE} \
     -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm/bin/clang \
