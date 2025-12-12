@@ -2,6 +2,7 @@
 #include "profiler/PerfettoProfiler.h"
 #include <JuceHeader.h>
 #include <atomic>
+#include <thread>
 
 class AudioToUIBridge
 {
@@ -13,11 +14,9 @@ public:
         std::atomic<bool> isRecording { false };
         std::atomic<bool> isPlaying { false };
         std::atomic<double> sampleRate { 44100.0 };
-
-        std::atomic<int> stateVersion { 0 }; // Increment when waveform changes
+        std::atomic<int> stateVersion { 0 };
     };
 
-    // Triple buffer for safe waveform transfer
     struct WaveformSnapshot
     {
         juce::AudioBuffer<float> buffer;
@@ -29,7 +28,7 @@ public:
             PERFETTO_FUNCTION();
             if (buffer.getNumChannels() != source.getNumChannels() || buffer.getNumSamples() < sourceLength)
             {
-                buffer.setSize (source.getNumChannels(), sourceLength, false, false, true);
+                buffer.setSize (source.getNumChannels(), sourceLength, false, true, true);
             }
 
             for (int ch = 0; ch < source.getNumChannels(); ++ch)
@@ -44,12 +43,15 @@ public:
     AudioToUIBridge()
     {
         PERFETTO_FUNCTION();
-        // Initialize triple buffer
         for (int i = 0; i < 3; ++i)
         {
             snapshots[i] = std::make_unique<WaveformSnapshot>();
         }
+
+        startCopyThread();
     }
+
+    ~AudioToUIBridge() { stopCopyThread(); }
 
     void signalWaveformChanged()
     {
@@ -62,7 +64,7 @@ public:
         PERFETTO_FUNCTION();
         for (int i = 0; i < 3; ++i)
         {
-            snapshots[i]->buffer.setSize (0, 0); // Release memory
+            snapshots[i]->buffer.setSize (0, 0);
             snapshots[i]->length = 0;
             snapshots[i]->version = -1;
         }
@@ -98,7 +100,7 @@ public:
         recordingFrameCounter = 0;
     }
 
-    // Called from AUDIO THREAD - must be lock-free and fast
+    // Called from AUDIO THREAD - just store the pointer, don't copy
     void updateFromAudioThread (const juce::AudioBuffer<float>* audioBuffer,
                                 int length,
                                 int readPos,
@@ -114,43 +116,21 @@ public:
         }
 
         state.readPosition.store (readPos, std::memory_order_relaxed);
-
-        // Update lightweight state (always)
         state.loopLength.store (length, std::memory_order_relaxed);
         state.isRecording.store (recording, std::memory_order_relaxed);
         state.isPlaying.store (playing, std::memory_order_relaxed);
         state.sampleRate.store (sampleRate, std::memory_order_relaxed);
 
-        // Only update waveform snapshot when it actually changes
+        // Just signal that there's work to do - don't copy here
         if (pendingUpdate.exchange (false, std::memory_order_acq_rel))
         {
-            int newVersion = state.stateVersion.load (std::memory_order_relaxed) + 1;
-
-            // Try to get write buffer without blocking
-            int writeIdx = writeIndex.load (std::memory_order_relaxed);
-            int readIdx = readIndex.load (std::memory_order_acquire);
-            int uiIdx = uiIndex.load (std::memory_order_acquire);
-
-            // Find a buffer that's not being read
-            for (int i = 0; i < 3; ++i)
-            {
-                if (i != readIdx && i != uiIdx)
-                {
-                    writeIdx = i;
-                    break;
-                }
-            }
-
-            // Quick copy to snapshot (audio thread should do this)
-            snapshots[writeIdx]->copyFrom (*audioBuffer, (int) length, newVersion);
-
-            // Publish new snapshot
-            writeIndex.store (writeIdx, std::memory_order_release);
-            state.stateVersion.store (newVersion, std::memory_order_release);
+            // Store pointer and length for background thread to copy
+            pendingBufferPtr.store (audioBuffer, std::memory_order_release);
+            pendingBufferLength.store (length, std::memory_order_release);
+            copySignal.signal();
         }
     }
 
-    // Called from UI THREAD - get latest playback position
     void getPlaybackState (int& length, int& readPos, bool& recording, bool& playing, double& sampleRate)
     {
         PERFETTO_FUNCTION();
@@ -167,22 +147,17 @@ public:
         pending = pendingUpdate.load (std::memory_order_relaxed);
     }
 
-    // Called from UI THREAD - get waveform snapshot if updated
     bool getWaveformSnapshot (WaveformSnapshot& destination)
     {
         PERFETTO_FUNCTION();
         int currentVersion = state.stateVersion.load (std::memory_order_acquire);
 
-        // Check if we already have this version
-        if (currentVersion == lastUIVersion) return false; // No update needed
+        if (currentVersion == lastUIVersion) return false;
 
         int writeIdx = writeIndex.load (std::memory_order_acquire);
-
-        // Swap to reading this buffer
         int prevUIIdx = uiIndex.exchange (writeIdx, std::memory_order_acq_rel);
         readIndex.store (prevUIIdx, std::memory_order_release);
 
-        // Now safe to read from writeIdx
         auto& snapshot = snapshots[writeIdx];
 
         if (snapshot->version == currentVersion)
@@ -208,13 +183,68 @@ private:
     std::atomic<bool> pendingUpdate { false };
     int recordingFrameCounter = 0;
 
-    // Triple buffer indices
-    std::atomic<int> writeIndex { 0 }; // Audio thread writes here
-    std::atomic<int> readIndex { 1 };  // Retired buffer
-    std::atomic<int> uiIndex { 2 };    // UI thread reads here
+    std::atomic<int> writeIndex { 0 };
+    std::atomic<int> readIndex { 1 };
+    std::atomic<int> uiIndex { 2 };
 
     std::unique_ptr<WaveformSnapshot> snapshots[3];
     int lastUIVersion = -1;
+
+    // Background copy thread
+    std::atomic<const juce::AudioBuffer<float>*> pendingBufferPtr { nullptr };
+    std::atomic<int> pendingBufferLength { 0 };
+    juce::WaitableEvent copySignal;
+    std::atomic<bool> shouldStop { false };
+    std::thread copyThread;
+
+    void startCopyThread()
+    {
+        copyThread = std::thread (
+            [this]()
+            {
+                juce::Thread::setCurrentThreadName ("Waveform Copy Thread");
+
+                while (! shouldStop.load())
+                {
+                    copySignal.wait (100);
+
+                    auto* bufferPtr = pendingBufferPtr.exchange (nullptr, std::memory_order_acquire);
+                    if (bufferPtr)
+                    {
+                        int length = pendingBufferLength.load (std::memory_order_acquire);
+                        int newVersion = state.stateVersion.load (std::memory_order_relaxed) + 1;
+
+                        int writeIdx = findFreeWriteBuffer();
+                        snapshots[writeIdx]->copyFrom (*bufferPtr, length, newVersion);
+
+                        writeIndex.store (writeIdx, std::memory_order_release);
+                        state.stateVersion.store (newVersion, std::memory_order_release);
+                    }
+                }
+            });
+    }
+
+    void stopCopyThread()
+    {
+        shouldStop.store (true);
+        copySignal.signal();
+        if (copyThread.joinable())
+        {
+            copyThread.join();
+        }
+    }
+
+    int findFreeWriteBuffer()
+    {
+        int readIdx = readIndex.load (std::memory_order_acquire);
+        int uiIdx = uiIndex.load (std::memory_order_acquire);
+
+        for (int i = 0; i < 3; ++i)
+        {
+            if (i != readIdx && i != uiIdx) return i;
+        }
+        return 0;
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioToUIBridge)
 };
